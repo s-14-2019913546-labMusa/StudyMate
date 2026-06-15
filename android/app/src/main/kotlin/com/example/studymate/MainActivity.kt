@@ -1,4 +1,4 @@
-package com.abumusa.studymate // এই লাইনটি ঠিক করুন
+package com.abumusa.studymate
 
 import io.flutter.embedding.android.FlutterActivity
 

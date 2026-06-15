@@ -36,9 +36,10 @@ dependencies:
   cupertino_icons: ^1.0.8
 
   # Firebase
-  firebase_core: ^4.10.0 # Required to use any Firebase service
-  firebase_auth: ^6.5.2 # For authentication (login, logout, etc.)
-  firebase_analytics: ^12.4.2 # For Google Analytics
+  firebase_core: ^2.27.0 # Required to use any Firebase service (Updated to latest)
+  firebase_auth: ^4.17.4 # For authentication (login, logout, etc.) (Updated to latest)
+  firebase_analytics: ^10.10.7 # Downgraded for compatibility with firebase_core ^2.x.x
+  intl: ^0.19.0 # For date formatting
 
 dev_dependencies:
   flutter_test:
