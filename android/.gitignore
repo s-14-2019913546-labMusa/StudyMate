@@ -1,0 +1,22 @@
+# Gradle files
+gradle-wrapper.jar
+.gradle/
+build/
+gradlew
+gradlew.bat
+
+# Local configuration
+local.properties
+key.properties
+*.keystore
+*.jks
+google-services.json # Often contains sensitive API keys
+
+# Generated files
+GeneratedPluginRegistrant.java
+.cxx/
+captures/
+
+# IDE files
+.idea/
+.vscode/
