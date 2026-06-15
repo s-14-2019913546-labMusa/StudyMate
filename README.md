@@ -1,0 +1,2 @@
+# StudyMate
+A professional educational companion app designed to help students organize their study routine efficiently. Built with Flutter and Firebase, featuring a clean user interface and robust performance.
