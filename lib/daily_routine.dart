@@ -12,6 +12,18 @@ class Task {
   bool isCompleted;
   final int totalDurationMinutes; // Total planned duration for the task
   int completedDurationMinutes; // How much time has been spent on this task
+  
+  // New Fields
+  final String? subject;
+  final String? notes;
+  final DateTime? startTime;
+  final DateTime? endTime;
+  final bool isPrivate;
+  final String? category;
+  final String status; // 'pending', 'running', 'paused', 'completed'
+  final bool hasBeenEdited;
+  final int elapsedSeconds;
+  final String? completionNote;
 
   Task({
     required this.id,
@@ -19,6 +31,16 @@ class Task {
     this.isCompleted = false,
     this.totalDurationMinutes = 0,
     this.completedDurationMinutes = 0,
+    this.subject,
+    this.notes,
+    this.startTime,
+    this.endTime,
+    this.isPrivate = false,
+    this.category,
+    this.status = 'pending',
+    this.hasBeenEdited = false,
+    this.elapsedSeconds = 0,
+    this.completionNote,
   });
 
   factory Task.fromMap(Map<String, dynamic> data, String id) {
@@ -28,6 +50,16 @@ class Task {
       isCompleted: data['isCompleted'] ?? false,
       totalDurationMinutes: data['totalDurationMinutes'] ?? 0,
       completedDurationMinutes: data['completedDurationMinutes'] ?? 0,
+      subject: data['subject'],
+      notes: data['notes'],
+      startTime: data['startTime'] != null ? (data['startTime'] as Timestamp).toDate() : null,
+      endTime: data['endTime'] != null ? (data['endTime'] as Timestamp).toDate() : null,
+      isPrivate: data['isPrivate'] ?? false,
+      category: data['category'],
+      status: data['status'] ?? 'pending',
+      hasBeenEdited: data['hasBeenEdited'] ?? false,
+      elapsedSeconds: data['elapsedSeconds'] ?? 0,
+      completionNote: data['completionNote'],
     );
   }
 
@@ -38,6 +70,16 @@ class Task {
       'isCompleted': isCompleted,
       'totalDurationMinutes': totalDurationMinutes,
       'completedDurationMinutes': completedDurationMinutes,
+      'subject': subject,
+      'notes': notes,
+      'startTime': startTime != null ? Timestamp.fromDate(startTime!) : null,
+      'endTime': endTime != null ? Timestamp.fromDate(endTime!) : null,
+      'isPrivate': isPrivate,
+      'category': category,
+      'status': status,
+      'hasBeenEdited': hasBeenEdited,
+      'elapsedSeconds': elapsedSeconds,
+      'completionNote': completionNote,
     };
   }
 
@@ -48,6 +90,16 @@ class Task {
     bool? isCompleted,
     int? totalDurationMinutes,
     int? completedDurationMinutes,
+    String? subject,
+    String? notes,
+    DateTime? startTime,
+    DateTime? endTime,
+    bool? isPrivate,
+    String? category,
+    String? status,
+    bool? hasBeenEdited,
+    int? elapsedSeconds,
+    String? completionNote,
   }) {
     return Task(
       id: id ?? this.id,
@@ -55,6 +107,16 @@ class Task {
       isCompleted: isCompleted ?? this.isCompleted,
       totalDurationMinutes: totalDurationMinutes ?? this.totalDurationMinutes,
       completedDurationMinutes: completedDurationMinutes ?? this.completedDurationMinutes,
+      subject: subject ?? this.subject,
+      notes: notes ?? this.notes,
+      startTime: startTime ?? this.startTime,
+      endTime: endTime ?? this.endTime,
+      isPrivate: isPrivate ?? this.isPrivate,
+      category: category ?? this.category,
+      status: status ?? this.status,
+      hasBeenEdited: hasBeenEdited ?? this.hasBeenEdited,
+      elapsedSeconds: elapsedSeconds ?? this.elapsedSeconds,
+      completionNote: completionNote ?? this.completionNote,
     );
   }
 }

@@ -57,18 +57,22 @@ class _TodaysTasksScreenState extends State<TodaysTasksScreen> {
               itemCount: _tasks.length,
               itemBuilder: (context, index) {
                 final task = _tasks[index];
+                final bool isCompleted = task.isCompleted;
+
                 return Card(
                   margin: const EdgeInsets.symmetric(vertical: 8.0),
-                  elevation: 4,
-                  shadowColor: Colors.black.withValues(alpha: 0.08), // Card style shadow
+                  elevation: 5, // শ্যাডোকে স্পষ্ট করার জন্য Elevation সামান্য বাড়ানো হলো
+                  shadowColor: isCompleted
+                      ? Colors.green.withOpacity(0.5) // সম্পন্ন হলে সবুজ শ্যাডো
+                      : Colors.red.withOpacity(0.4), // অসম্পূর্ণ থাকলে লাল শ্যাডো
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   color: Theme.of(context).cardColor, // Card style color
                   child: ListTile(
                     title: Text(
-                      task.title,
+                      task.isPrivate ? '🔒 Private Task' : task.title,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                             decoration: task.isCompleted ? TextDecoration.lineThrough : TextDecoration.none,
-                            color: task.isCompleted
+                            color: isCompleted
                                 ? Theme.of(context).colorScheme.onSurfaceVariant
                                 : Theme.of(context).colorScheme.onSurface,
                           ),
@@ -76,8 +80,8 @@ class _TodaysTasksScreenState extends State<TodaysTasksScreen> {
                     subtitle: Text(
                       '${task.completedDurationMinutes} / ${task.totalDurationMinutes} minutes',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            decoration: task.isCompleted ? TextDecoration.lineThrough : TextDecoration.none,
-                            color: task.isCompleted
+                            decoration: isCompleted ? TextDecoration.lineThrough : TextDecoration.none,
+                            color: isCompleted
                                 ? Theme.of(context).colorScheme.onSurfaceVariant
                                 : Theme.of(context).colorScheme.onSurface,
                           ),
@@ -88,7 +92,7 @@ class _TodaysTasksScreenState extends State<TodaysTasksScreen> {
                         setState(() {
                           task.isCompleted = newValue ?? false;
                           // If task is completed, set completedDuration to totalDuration
-                          // If unchecked, set completedDuration to 0 (or previous value if tracked)
+                          // If unchecked, set completedDuration to 0
                           if (task.isCompleted) {
                             task.completedDurationMinutes = task.totalDurationMinutes;
                           } else {
