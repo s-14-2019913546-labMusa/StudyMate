@@ -25,64 +25,67 @@ class StudyMateApp extends StatelessWidget {
         // Define your custom color scheme
         colorScheme: const ColorScheme(
           brightness: Brightness.light,
-          primary: Color(0xFF0052CC), // Royal Blue
+          primary: Color(0xFF4F46E5), // Deep Indigo (Premium look)
           onPrimary: Colors.white,
-          secondary: Color(0xFF0052CC), // Can be same as primary or a complementary color
+          secondary: Color(0xFF0EA5E9), // Sky Blue
           onSecondary: Colors.white,
-          error: Colors.red,
+          error: Color(0xFFEF4444),
           onError: Colors.white,
-          surface: Color(0xFFF5F5F5), // Replacement for background
-          onSurface: Color(0xFF121212), // Replacement for onBackground
-          onSurfaceVariant: Color(0xFF616161), // Lighter gray for secondary text
+          surface: Color(0xFFF8FAFC), // Slate 50 (Very light gray/blue background)
+          onSurface: Color(0xFF0F172A), // Slate 900 (Rich dark text)
+          onSurfaceVariant: Color(0xFF64748B), // Slate 500
         ),
         useMaterial3: true,
         // Apply Poppins font globally
         textTheme: GoogleFonts.poppinsTextTheme(ThemeData.light().textTheme)
             .apply(
-          bodyColor: const Color(0xFF333333), // Dark Gray
-          displayColor: const Color(0xFF121212), // Deep Black
+          bodyColor: const Color(0xFF334155), // Slate 700
+          displayColor: const Color(0xFF0F172A), 
         ),
         // Card style
         cardTheme: const CardThemeData(
-          elevation: 4,
-          shadowColor: Color(0x14000000), // 8% opacity black
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(16))),
+          elevation: 8,
+          shadowColor: Color(0x1A000000), // 10% opacity black for softer shadow
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(24))),
           color: Colors.white,
         ),
         // Input field style
       inputDecorationTheme: InputDecorationTheme(
           border: const OutlineInputBorder(
-            borderRadius: BorderRadius.all(Radius.circular(12.0)),
+            borderRadius: BorderRadius.all(Radius.circular(16.0)),
             borderSide: BorderSide.none, // No border by default
           ),
           filled: true,
-          fillColor: const Color(0xFFEEEEEE), 
-          labelStyle: const TextStyle(color: Color(0xFF333333)),
-          hintStyle: const TextStyle(color: Color(0xFF616161)),
-          prefixIconColor: const Color(0xFF616161),
-          suffixIconColor: const Color(0xFF616161),
+          fillColor: const Color(0xFFF1F5F9), // Slate 100
+          labelStyle: const TextStyle(color: Color(0xFF475569)),
+          hintStyle: const TextStyle(color: Color(0xFF94A3B8)),
+          prefixIconColor: Color(0xFF64748B),
+          suffixIconColor: Color(0xFF64748B),
         ),
         // Elevated Button style
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF0052CC), // Royal Blue
+            backgroundColor: const Color(0xFF4F46E5), 
             foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(vertical: 16),
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+            elevation: 4,
+            shadowColor: const Color(0xFF4F46E5).withValues(alpha: 0.4),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(16),
             ),
             textStyle: GoogleFonts.poppins(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.5,
             ),
           ),
         ),
         // Text Button style
         textButtonTheme: TextButtonThemeData(
           style: TextButton.styleFrom(
-            foregroundColor: const Color(0xFF0052CC), // Royal Blue
+            foregroundColor: const Color(0xFF4F46E5),
             textStyle: GoogleFonts.poppins(
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ),

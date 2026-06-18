@@ -24,13 +24,25 @@ class _SplashScreenState extends State<SplashScreen> {
       // চেক করবে ইউজার আগে থেকে লগইন করা আছে কিনা
       if (FirebaseAuth.instance.currentUser != null) {
         Navigator.pushReplacement(
-          context, // Navigate to FocusModeScreen if logged in
-          MaterialPageRoute(builder: (context) => const FocusModeScreen()),
+          context,
+          PageRouteBuilder(
+            pageBuilder: (context, animation, secondaryAnimation) => const FocusModeScreen(),
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              return FadeTransition(opacity: animation, child: child);
+            },
+            transitionDuration: const Duration(milliseconds: 800),
+          ),
         );
       } else {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const LoginScreen()),
+          PageRouteBuilder(
+            pageBuilder: (context, animation, secondaryAnimation) => const LoginScreen(),
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              return FadeTransition(opacity: animation, child: child);
+            },
+            transitionDuration: const Duration(milliseconds: 800),
+          ),
         );
       }
     });
@@ -39,32 +51,59 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.primary, // Use theme primary color
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.school,
-              size: 100,
-              color: Colors.white,
-            ),
-            const SizedBox(height: 20),
-            Text(
-              'StudyMate',
-              style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF4F46E5), Color(0xFF312E81)], // Premium Indigo Gradient
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: Center(
+          child: TweenAnimationBuilder(
+            tween: Tween<double>(begin: 0, end: 1),
+            duration: const Duration(milliseconds: 1200),
+            curve: Curves.easeOutCubic,
+            builder: (context, double value, child) {
+              return Opacity(
+                opacity: value,
+                child: Transform.translate(
+                  offset: Offset(0, 30 * (1 - value)), // নিচ থেকে উপরে আসবে
+                  child: child,
+                ),
+              );
+            },
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
                   ),
+                  child: const Icon(Icons.school_rounded, size: 90, color: Colors.white),
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  'StudyMate',
+                  style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                        letterSpacing: 1.2,
+                      ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Your Educational Companion',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: Colors.white.withValues(alpha: 0.8),
+                        letterSpacing: 0.5,
+                      ),
+                ),
+              ],
             ),
-            const SizedBox(height: 10),
-            Text(
-              'Your Educational Companion',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.8),
-                  ),
-            ),
-          ],
+          ),
         ),
       ),
     );

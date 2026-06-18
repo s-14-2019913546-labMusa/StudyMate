@@ -24,6 +24,7 @@ class Task {
   final bool hasBeenEdited;
   final int elapsedSeconds;
   final String? completionNote;
+  final List<String> comments;
 
   Task({
     required this.id,
@@ -41,6 +42,7 @@ class Task {
     this.hasBeenEdited = false,
     this.elapsedSeconds = 0,
     this.completionNote,
+    this.comments = const [],
   });
 
   factory Task.fromMap(Map<String, dynamic> data, String id) {
@@ -60,6 +62,7 @@ class Task {
       hasBeenEdited: data['hasBeenEdited'] ?? false,
       elapsedSeconds: data['elapsedSeconds'] ?? 0,
       completionNote: data['completionNote'],
+      comments: List<String>.from(data['comments'] ?? []),
     );
   }
 
@@ -80,6 +83,7 @@ class Task {
       'hasBeenEdited': hasBeenEdited,
       'elapsedSeconds': elapsedSeconds,
       'completionNote': completionNote,
+      'comments': comments,
     };
   }
 
@@ -100,6 +104,7 @@ class Task {
     bool? hasBeenEdited,
     int? elapsedSeconds,
     String? completionNote,
+    List<String>? comments,
   }) {
     return Task(
       id: id ?? this.id,
@@ -117,6 +122,7 @@ class Task {
       hasBeenEdited: hasBeenEdited ?? this.hasBeenEdited,
       elapsedSeconds: elapsedSeconds ?? this.elapsedSeconds,
       completionNote: completionNote ?? this.completionNote,
+      comments: comments ?? this.comments,
     );
   }
 }
