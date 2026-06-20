@@ -5,6 +5,7 @@ import 'package:flutter/services.dart'; // ক্লিপবোর্ডে ক
 import 'login_screen.dart'; // লগইন স্ক্রিন ইমপোর্ট করা হলো
 import 'social_hub_screen.dart'; // সোশ্যাল হাব স্ক্রিন ইমপোর্ট করা হলো
 import 'edit_profile_screen.dart';
+import 'notification_settings_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -14,7 +15,8 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  final User? _user = FirebaseAuth.instance.currentUser;
+  User? _user = FirebaseAuth.instance.currentUser;
+  String? _photoUrl;
   
   String _bio = "Let's study hard together!";
   String _institution = "No Institution Set";
@@ -30,10 +32,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _loadProfileDetails() async {
-    if (_user == null) return;
-    setState(() => _isLoading = true);
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return;
+    
+    // Reload user to get latest displayName/photoURL from Firebase Auth
     try {
-      final doc = await FirebaseFirestore.instance.collection('users').doc(_user.uid).get();
+      await currentUser.reload();
+    } catch (e) {
+      debugPrint("Error reloading user auth: $e");
+    }
+    
+    final updatedUser = FirebaseAuth.instance.currentUser;
+    
+    setState(() {
+      _user = updatedUser;
+      _isLoading = true;
+    });
+    
+    try {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(updatedUser?.uid).get();
       if (doc.exists && doc.data() != null) {
         final data = doc.data()!;
         if (mounted) {
@@ -43,6 +60,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _academicYear = data['academicYear'] as String? ?? "";
             _major = data['major'] as String? ?? "";
             _dailyGoal = (data['dailyStudyGoalHours'] ?? 2.0) as double;
+            _photoUrl = data['photoUrl'] as String? ?? updatedUser?.photoURL;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _photoUrl = updatedUser?.photoURL;
           });
         }
       }
@@ -86,14 +110,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   CircleAvatar(
                     radius: 50,
                     backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-                    child: Text(
-                      _user?.displayName?.substring(0, 1).toUpperCase() ?? 'U',
-                      style: TextStyle(
-                        fontSize: 40,
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                    ),
+                    backgroundImage: _photoUrl != null && _photoUrl!.isNotEmpty
+                        ? NetworkImage(_photoUrl!)
+                        : null,
+                    child: (_photoUrl == null || _photoUrl!.isEmpty)
+                        ? Text(
+                            _user?.displayName?.isNotEmpty == true
+                                ? _user!.displayName!.substring(0, 1).toUpperCase()
+                                : 'U',
+                            style: TextStyle(
+                              fontSize: 40,
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          )
+                        : null,
                   ),
                   const SizedBox(height: 16),
                   Text(
@@ -181,7 +212,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       _loadProfileDetails();
                     }
                   }),
-                  _buildListTile(context, Icons.notifications_none_rounded, 'Notifications'),
+                  _buildListTile(context, Icons.notifications_none_rounded, 'Notifications', onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const NotificationSettingsScreen()),
+                    );
+                  }),
                   _buildListTile(context, Icons.dark_mode_outlined, 'Dark Mode', isToggle: true),
                   _buildListTile(context, Icons.privacy_tip_outlined, 'Privacy Policy'),
                   const SizedBox(height: 20),

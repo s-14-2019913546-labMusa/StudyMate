@@ -1,6 +1,9 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:image_picker/image_picker.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -14,6 +17,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final User? _currentUser = FirebaseAuth.instance.currentUser;
   bool _isLoading = false;
   bool _isSaving = false;
+  bool _isUploadingImage = false;
+
+  // Image upload properties
+  String? _photoUrl;
+  File? _localImageFile;
 
   // Controllers
   final TextEditingController _nameController = TextEditingController();
@@ -36,6 +44,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   void initState() {
     super.initState();
+    _photoUrl = _currentUser?.photoURL;
     _loadProfileData();
   }
 
@@ -65,6 +74,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             _institutionController.text = data['institution'] as String? ?? "";
             _majorController.text = data['major'] as String? ?? "";
             _goalController.text = (data['dailyStudyGoalHours'] ?? 2).toString();
+            if (data['photoUrl'] != null) {
+              _photoUrl = data['photoUrl'] as String;
+            }
             
             final year = data['academicYear'] as String?;
             if (year != null && _academicYears.contains(year)) {
@@ -82,13 +94,112 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
   }
 
+  // Camera & Gallery Image Picker Dialogue
+  Future<void> _selectImageSource() async {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF162D24),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.photo_library_rounded, color: Colors.white70),
+                title: const Text('গ্যালারি থেকে বেছে নিন', style: TextStyle(color: Colors.white)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickImage(ImageSource.gallery);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.camera_alt_rounded, color: Colors.white70),
+                title: const Text('ক্যামেরা দিয়ে ছবি তুলুন', style: TextStyle(color: Colors.white)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickImage(ImageSource.camera);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
+    final picker = ImagePicker();
+    try {
+      final XFile? picked = await picker.pickImage(source: source, imageQuality: 70);
+      if (picked != null) {
+        setState(() {
+          _localImageFile = File(picked.path);
+        });
+        _uploadImage();
+      }
+    } catch (e) {
+      debugPrint("Error picking image: $e");
+    }
+  }
+
+  Future<void> _uploadImage() async {
+    if (_localImageFile == null || _currentUser == null) return;
+    setState(() => _isUploadingImage = true);
+
+    try {
+      final ref = FirebaseStorage.instance
+          .ref()
+          .child('user_profiles')
+          .child('${_currentUser.uid}.jpg');
+
+      // Upload local file to Storage
+      await ref.putFile(_localImageFile!);
+      final downloadUrl = await ref.getDownloadURL();
+
+      // Update Local photoURL
+      setState(() {
+        _photoUrl = downloadUrl;
+      });
+
+      // Update Auth instance instantly
+      await _currentUser.updatePhotoURL(downloadUrl);
+
+      // Save to Firestore directly so that it persists instantly
+      await FirebaseFirestore.instance.collection('users').doc(_currentUser.uid).set({
+        'photoUrl': downloadUrl,
+      }, SetOptions(merge: true));
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Profile picture uploaded successfully!'), backgroundColor: Colors.teal),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error uploading profile picture: $e'), backgroundColor: Colors.redAccent),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isUploadingImage = false);
+      }
+    }
+  }
+
   Future<void> _saveProfile() async {
     if (!_formKey.currentState!.validate() || _currentUser == null) return;
 
     setState(() => _isSaving = true);
     try {
-      // 1. Update Firebase Auth displayName
+      // 1. Update Firebase Auth displayName & photoUrl
       await _currentUser.updateDisplayName(_nameController.text.trim());
+      if (_photoUrl != null) {
+        await _currentUser.updatePhotoURL(_photoUrl);
+      }
 
       // 2. Update Firestore document
       final double dailyGoal = double.tryParse(_goalController.text) ?? 2.0;
@@ -99,6 +210,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         'major': _majorController.text.trim(),
         'academicYear': _academicYear,
         'dailyStudyGoalHours': dailyGoal,
+        'photoUrl': _photoUrl,
       }, SetOptions(merge: true));
 
       if (mounted) {
@@ -124,6 +236,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Widget build(BuildContext context) {
     const primaryGreen = Color(0xFF0F3625);
     const accentGreen = Color(0xFF1D5C42);
+
+    ImageProvider? avatarImage;
+    if (_localImageFile != null) {
+      avatarImage = FileImage(_localImageFile!);
+    } else if (_photoUrl != null && _photoUrl!.isNotEmpty) {
+      avatarImage = NetworkImage(_photoUrl!);
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -156,12 +275,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           CircleAvatar(
                             radius: 48,
                             backgroundColor: accentGreen.withValues(alpha: 0.15),
-                            child: Text(
-                              _nameController.text.isNotEmpty
-                                  ? _nameController.text.substring(0, 1).toUpperCase()
-                                  : "U",
-                              style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: accentGreen),
-                            ),
+                            backgroundImage: avatarImage,
+                            child: _isUploadingImage
+                                ? const CircularProgressIndicator(color: Colors.white)
+                                : avatarImage == null
+                                    ? Text(
+                                        _nameController.text.isNotEmpty
+                                            ? _nameController.text.substring(0, 1).toUpperCase()
+                                            : "U",
+                                        style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: accentGreen),
+                                      )
+                                    : null,
                           ),
                           Positioned(
                             bottom: 0,
@@ -171,11 +295,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                               backgroundColor: accentGreen,
                               child: IconButton(
                                 icon: const Icon(Icons.camera_alt_rounded, size: 14, color: Colors.white),
-                                onPressed: () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Image upload coming soon!')),
-                                  );
-                                },
+                                onPressed: _isUploadingImage ? null : _selectImageSource,
                               ),
                             ),
                           ),
