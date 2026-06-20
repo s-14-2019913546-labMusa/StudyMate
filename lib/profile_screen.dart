@@ -6,6 +6,7 @@ import 'login_screen.dart'; // লগইন স্ক্রিন ইমপো�
 import 'social_hub_screen.dart'; // সোশ্যাল হাব স্ক্রিন ইমপোর্ট করা হলো
 import 'edit_profile_screen.dart';
 import 'notification_settings_screen.dart';
+import 'theme_manager.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -254,17 +255,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Container(
       width: MediaQuery.of(context).size.width * 0.28,
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          )
-        ],
-      ),
+      decoration: ThemeManager.getCardDecoration(context),
       child: Column(
         children: [
           Icon(icon, color: color, size: 28),
@@ -279,12 +270,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _buildListTile(BuildContext context, IconData icon, String title, {bool isToggle = false, VoidCallback? onTap}) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      elevation: 0,
-      color: Theme.of(context).cardColor,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Colors.grey.shade200),
-      ),
       child: ListTile(
         leading: Container(
           padding: const EdgeInsets.all(8),
@@ -296,10 +281,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
         trailing: isToggle
-            ? Switch(
-                value: false, // ডার্ক মোডের স্টেট এখানে বসবে
-                onChanged: (val) {},
-                activeThumbColor: Theme.of(context).colorScheme.primary,
+            ? ListenableBuilder(
+                listenable: ThemeManager(),
+                builder: (context, _) {
+                  return Switch(
+                    value: ThemeManager().isDarkMode,
+                    onChanged: (val) {
+                      ThemeManager().toggleTheme(val);
+                    },
+                    activeThumbColor: Theme.of(context).colorScheme.primary,
+                  );
+                },
               )
             : const Icon(Icons.arrow_forward_ios_rounded, size: 16, color: Colors.grey),
         onTap: isToggle ? null : onTap,

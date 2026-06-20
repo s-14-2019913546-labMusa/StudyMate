@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'daily_routine.dart';
+import 'chat_screen.dart';
 
 // ==========================================
 // Social Hub Screen
@@ -277,7 +278,21 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
                     leading: const CircleAvatar(child: Icon(Icons.person)),
                     title: Text(userData['displayName'] ?? 'Study Buddy', style: const TextStyle(fontWeight: FontWeight.bold)),
                     subtitle: const Text('Tap to view profile & tasks'),
-                    trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: Icon(Icons.chat_bubble_outline_rounded, color: Theme.of(context).colorScheme.primary),
+                          onPressed: () {
+                            Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(
+                              friendId: friendId,
+                              friendName: userData['displayName'] ?? 'Study Buddy',
+                            )));
+                          },
+                        ),
+                        const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+                      ],
+                    ),
                     onTap: () {
                       // বন্ধুর প্রোফাইল এবং আজকের টাস্ক দেখতে নিয়ে যাবে
                       Navigator.push(context, MaterialPageRoute(builder: (_) => FriendProfileScreen(
@@ -351,10 +366,24 @@ class FriendProfileScreen extends StatelessWidget {
             padding: const EdgeInsets.all(24),
             child: Column(
               children: [
-                const CircleAvatar(radius: 40, child: Icon(Icons.person, size: 40)),
+                 const CircleAvatar(radius: 40, child: Icon(Icons.person, size: 40)),
                 const SizedBox(height: 12),
                 Text(friendName, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
                 const Text('Study Buddy', style: TextStyle(color: Colors.grey)),
+                const SizedBox(height: 12),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(
+                      friendId: friendId,
+                      friendName: friendName,
+                    )));
+                  },
+                  icon: const Icon(Icons.message_rounded),
+                  label: const Text('Send Message'),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  ),
+                ),
               ],
             ),
           ),

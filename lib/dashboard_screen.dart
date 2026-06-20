@@ -8,6 +8,7 @@ import 'todays_tasks_screen.dart';
 import 'task_details_screen.dart'; // নতুন ফাইলটি ইমপোর্ট করা হলো
 import 'tools_screen.dart'; // Tools স্ক্রিন ইমপোর্ট
 import 'profile_screen.dart'; // Profile স্ক্রিন ইমপোর্ট
+import 'chat_screen.dart';
 
 // ==========================================
 // 4. Dashboard Screen (ড্যাশবোর্ড স্ক্রিন)
@@ -433,33 +434,63 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildMessageIcon(BuildContext context) {
-    return Stack(
-      children: [
-        IconButton(
-          icon: Icon(Icons.message_outlined, color: Theme.of(context).colorScheme.onSurface, size: 30),
-          onPressed: () {
-            // মেসেজ পেইজে যাওয়ার লজিক এখানে হবে
-            // print('Message icon pressed');
-          },
-        ),
-        Positioned(
-          right: 8,
-          top: 8,
-          child: Container(
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color: Colors.red,
-              shape: BoxShape.circle,
+    if (user == null) {
+      return IconButton(
+        icon: Icon(Icons.message_outlined, color: Theme.of(context).colorScheme.onSurface, size: 30),
+        onPressed: () {},
+      );
+    }
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('chats')
+          .where('participants', arrayContains: user!.uid)
+          .snapshots(),
+      builder: (context, snapshot) {
+        int totalUnread = 0;
+        if (snapshot.hasData) {
+          for (var doc in snapshot.data!.docs) {
+            final data = doc.data() as Map<String, dynamic>;
+            final lastMessageSenderId = data['lastMessageSenderId'] ?? '';
+            if (lastMessageSenderId != user!.uid) {
+              final Map<String, dynamic> unreadMap = data['unreadCount'] ?? {};
+              totalUnread += (unreadMap[user!.uid] as num? ?? 0).toInt();
+            }
+          }
+        }
+
+        return Stack(
+          children: [
+            IconButton(
+              icon: Icon(Icons.message_outlined, color: Theme.of(context).colorScheme.onSurface, size: 30),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ConversationsScreen()),
+                );
+              },
             ),
-            constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-            child: Text(
-              '3', // মেসেজের সংখ্যা এখানে দেখাবে
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white),
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ),
-      ],
+            if (totalUnread > 0)
+              Positioned(
+                right: 8,
+                top: 8,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: const BoxDecoration(
+                    color: Colors.red,
+                    shape: BoxShape.circle,
+                  ),
+                  constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                  child: Text(
+                    '$totalUnread',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 
@@ -479,10 +510,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         if (routine == null || routine.tasks.isEmpty) {
           // No routine or no tasks for today
           return Card(
-            elevation: 4,
-            shadowColor: Colors.black.withValues(alpha: 0.08), // Card style shadow
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            color: Theme.of(context).cardColor, // Card style color
+            margin: const EdgeInsets.symmetric(vertical: 8),
             child: Padding(
               padding: const EdgeInsets.all(20.0),
               child: Center(
@@ -1003,7 +1031,6 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
