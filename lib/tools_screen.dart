@@ -19,6 +19,7 @@ import 'flashcards_screen.dart';
 import 'dictionary_screen.dart';
 import 'ai_service.dart';
 import 'revision_147_screen.dart';
+import 'islamic_life_screen.dart';
 
 class ToolsScreen extends StatelessWidget {
   final Function(List<Task>) onTasksGenerated;
@@ -62,6 +63,7 @@ class ToolsScreen extends StatelessWidget {
           {'title': 'Breathing', 'icon': Icons.air_rounded, 'color': Colors.lightBlueAccent, 'action': 'breath'},
           {'title': 'Mood Tracker', 'icon': Icons.mood_rounded, 'color': Colors.pinkAccent, 'action': 'mood'},
           {'title': 'Sleep Tracker', 'icon': Icons.bedtime_rounded, 'color': Colors.indigoAccent, 'action': 'sleep'},
+          {'title': 'Islamic Life', 'icon': Icons.mosque_rounded, 'color': Colors.teal, 'action': 'islamic'},
           {'title': 'Calculator', 'icon': Icons.calculate_rounded, 'color': Colors.blueAccent, 'action': 'calc'},
         ]
       },
@@ -155,6 +157,8 @@ class ToolsScreen extends StatelessWidget {
                                 Navigator.push(context, MaterialPageRoute(builder: (_) => const DictionaryScreen()));
                               } else if (tool['action'] == 'revision_147') {
                                 Navigator.push(context, MaterialPageRoute(builder: (_) => const Revision147Screen()));
+                              } else if (tool['action'] == 'islamic') {
+                                Navigator.push(context, MaterialPageRoute(builder: (_) => const IslamicLifeScreen()));
                               } else {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(content: Text('${tool['title']} is coming soon!')),
@@ -1908,95 +1912,272 @@ class CalculatorScreen extends StatefulWidget {
 }
 
 class _CalculatorScreenState extends State<CalculatorScreen> {
-  String _equation = "0";
+  String _equation = "";
   String _result = "0";
+  bool _shouldReset = false;
 
   void _buttonPressed(String buttonText) {
     setState(() {
       if (buttonText == "AC") {
-        _equation = "0";
+        _equation = "";
         _result = "0";
-      } else if (buttonText == "C") {
-        _equation = _equation.substring(0, _equation.length - 1);
-        if (_equation == "") {
-          _equation = "0";
+        _shouldReset = false;
+      } else if (buttonText == "⌫") {
+        if (_shouldReset) {
+          _equation = "";
+          _shouldReset = false;
+        } else if (_equation.isNotEmpty) {
+          _equation = _equation.substring(0, _equation.length - 1);
         }
+        _updateLiveResult();
       } else if (buttonText == "=") {
-        _result = _evaluateEquation(_equation);
-      } else {
-        if (_equation == "0" || _equation == "Error") {
-          _equation = buttonText;
-        } else {
-          _equation = _equation + buttonText;
+        if (_equation.isNotEmpty) {
+          _result = _evaluateEquation(_equation);
+          _equation = _result;
+          _shouldReset = true;
         }
+      } else if (buttonText == "%") {
+        if (_shouldReset) {
+          _equation = _result;
+          _shouldReset = false;
+        }
+        if (_equation.isNotEmpty && !_isOperator(_equation[_equation.length - 1])) {
+          _equation += "%";
+        }
+        _updateLiveResult();
+      } else if (buttonText == "+/-") {
+        if (_shouldReset) {
+          _equation = _result;
+          _shouldReset = false;
+        }
+        _toggleSign();
+        _updateLiveResult();
+      } else if (_isOperator(buttonText)) {
+        if (_shouldReset) {
+          _equation = _result;
+          _shouldReset = false;
+        }
+        if (_equation.isEmpty) {
+          if (buttonText == "-") {
+            _equation = "-";
+          }
+        } else {
+          String lastChar = _equation[_equation.length - 1];
+          if (_isOperator(lastChar)) {
+            // Replace last operator
+            _equation = _equation.substring(0, _equation.length - 1) + buttonText;
+          } else {
+            _equation += buttonText;
+          }
+        }
+      } else {
+        // Numbers and dots
+        if (_shouldReset) {
+          _equation = "";
+          _shouldReset = false;
+        }
+        if (buttonText == ".") {
+          if (_equation.isEmpty) {
+            _equation = "0.";
+          } else {
+            String lastChar = _equation[_equation.length - 1];
+            if (_isOperator(lastChar)) {
+              _equation += "0.";
+            } else {
+              // Check if the current number segment already has a dot
+              List<String> parts = _equation.split(RegExp(r'[+\-×÷]'));
+              if (parts.isNotEmpty && !parts.last.contains('.')) {
+                _equation += ".";
+              }
+            }
+          }
+        } else {
+          _equation += buttonText;
+        }
+        _updateLiveResult();
       }
     });
   }
 
-  // একটি সাধারণ এবং ফাস্ট ইভালুয়েশন মেথড
+  bool _isOperator(String char) {
+    return char == "+" || char == "-" || char == "×" || char == "÷";
+  }
+
+  void _toggleSign() {
+    if (_equation.isEmpty) return;
+    // Find last number starting point
+    int i = _equation.length - 1;
+    while (i >= 0 && !_isOperator(_equation[i])) {
+      i--;
+    }
+    if (i < 0) {
+      // Entire equation is a number, toggle negative sign
+      if (_equation.startsWith("-")) {
+        _equation = _equation.substring(1);
+      } else {
+        _equation = "-$_equation";
+      }
+    } else if (i == 0 && _equation[0] == "-") {
+      _equation = _equation.substring(1);
+    } else {
+      // Toggle sign of last number segment
+      String op = _equation[i];
+      String left = _equation.substring(0, i);
+      String right = _equation.substring(i + 1);
+      if (op == "+") {
+        _equation = "$left-$right";
+      } else if (op == "-") {
+        if (i == 0 || _isOperator(_equation[i - 1])) {
+          _equation = left + right; // remove negative
+        } else {
+          _equation = "$left+$right";
+        }
+      } else {
+        // For * or /, toggle negative sign for the right number
+        if (right.startsWith("-")) {
+          _equation = "$left$op${right.substring(1)}";
+        } else {
+          _equation = "$left$op-$right";
+        }
+      }
+    }
+  }
+
+  void _updateLiveResult() {
+    if (_equation.isEmpty) {
+      _result = "0";
+      return;
+    }
+    // Only evaluate if last character is not an operator to avoid syntax error
+    String lastChar = _equation[_equation.length - 1];
+    if (!_isOperator(lastChar)) {
+      String eval = _evaluateEquation(_equation);
+      if (eval != "Error") {
+        _result = eval;
+      }
+    }
+  }
+
   String _evaluateEquation(String expr) {
     try {
-      expr = expr.replaceAll('×', '*').replaceAll('÷', '/');
-      List<String> tokens = [];
-      String current = '';
-      for (int i = 0; i < expr.length; i++) {
-        var c = expr[i];
-        if ("+-*/".contains(c)) {
-          if (current.isNotEmpty) tokens.add(current);
-          tokens.add(c);
-          current = '';
-        } else {
-          current += c;
-        }
-      }
-      if (current.isNotEmpty) tokens.add(current);
-
-      // গুন এবং ভাগ (Multiplication and Division)
-      for (int i = 1; i < tokens.length - 1; i += 2) {
-        if (tokens[i] == '*' || tokens[i] == '/') {
-          double left = double.parse(tokens[i - 1]);
-          double right = double.parse(tokens[i + 1]);
-          double res = tokens[i] == '*' ? left * right : left / right;
-          tokens[i - 1] = res.toString();
-          tokens.removeAt(i);
-          tokens.removeAt(i);
-          i -= 2;
-        }
-      }
+      if (expr.isEmpty) return "0";
+      // Sanitize equation: replace view operators with math operators
+      String sanitized = expr.replaceAll('×', '*').replaceAll('÷', '/');
       
-      // যোগ এবং বিয়োগ (Addition and Subtraction)
-      double finalRes = double.parse(tokens[0]);
-      for (int i = 1; i < tokens.length - 1; i += 2) {
-        double next = double.parse(tokens[i + 1]);
-        if (tokens[i] == '+') finalRes += next;
-        if (tokens[i] == '-') finalRes -= next;
+      // Parse tokens
+      List<String> tokens = [];
+      String numberBuffer = "";
+      
+      for (int i = 0; i < sanitized.length; i++) {
+        String c = sanitized[i];
+        if (c == '-' && (i == 0 || tokens.isEmpty || "+*/".contains(tokens.last))) {
+          // Negative sign prefix, not subtraction
+          numberBuffer += c;
+        } else if ("+*/".contains(c) || (c == '-' && !"+*/".contains(tokens.last))) {
+          if (numberBuffer.isNotEmpty) {
+            tokens.add(numberBuffer);
+            numberBuffer = "";
+          }
+          tokens.add(c);
+        } else {
+          numberBuffer += c;
+        }
+      }
+      if (numberBuffer.isNotEmpty) {
+        tokens.add(numberBuffer);
       }
 
-      // পূর্ণসংখ্যা হলে দশমিকের পরের শূন্য বাদ দেওয়ার জন্য
-      if (finalRes == finalRes.toInt()) {
-        return finalRes.toInt().toString();
+      // Convert percentages (e.g. 50% -> 0.5)
+      for (int i = 0; i < tokens.length; i++) {
+        if (tokens[i].endsWith('%')) {
+          String valStr = tokens[i].substring(0, tokens[i].length - 1);
+          double val = double.parse(valStr) / 100.0;
+          tokens[i] = val.toString();
+        }
       }
-      return finalRes.toStringAsFixed(4).replaceAll(RegExp(r'0*$'), '').replaceAll(RegExp(r'\.$'), '');
+
+      // First pass: multiplication and division (DMAS rule)
+      List<String> pass1 = [];
+      int idx = 0;
+      while (idx < tokens.length) {
+        String token = tokens[idx];
+        if (token == "*" || token == "/") {
+          double left = double.parse(pass1.removeLast());
+          double right = double.parse(tokens[idx + 1]);
+          double res = (token == "*") ? left * right : left / right;
+          pass1.add(res.toString());
+          idx += 2;
+        } else {
+          pass1.add(token);
+          idx++;
+        }
+      }
+
+      // Second pass: addition and subtraction
+      double total = double.parse(pass1[0]);
+      idx = 1;
+      while (idx < pass1.length) {
+        String op = pass1[idx];
+        double right = double.parse(pass1[idx + 1]);
+        if (op == "+") {
+          total += right;
+        } else if (op == "-") {
+          total -= right;
+        }
+        idx += 2;
+      }
+
+      // Formatting response
+      if (total.isInfinite || total.isNaN) return "Error";
+      if (total == total.toInt()) {
+        return total.toInt().toString();
+      }
+      // Trim scientific zeros
+      String formatted = total.toStringAsFixed(10);
+      if (formatted.contains('.')) {
+        formatted = formatted.replaceAll(RegExp(r'0*$'), '').replaceAll(RegExp(r'\.$'), '');
+      }
+      return formatted;
     } catch (e) {
       return "Error";
     }
   }
 
   Widget _buildButton(String text, {Color? textColor, Color? bgColor, int flex = 1}) {
+    final bool isOp = _isOperator(text) || text == "=";
+    final bool isSpecial = text == "AC" || text == "⌫" || text == "%" || text == "+/-";
+    
+    Color defaultBg = isOp 
+        ? const Color(0xFFFF9F0A) // standard iOS gold-orange
+        : isSpecial 
+            ? const Color(0xFFA5A5A5) // light gray
+            : const Color(0xFF333333); // dark gray
+            
+    Color defaultTextColor = isSpecial ? Colors.black : Colors.white;
+
     return Expanded(
       flex: flex,
       child: Container(
         margin: const EdgeInsets.all(6),
-        child: ElevatedButton(
-          onPressed: () => _buttonPressed(text),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: bgColor ?? Theme.of(context).cardColor,
-            foregroundColor: textColor ?? Theme.of(context).colorScheme.onSurface,
-            elevation: 2,
-            padding: const EdgeInsets.symmetric(vertical: 22),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: AspectRatio(
+          aspectRatio: flex == 1 ? 1 : 2.1,
+          child: ElevatedButton(
+            onPressed: () => _buttonPressed(text),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: bgColor ?? defaultBg,
+              foregroundColor: textColor ?? defaultTextColor,
+              elevation: 0,
+              padding: EdgeInsets.zero,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(40)),
+            ),
+            child: Text(
+              text, 
+              style: TextStyle(
+                fontSize: text.length > 1 && text != "+/-" ? 20 : 26, 
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ),
-          child: Text(text, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
         ),
       ),
     );
@@ -2004,64 +2185,87 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
 
   @override
   Widget build(BuildContext context) {
-    Color primary = Theme.of(context).colorScheme.primary;
-    Color error = Theme.of(context).colorScheme.error;
-
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      appBar: AppBar(title: const Text('Calculator'), backgroundColor: Colors.transparent, elevation: 0),
-      body: Column(
-        children: [
-          // Display
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.all(24),
-              alignment: Alignment.bottomRight,
+      backgroundColor: Colors.black, // Sleek Premium dark aesthetic
+      appBar: AppBar(
+        title: const Text('Calculator', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.transparent, 
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Display Area
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                alignment: Alignment.bottomRight,
+                child: SingleChildScrollView(
+                  reverse: true,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        _equation.isEmpty ? "0" : _equation, 
+                        style: const TextStyle(fontSize: 36, color: Colors.white54, fontFamily: 'monospace'),
+                        textAlign: TextAlign.right,
+                      ),
+                      const SizedBox(height: 12),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          _result, 
+                          style: const TextStyle(fontSize: 72, fontWeight: FontWeight.w300, color: Colors.white, fontFamily: 'monospace'),
+                          textAlign: TextAlign.right,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            
+            // Keypad Layout (International standard calculator layout)
+            Container(
+              padding: const EdgeInsets.fromLTRB(12, 4, 12, 20),
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.end,
-                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text(_equation, style: const TextStyle(fontSize: 32, color: Colors.grey)),
-                  const SizedBox(height: 8),
-                  Text(_result, style: const TextStyle(fontSize: 56, fontWeight: FontWeight.bold)),
+                  Row(children: [
+                    _buildButton('AC'),
+                    _buildButton('+/-'),
+                    _buildButton('%'),
+                    _buildButton('÷'),
+                  ]),
+                  Row(children: [
+                    _buildButton('7'),
+                    _buildButton('8'),
+                    _buildButton('9'),
+                    _buildButton('×'),
+                  ]),
+                  Row(children: [
+                    _buildButton('4'),
+                    _buildButton('5'),
+                    _buildButton('6'),
+                    _buildButton('-'),
+                  ]),
+                  Row(children: [
+                    _buildButton('1'),
+                    _buildButton('2'),
+                    _buildButton('3'),
+                    _buildButton('+'),
+                  ]),
+                  Row(children: [
+                    _buildButton('0', flex: 2),
+                    _buildButton('.'),
+                    _buildButton('='),
+                  ]),
                 ],
               ),
             ),
-          ),
-          const Divider(height: 1),
-          // Keypad (ইন্টারন্যাশনাল স্ট্যান্ডার্ড + রিকোয়ারমেন্ট অনুযায়ী)
-          Container(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              children: [
-                // Row 1: অপারেটরগুলো এক সারিতে
-                Row(children: [
-                  _buildButton('+', textColor: Colors.white, bgColor: primary),
-                  _buildButton('-', textColor: Colors.white, bgColor: primary),
-                  _buildButton('×', textColor: Colors.white, bgColor: primary),
-                  _buildButton('÷', textColor: Colors.white, bgColor: primary),
-                ]),
-                // Row 2
-                Row(children: [
-                  _buildButton('7'), _buildButton('8'), _buildButton('9'), _buildButton('C', textColor: error),
-                ]),
-                // Row 3
-                Row(children: [
-                  _buildButton('4'), _buildButton('5'), _buildButton('6'), _buildButton('AC', textColor: error),
-                ]),
-                // Row 4
-                Row(children: [
-                  _buildButton('1'), _buildButton('2'), _buildButton('3'), _buildButton('.'),
-                ]),
-                // Row 5: সমান চিহ্ন নিচে এবং ডাবল স্পেস জুড়ে
-                Row(children: [
-                  _buildButton('0', flex: 2),
-                  _buildButton('=', flex: 2, textColor: Colors.white, bgColor: Colors.green.shade600),
-                ]),
-              ],
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
