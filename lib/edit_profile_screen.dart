@@ -1,0 +1,291 @@
+import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+class EditProfileScreen extends StatefulWidget {
+  const EditProfileScreen({super.key});
+
+  @override
+  State<EditProfileScreen> createState() => _EditProfileScreenState();
+}
+
+class _EditProfileScreenState extends State<EditProfileScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final User? _currentUser = FirebaseAuth.instance.currentUser;
+  bool _isLoading = false;
+  bool _isSaving = false;
+
+  // Controllers
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _bioController = TextEditingController();
+  final TextEditingController _institutionController = TextEditingController();
+  final TextEditingController _majorController = TextEditingController();
+  final TextEditingController _goalController = TextEditingController();
+
+  String _academicYear = "School / College";
+  final List<String> _academicYears = [
+    "School / College",
+    "University 1st Year",
+    "University 2nd Year",
+    "University 3rd Year",
+    "University 4th Year",
+    "Post-graduate",
+    "Other"
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfileData();
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _bioController.dispose();
+    _institutionController.dispose();
+    _majorController.dispose();
+    _goalController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadProfileData() async {
+    if (_currentUser == null) return;
+    setState(() => _isLoading = true);
+
+    _nameController.text = _currentUser.displayName ?? "";
+
+    try {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(_currentUser.uid).get();
+      if (doc.exists && doc.data() != null) {
+        final data = doc.data()!;
+        if (mounted) {
+          setState(() {
+            _bioController.text = data['bio'] as String? ?? "";
+            _institutionController.text = data['institution'] as String? ?? "";
+            _majorController.text = data['major'] as String? ?? "";
+            _goalController.text = (data['dailyStudyGoalHours'] ?? 2).toString();
+            
+            final year = data['academicYear'] as String?;
+            if (year != null && _academicYears.contains(year)) {
+              _academicYear = year;
+            }
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint("Error loading profile: $e");
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _saveProfile() async {
+    if (!_formKey.currentState!.validate() || _currentUser == null) return;
+
+    setState(() => _isSaving = true);
+    try {
+      // 1. Update Firebase Auth displayName
+      await _currentUser.updateDisplayName(_nameController.text.trim());
+
+      // 2. Update Firestore document
+      final double dailyGoal = double.tryParse(_goalController.text) ?? 2.0;
+      await FirebaseFirestore.instance.collection('users').doc(_currentUser.uid).set({
+        'name': _nameController.text.trim(),
+        'bio': _bioController.text.trim(),
+        'institution': _institutionController.text.trim(),
+        'major': _majorController.text.trim(),
+        'academicYear': _academicYear,
+        'dailyStudyGoalHours': dailyGoal,
+      }, SetOptions(merge: true));
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Profile updated successfully!'), backgroundColor: Colors.teal),
+        );
+        Navigator.pop(context, true);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error updating profile: $e'), backgroundColor: Colors.redAccent),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const primaryGreen = Color(0xFF0F3625);
+    const accentGreen = Color(0xFF1D5C42);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Edit Profile', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [primaryGreen, accentGreen],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: accentGreen))
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(24.0),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Header Avatar Placeholder
+                    Center(
+                      child: Stack(
+                        children: [
+                          CircleAvatar(
+                            radius: 48,
+                            backgroundColor: accentGreen.withValues(alpha: 0.15),
+                            child: Text(
+                              _nameController.text.isNotEmpty
+                                  ? _nameController.text.substring(0, 1).toUpperCase()
+                                  : "U",
+                              style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: accentGreen),
+                            ),
+                          ),
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: CircleAvatar(
+                              radius: 16,
+                              backgroundColor: accentGreen,
+                              child: IconButton(
+                                icon: const Icon(Icons.camera_alt_rounded, size: 14, color: Colors.white),
+                                onPressed: () {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Image upload coming soon!')),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+
+                    // Full name
+                    TextFormField(
+                      controller: _nameController,
+                      validator: (v) => (v == null || v.isEmpty) ? "Name cannot be empty" : null,
+                      decoration: const InputDecoration(
+                        labelText: 'Display Name',
+                        prefixIcon: Icon(Icons.person_outline_rounded),
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Bio
+                    TextFormField(
+                      controller: _bioController,
+                      maxLines: 2,
+                      decoration: const InputDecoration(
+                        labelText: 'Short Bio / Goal',
+                        prefixIcon: Icon(Icons.description_outlined),
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Institution Name
+                    TextFormField(
+                      controller: _institutionController,
+                      decoration: const InputDecoration(
+                        labelText: 'School / College / University',
+                        prefixIcon: Icon(Icons.school_outlined),
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Major / Subject
+                    TextFormField(
+                      controller: _majorController,
+                      decoration: const InputDecoration(
+                        labelText: 'Major / Subject',
+                        prefixIcon: Icon(Icons.book_outlined),
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Academic Year Dropdown
+                    DropdownButtonFormField<String>(
+                      value: _academicYear,
+                      items: _academicYears.map((String y) {
+                        return DropdownMenuItem<String>(
+                          value: y,
+                          child: Text(y),
+                        );
+                      }).toList(),
+                      onChanged: (val) {
+                        if (val != null) {
+                          setState(() => _academicYear = val);
+                        }
+                      },
+                      decoration: const InputDecoration(
+                        labelText: 'Class / Year',
+                        prefixIcon: Icon(Icons.layers_outlined),
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Daily Study Goal Hours
+                    TextFormField(
+                      controller: _goalController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      validator: (v) {
+                        if (v == null || v.isEmpty) return "Enter target hours";
+                        final val = double.tryParse(v);
+                        if (val == null || val <= 0 || val > 24) return "Enter valid hours (1-24)";
+                        return null;
+                      },
+                      decoration: const InputDecoration(
+                        labelText: 'Daily Study Goal (Hours)',
+                        prefixIcon: Icon(Icons.timer_outlined),
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 36),
+
+                    // Save Button
+                    ElevatedButton(
+                      onPressed: _isSaving ? null : _saveProfile,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: accentGreen,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: _isSaving
+                          ? const CircularProgressIndicator(color: Colors.white)
+                          : const Text('Save Profile Details', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+    );
+  }
+}
