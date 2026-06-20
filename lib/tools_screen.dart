@@ -5,7 +5,20 @@ import 'package:intl/intl.dart';
 import 'dart:async';
 import 'package:flutter/services.dart'; // ভাইব্রেশন এবং সিস্টেম সাউন্ডের জন্য
 import 'package:flutter/cupertino.dart'; // টাইমার পিকারের জন্য
+import 'dart:io';
+import 'package:firebase_storage/firebase_storage.dart' hide Task;
+import 'package:path_provider/path_provider.dart';
+import 'package:record/record.dart';
+import 'package:audioplayers/audioplayers.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
+import 'dart:math' as math;
 import 'daily_routine.dart'; // Task মডেল ইমপোর্ট করার জন্য
+import 'focus_music_screen.dart';
+import 'flashcards_screen.dart';
+import 'dictionary_screen.dart';
+import 'ai_service.dart';
+import 'revision_147_screen.dart';
 
 class ToolsScreen extends StatelessWidget {
   final Function(List<Task>) onTasksGenerated;
@@ -13,25 +26,50 @@ class ToolsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final List<Map<String, dynamic>> tools = [
-      {'title': 'Mood Tracker', 'icon': Icons.mood_rounded, 'color': Colors.pinkAccent, 'action': 'mood'},
-      {'title': 'Breathing', 'icon': Icons.air_rounded, 'color': Colors.lightBlueAccent, 'action': 'breath'},
-      {'title': 'Routine Planner', 'icon': Icons.calendar_month_rounded, 'color': Colors.indigoAccent, 'action': 'routine'},
-      {'title': 'Pomodoro', 'icon': Icons.timer_rounded, 'color': Colors.redAccent, 'action': 'pomodoro'},
-      {'title': 'Study Room', 'icon': Icons.video_camera_front_rounded, 'color': Colors.deepPurpleAccent, 'action': 'study_room'},
-      {'title': 'Partner Tasks', 'icon': Icons.group_add_rounded, 'color': Colors.green, 'action': 'partner_tasks'},
-      {'title': 'Stopwatch', 'icon': Icons.timer_outlined, 'color': Colors.deepOrangeAccent, 'action': 'stopwatch'},
-      {'title': 'Calculator', 'icon': Icons.calculate_rounded, 'color': Colors.blueAccent, 'action': 'calc'},
-      {'title': 'Quick Notes', 'icon': Icons.note_alt_rounded, 'color': Colors.amber.shade600, 'action': 'notes'},
-      {'title': 'Flashcards', 'icon': Icons.style_rounded, 'color': Colors.purpleAccent, 'action': 'flash'},
-      {'title': 'Sleep Tracker', 'icon': Icons.bedtime_rounded, 'color': Colors.indigoAccent, 'action': 'sleep'},
-      {'title': 'Focus Music', 'icon': Icons.headphones_rounded, 'color': Colors.teal, 'action': 'music'},
-      {'title': 'Dictionary', 'icon': Icons.menu_book_rounded, 'color': Colors.orangeAccent, 'action': 'dict'},
+    final List<Map<String, dynamic>> categories = [
+      {
+        'name': 'Study & Revision',
+        'icon': Icons.school_rounded,
+        'tools': [
+          {'title': 'Routine Planner', 'icon': Icons.calendar_month_rounded, 'color': Colors.indigoAccent, 'action': 'routine'},
+          {'title': '1-4-7 Revision', 'icon': Icons.published_with_changes_rounded, 'color': Colors.indigo, 'action': 'revision_147'},
+          {'title': 'Flashcards', 'icon': Icons.style_rounded, 'color': Colors.purpleAccent, 'action': 'flash'},
+          {'title': 'Dictionary', 'icon': Icons.menu_book_rounded, 'color': Colors.orangeAccent, 'action': 'dict'},
+        ]
+      },
+      {
+        'name': 'Focus & Productivity',
+        'icon': Icons.bolt_rounded,
+        'tools': [
+          {'title': 'Pomodoro', 'icon': Icons.timer_rounded, 'color': Colors.redAccent, 'action': 'pomodoro'},
+          {'title': 'Stopwatch', 'icon': Icons.timer_outlined, 'color': Colors.deepOrangeAccent, 'action': 'stopwatch'},
+          {'title': 'Focus Music', 'icon': Icons.headphones_rounded, 'color': Colors.teal, 'action': 'music'},
+          {'title': 'Quick Notes', 'icon': Icons.note_alt_rounded, 'color': Colors.amber.shade600, 'action': 'notes'},
+        ]
+      },
+      {
+        'name': 'Collaborative Studying',
+        'icon': Icons.people_rounded,
+        'tools': [
+          {'title': 'Study Room', 'icon': Icons.video_camera_front_rounded, 'color': Colors.deepPurpleAccent, 'action': 'study_room'},
+          {'title': 'Partner Tasks', 'icon': Icons.group_add_rounded, 'color': Colors.green, 'action': 'partner_tasks'},
+        ]
+      },
+      {
+        'name': 'Well-being & Utilities',
+        'icon': Icons.favorite_rounded,
+        'tools': [
+          {'title': 'Breathing', 'icon': Icons.air_rounded, 'color': Colors.lightBlueAccent, 'action': 'breath'},
+          {'title': 'Mood Tracker', 'icon': Icons.mood_rounded, 'color': Colors.pinkAccent, 'action': 'mood'},
+          {'title': 'Sleep Tracker', 'icon': Icons.bedtime_rounded, 'color': Colors.indigoAccent, 'action': 'sleep'},
+          {'title': 'Calculator', 'icon': Icons.calculate_rounded, 'color': Colors.blueAccent, 'action': 'calc'},
+        ]
+      },
     ];
 
     return SafeArea(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -46,76 +84,117 @@ class ToolsScreen extends StatelessWidget {
             
             // AI Study Planner Banner (First Tool)
             _buildAIPlannerBanner(context),
-            const SizedBox(height: 24),
-
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2, // ২ কলামের গ্রিড
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-                childAspectRatio: 1.1, // কার্ডগুলোর আকার স্কোয়ারের কাছাকাছি
-              ),
-              itemCount: tools.length,
-              itemBuilder: (context, index) {
-                final tool = tools[index];
-                return Card(
-                  elevation: 2,
-                  shadowColor: tool['color'].withValues(alpha: 0.2),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(20),
-                    onTap: () {
-                      if (tool['action'] == 'mood') {
-                        showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: Colors.transparent, builder: (_) => const MoodTrackerBottomSheet());
-                      } else if (tool['action'] == 'breath') {
-                        showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: Colors.transparent, builder: (_) => const BreathingExerciseBottomSheet());
-                      } else if (tool['action'] == 'routine') {
-                        showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: Colors.transparent, builder: (_) => const RoutinePlannerBottomSheet());
-                      } else if (tool['action'] == 'pomodoro') {
-                        Navigator.push(context, MaterialPageRoute(builder: (_) => const PomodoroTimerScreen()));
-                      } else if (tool['action'] == 'stopwatch') {
-                        Navigator.push(context, MaterialPageRoute(builder: (_) => const StopwatchScreen()));
-                      } else if (tool['action'] == 'calc') {
-                        Navigator.push(context, MaterialPageRoute(builder: (_) => const CalculatorScreen()));
-                      } else if (tool['action'] == 'study_room') {
-                        Navigator.push(context, MaterialPageRoute(builder: (_) => const StudyRoomScreen()));
-                      } else if (tool['action'] == 'partner_tasks') {
-                        Navigator.push(context, MaterialPageRoute(builder: (_) => const PartnerTasksScreen()));
-                      } else if (tool['action'] == 'notes') {
-                        Navigator.push(context, MaterialPageRoute(builder: (_) => const QuickNotesScreen()));
-                      } else if (tool['action'] == 'sleep') {
-                        Navigator.push(context, MaterialPageRoute(builder: (_) => const SleepTrackerScreen()));
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('${tool['title']} is coming soon!')),
-                        );
-                      }
-                    },
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: tool['color'].withValues(alpha: 0.1),
-                            shape: BoxShape.circle,
+            
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: categories.map((category) {
+                final List<Map<String, dynamic>> catTools = category['tools'];
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(top: 28.0, bottom: 12.0),
+                      child: Row(
+                        children: [
+                          Icon(category['icon'], size: 20, color: Theme.of(context).colorScheme.primary),
+                          const SizedBox(width: 8),
+                          Text(
+                            category['name'],
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
+                                ),
                           ),
-                          child: Icon(tool['icon'], size: 36, color: tool['color']),
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          tool['title'],
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 3, // এক লাইনে ৩টি করে বক্স থাকবে
+                        crossAxisSpacing: 10,
+                        mainAxisSpacing: 10,
+                        childAspectRatio: 0.95, // ৩ কলামের মানানসই অনুপাত
+                      ),
+                      itemCount: catTools.length,
+                      itemBuilder: (context, index) {
+                        final tool = catTools[index];
+                        return Card(
+                          elevation: 1,
+                          shadowColor: tool['color'].withValues(alpha: 0.15),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(16),
+                            onTap: () {
+                              if (tool['action'] == 'mood') {
+                                showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: Colors.transparent, builder: (_) => const MoodTrackerBottomSheet());
+                              } else if (tool['action'] == 'breath') {
+                                showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: Colors.transparent, builder: (_) => const BreathingExerciseBottomSheet());
+                              } else if (tool['action'] == 'routine') {
+                                showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: Colors.transparent, builder: (_) => const RoutinePlannerBottomSheet());
+                              } else if (tool['action'] == 'pomodoro') {
+                                Navigator.push(context, MaterialPageRoute(builder: (_) => const PomodoroTimerScreen()));
+                              } else if (tool['action'] == 'stopwatch') {
+                                Navigator.push(context, MaterialPageRoute(builder: (_) => const StopwatchScreen()));
+                              } else if (tool['action'] == 'calc') {
+                                Navigator.push(context, MaterialPageRoute(builder: (_) => const CalculatorScreen()));
+                              } else if (tool['action'] == 'study_room') {
+                                Navigator.push(context, MaterialPageRoute(builder: (_) => const StudyRoomScreen()));
+                              } else if (tool['action'] == 'partner_tasks') {
+                                Navigator.push(context, MaterialPageRoute(builder: (_) => const PartnerTasksScreen()));
+                              } else if (tool['action'] == 'notes') {
+                                Navigator.push(context, MaterialPageRoute(builder: (_) => const QuickNotesScreen()));
+                              } else if (tool['action'] == 'sleep') {
+                                Navigator.push(context, MaterialPageRoute(builder: (_) => const SleepTrackerScreen()));
+                              } else if (tool['action'] == 'music') {
+                                Navigator.push(context, MaterialPageRoute(builder: (_) => const FocusMusicScreen()));
+                              } else if (tool['action'] == 'flash') {
+                                Navigator.push(context, MaterialPageRoute(builder: (_) => const FlashcardDecksScreen()));
+                              } else if (tool['action'] == 'dict') {
+                                Navigator.push(context, MaterialPageRoute(builder: (_) => const DictionaryScreen()));
+                              } else if (tool['action'] == 'revision_147') {
+                                Navigator.push(context, MaterialPageRoute(builder: (_) => const Revision147Screen()));
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('${tool['title']} is coming soon!')),
+                                );
+                              }
+                            },
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: tool['color'].withValues(alpha: 0.1),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(tool['icon'], size: 22, color: tool['color']),
+                                ),
+                                const SizedBox(height: 8),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                                  child: Text(
+                                    tool['title'],
+                                    textAlign: TextAlign.center,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
                 );
-              },
+              }).toList(),
             ),
           ],
         ),
@@ -535,44 +614,454 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
   final TextEditingController _contentController = TextEditingController();
   final User? currentUser = FirebaseAuth.instance.currentUser;
   bool _isSaving = false;
+  bool _isProcessingAI = false;
+  String? _geminiApiKey;
+  Stream<QuerySnapshot>? _notesLimitStream;
+  Stream<QuerySnapshot>? _notesAllStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadApiKey();
+    if (currentUser != null) {
+      _notesLimitStream = FirebaseFirestore.instance
+          .collection('users')
+          .doc(currentUser!.uid)
+          .collection('notes')
+          .orderBy('timestamp', descending: true)
+          .limit(5)
+          .snapshots();
+      _notesAllStream = FirebaseFirestore.instance
+          .collection('users')
+          .doc(currentUser!.uid)
+          .collection('notes')
+          .orderBy('timestamp', descending: true)
+          .snapshots();
+    }
+  }
+
+  Future<void> _loadApiKey() async {
+    if (currentUser == null) return;
+    try {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(currentUser!.uid).get();
+      if (doc.exists && doc.data() != null) {
+        setState(() {
+          _geminiApiKey = doc.data()?['geminiApiKey'] as String?;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading API key in notes: $e');
+    }
+  }
+
+  // Advanced Note States
+  bool _isNoteDarkMode = false;
+  double _fontSize = 16.0;
+  bool _isRecording = false;
+
+  // Audio Recording States
+  final AudioRecorder _audioRecorder = AudioRecorder();
+  String? _audioFilePath;
+
+  // Image Attachment States
+  final ImagePicker _imagePicker = ImagePicker();
+  String? _imageFilePath;
+
+  void _insertFormatting(String prefix, String suffix) {
+    final text = _contentController.text;
+    final selection = _contentController.selection;
+    if (selection.isValid) {
+      final selectedText = selection.textInside(text);
+      final newText = text.replaceRange(selection.start, selection.end, '$prefix$selectedText$suffix');
+      _contentController.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(offset: selection.start + prefix.length + selectedText.length + suffix.length),
+      );
+    } else {
+      final newText = text + prefix + suffix;
+      _contentController.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(offset: newText.length - suffix.length),
+      );
+    }
+  }
+
+  void _insertBullet() {
+    final text = _contentController.text;
+    final selection = _contentController.selection;
+    final prefix = '\n• ';
+    if (selection.isValid) {
+      final newText = text.replaceRange(selection.start, selection.end, prefix);
+       _contentController.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(offset: selection.start + prefix.length),
+      );
+    } else {
+      _insertFormatting(prefix, '');
+    }
+  }
+
+  void _simulateAction(String actionName) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$actionName activated. (Simulation)')));
+  }
+
+  Future<void> _summarizeNoteWithAI() async {
+    final noteContent = _contentController.text.trim();
+    if (noteContent.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cannot summarize an empty note.')),
+      );
+      return;
+    }
+
+    setState(() => _isProcessingAI = true);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('AI is summarizing your note...')),
+    );
+
+    try {
+      final summary = await AIService.summarizeNote(noteContent, _geminiApiKey);
+      if (!mounted) return;
+      if (summary.isNotEmpty) {
+        setState(() {
+          _contentController.text = '${_contentController.text}\n\n$summary';
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Summary added to note!'), backgroundColor: Colors.purple),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to summarize: $e'), backgroundColor: Colors.redAccent),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isProcessingAI = false);
+      }
+    }
+  }
+
+  void _writeWithAI() {
+    final TextEditingController promptController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: const [
+            Icon(Icons.auto_awesome_rounded, color: Colors.indigoAccent),
+            SizedBox(width: 8),
+            Text('Write with AI'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'Enter a topic or question (e.g. "Write about Kazi Nazrul" or "Explain photosynthesis"). AI will write a comprehensive study note.',
+              style: TextStyle(fontSize: 13, color: Colors.black54),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: promptController,
+              decoration: const InputDecoration(
+                hintText: 'Enter topic prompt...',
+                prefixIcon: Icon(Icons.psychology_rounded),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final prompt = promptController.text.trim();
+              if (prompt.isEmpty) return;
+              Navigator.pop(ctx);
+              
+              setState(() => _isProcessingAI = true);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('AI is researching and writing...')),
+              );
+
+              try {
+                final generatedContent = await AIService.generateNoteContent(prompt, _geminiApiKey);
+                if (!mounted) return;
+                if (generatedContent.isNotEmpty) {
+                  setState(() {
+                    _contentController.text = generatedContent;
+                    if (_titleController.text.trim().isEmpty) {
+                      _titleController.text = prompt.length > 20 ? '${prompt.substring(0, 20)}...' : prompt;
+                    }
+                  });
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('AI study note generated successfully!'), backgroundColor: Colors.indigo),
+                  );
+                }
+              } catch (e) {
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Generation failed: $e'), backgroundColor: Colors.redAccent),
+                );
+              } finally {
+                if (mounted) {
+                  setState(() => _isProcessingAI = false);
+                }
+              }
+            },
+            child: const Text('Write Note'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // অডিও রেকর্ডিং টগল করার মূল লজিক
+  Future<void> _toggleAudioRecording() async {
+    if (_isRecording) {
+      // রেকর্ডিং বন্ধ করা
+      final path = await _audioRecorder.stop();
+      setState(() {
+        _isRecording = false;
+        _audioFilePath = path;
+      });
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Audio recorded! Will be saved with the note.')));
+    } else {
+      // পারমিশন চেক করে রেকর্ডিং শুরু করা
+      if (await _audioRecorder.hasPermission()) {
+        final dir = await getTemporaryDirectory();
+        final path = '${dir.path}/note_audio_${DateTime.now().millisecondsSinceEpoch}.m4a';
+        await _audioRecorder.start(const RecordConfig(), path: path);
+        setState(() {
+          _isRecording = true;
+          _audioFilePath = null;
+        });
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Recording audio...')));
+      } else {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Microphone permission required.')));
+      }
+    }
+  }
+
+  // গ্যালারি থেকে ছবি সিলেক্ট করার লজিক
+  Future<void> _pickImage() async {
+    try {
+      final XFile? pickedFile = await _imagePicker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+      if (pickedFile != null) {
+        setState(() {
+          _imageFilePath = pickedFile.path;
+        });
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Image attached!')));
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to pick image.')));
+    }
+  }
 
   Future<void> _saveNote() async {
-    if (_titleController.text.trim().isEmpty && _contentController.text.trim().isEmpty) return;
+    if (_titleController.text.trim().isEmpty && _contentController.text.trim().isEmpty && _audioFilePath == null && _imageFilePath == null) return;
     if (currentUser == null) return;
 
     setState(() => _isSaving = true);
 
+    String? audioUrl;
+    String? imageUrl;
+    if (_audioFilePath != null) {
+      try {
+        final File audioFile = File(_audioFilePath!);
+        // ফায়ারবেস ক্লাউড স্টোরেজে আপলোড
+        final storageRef = FirebaseStorage.instance.ref().child('notes_audio/${currentUser!.uid}_${DateTime.now().millisecondsSinceEpoch}.m4a');
+        final uploadTask = await storageRef.putFile(audioFile);
+        audioUrl = await uploadTask.ref.getDownloadURL();
+      } catch (e) {
+        debugPrint("Audio Upload Error: $e");
+      }
+    }
+
+    // ছবি ফায়ারবেস ক্লাউড স্টোরেজে আপলোড
+    if (_imageFilePath != null) {
+      try {
+        final File imageFile = File(_imageFilePath!);
+        final storageRef = FirebaseStorage.instance.ref().child('notes_images/${currentUser!.uid}_${DateTime.now().millisecondsSinceEpoch}.jpg');
+        final uploadTask = await storageRef.putFile(imageFile);
+        imageUrl = await uploadTask.ref.getDownloadURL();
+      } catch (e) {
+        debugPrint("Image Upload Error: $e");
+      }
+    }
+
     await FirebaseFirestore.instance.collection('users').doc(currentUser!.uid).collection('notes').add({
       'title': _titleController.text.trim().isNotEmpty ? _titleController.text.trim() : 'Untitled Note',
       'content': _contentController.text.trim(),
+      'audioUrl': audioUrl,
+      'imageUrl': imageUrl,
       'timestamp': FieldValue.serverTimestamp(),
     });
 
     _titleController.clear();
     _contentController.clear();
-    FocusScope.of(context).unfocus(); // কিবোর্ড নামিয়ে দেওয়ার জন্য
+    if (mounted) {
+      FocusScope.of(context).unfocus(); // কিবোর্ড নামিয়ে দেওয়ার জন্য
+    }
     
-    setState(() => _isSaving = false);
+    setState(() {
+      _isSaving = false;
+      _audioFilePath = null;
+      _imageFilePath = null;
+    });
     if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Note saved securely!')));
   }
 
-  void _showAIFeatureMessage(String featureName) {
+  void _showVersionHistory() {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        backgroundColor: _isNoteDarkMode ? const Color(0xFF2D2D2D) : Theme.of(context).cardColor,
         title: Row(
           children: [
-            const Icon(Icons.auto_awesome_rounded, color: Colors.deepPurple),
+            const Icon(Icons.restore_rounded, color: Colors.blue),
             const SizedBox(width: 8),
-            Text(featureName),
+            Text('Version History', style: TextStyle(color: _isNoteDarkMode ? Colors.white : Colors.black87)),
           ],
         ),
-        content: const Text('AI processing is working in the background. (This is a premium AI feature demo!)'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Restore a previous version of this note if you made a mistake.', style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+            const SizedBox(height: 16),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text('Today, 10:30 AM', style: TextStyle(color: _isNoteDarkMode ? Colors.white : Colors.black)),
+              subtitle: Text('Auto-saved', style: TextStyle(color: Colors.grey.shade500)),
+              trailing: TextButton(onPressed: () { Navigator.pop(ctx); _simulateAction('Restored to 10:30 AM version'); }, child: const Text('Restore')),
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text('Yesterday, 5:15 PM', style: TextStyle(color: _isNoteDarkMode ? Colors.white : Colors.black)),
+              subtitle: Text('Manual save', style: TextStyle(color: Colors.grey.shade500)),
+              trailing: TextButton(onPressed: () { Navigator.pop(ctx); _simulateAction('Restored to Yesterday version'); }, child: const Text('Restore')),
+            ),
+          ],
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Got it!')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
         ],
       ),
+    );
+  }
+
+  void _showPreviousNotesBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        bool isDark = _isNoteDarkMode; 
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.75,
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1E1E1E) : Theme.of(context).colorScheme.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: const EdgeInsets.only(top: 20, left: 16, right: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Previous Notes', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87)),
+                  IconButton(icon: Icon(Icons.close, color: isDark ? Colors.white : Colors.black), onPressed: () => Navigator.pop(context)),
+                ],
+              ),
+              Divider(color: isDark ? Colors.grey.shade800 : Colors.grey.shade300),
+              Expanded(
+                child: currentUser == null 
+                  ? Center(child: Text('Please log in to view notes.', style: TextStyle(color: isDark ? Colors.white70 : Colors.black54)))
+                  : StreamBuilder<QuerySnapshot>(
+                      stream: _notesAllStream,
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+                        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) return Center(child: Text('No notes found. Create your first note above!', style: TextStyle(color: isDark ? Colors.white70 : Colors.grey)));
+
+                        return ListView.builder(
+                          padding: const EdgeInsets.only(bottom: 20),
+                          itemCount: snapshot.data!.docs.length,
+                          itemBuilder: (context, index) {
+                            final doc = snapshot.data!.docs[index];
+                            final data = doc.data() as Map<String, dynamic>;
+                            final title = data['title'] ?? 'Untitled';
+                            final content = data['content'] ?? '';
+                            final timestamp = data['timestamp'] as Timestamp?;
+                            final audioUrl = data['audioUrl'] as String?;
+                            final imageUrl = data['imageUrl'] as String?;
+                            String dateStr = 'Just now';
+                            if (timestamp != null) {
+                              dateStr = DateFormat('MMM dd, yyyy - hh:mm a').format(timestamp.toDate());
+                            }
+
+                            return Card(
+                              elevation: 0,
+                              margin: const EdgeInsets.only(bottom: 12),
+                              color: isDark ? const Color(0xFF2D2D2D) : Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                side: BorderSide(color: isDark ? Colors.grey.shade700 : Colors.grey.shade300),
+                              ),
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(16),
+                                onTap: () {
+                                  Navigator.pop(context); // Close bottom sheet
+                                  Navigator.push(context, MaterialPageRoute(builder: (_) => NoteDetailScreen(
+                                    title: title,
+                                    content: content,
+                                    date: dateStr,
+                                    audioUrl: audioUrl,
+                                    imageUrl: imageUrl,
+                                  )));
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.all(20),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Expanded(child: Text(title, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: isDark ? Colors.white : Colors.black87), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                                          if (audioUrl != null)
+                                            Icon(Icons.mic_rounded, color: isDark ? Colors.grey.shade400 : Colors.grey, size: 20),
+                                          if (imageUrl != null)
+                                            Padding(padding: const EdgeInsets.only(left: 4), child: Icon(Icons.image_rounded, color: isDark ? Colors.grey.shade400 : Colors.grey, size: 20)),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        content,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(color: isDark ? Colors.white70 : Colors.black54),
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Text(dateStr, style: TextStyle(fontSize: 12, color: isDark ? Colors.grey.shade500 : Colors.black38, fontStyle: FontStyle.italic)),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -580,135 +1069,195 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
   void dispose() {
     _titleController.dispose();
     _contentController.dispose();
+    _audioRecorder.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    Color bgColor = _isNoteDarkMode ? const Color(0xFF1E1E1E) : Theme.of(context).colorScheme.surface;
+    Color textColor = _isNoteDarkMode ? Colors.white : Colors.black87;
+    Color cardColor = _isNoteDarkMode ? const Color(0xFF2D2D2D) : Theme.of(context).cardColor;
+
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surface,
+      resizeToAvoidBottomInset: false, // FAB এর সাথে কিবোর্ডের সমস্যা এড়ানোর জন্য
+      backgroundColor: bgColor,
       appBar: AppBar(
-        title: const Text('Smart Notes', style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.transparent,
+        title: Text('Smart Notes', style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
         elevation: 0,
+        iconTheme: IconThemeData(color: textColor),
+        actions: [
+          IconButton(
+            icon: Icon(_isNoteDarkMode ? Icons.light_mode_rounded : Icons.dark_mode_rounded),
+            tooltip: 'Toggle Dark Mode',
+            onPressed: () => setState(() => _isNoteDarkMode = !_isNoteDarkMode),
+          ),
+          IconButton(
+            icon: const Icon(Icons.history_rounded),
+            tooltip: 'Version History',
+            onPressed: () => _showVersionHistory(),
+          ),
+        ],
       ),
-      body: Column(
-        children: [
-          // 1. Smart Editor Box
-          Container(
-            margin: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Theme.of(context).cardColor,
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 15,
-                  offset: const Offset(0, 5),
-                )
-              ],
-            ),
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                  child: TextField(
-                    controller: _titleController,
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                    decoration: const InputDecoration(
-                      hintText: 'Note Title...',
-                      border: InputBorder.none,
-                      fillColor: Colors.transparent,
-                      filled: false,
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.only(bottom: 100), // FAB এর জন্য জায়গা
+        child: Column(
+          children: [
+            if (_isProcessingAI)
+              const LinearProgressIndicator(color: Colors.indigoAccent),
+            // 1. Smart Editor Box
+            Container(
+              margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+              decoration: BoxDecoration(
+                color: cardColor,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: _isNoteDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 15, offset: const Offset(0, 5))
+                ],
+              ),
+              child: Column(
+                children: [
+                  // Title
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                    child: TextField(
+                      controller: _titleController,
+                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: textColor),
+                      decoration: InputDecoration(
+                        hintText: 'Note Title...',
+                        hintStyle: TextStyle(color: Colors.grey.shade500),
+                        border: InputBorder.none,
+                      ),
                     ),
                   ),
-                ),
-                const Divider(height: 1),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: TextField(
-                    controller: _contentController,
-                    maxLines: 4,
-                    minLines: 2,
-                    decoration: const InputDecoration(
-                      hintText: 'Start typing or use AI/Voice to write...',
-                      border: InputBorder.none,
-                      fillColor: Colors.transparent,
-                      filled: false,
+                  Divider(height: 1, color: _isNoteDarkMode ? Colors.grey.shade800 : Colors.grey.shade200),
+                  
+                  // Boxed Content Body
+                  Container(
+                    margin: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: _isNoteDarkMode ? const Color(0xFF1E1E1E) : Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: _isNoteDarkMode ? Colors.grey.shade800 : Colors.grey.shade200),
                     ),
-                  ),
-                ),
-                
-                // Smart Tools Toolbar
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.05),
-                    borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: Stack(
                         children: [
-                          IconButton(
-                            icon: const Icon(Icons.document_scanner_rounded, color: Colors.teal),
-                            tooltip: 'Photo-to-Text (OCR)',
-                            onPressed: () => _showAIFeatureMessage('Opening Camera for OCR...'),
+                          // ডায়েরির মতো দাগ দেওয়ার জন্য
+                          Positioned.fill(
+                            child: CustomPaint(
+                              painter: _LinedPaperPainter(lineHeight: _fontSize * 1.5, isDarkMode: _isNoteDarkMode),
+                            ),
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.mic_rounded, color: Colors.redAccent),
-                            tooltip: 'Voice-to-Text',
-                            onPressed: () => _showAIFeatureMessage('Listening to your voice...'),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.auto_awesome_rounded, color: Colors.deepPurple),
-                            tooltip: 'AI Summarize',
-                            onPressed: () => _showAIFeatureMessage('Summarizing Note...'),
+                          TextField(
+                            controller: _contentController,
+                            maxLines: 10, // একটি নির্দিষ্ট উচ্চতা দেওয়া হলো
+                            minLines: 8,
+                            style: TextStyle(fontSize: _fontSize, color: textColor, height: 1.5),
+                            decoration: InputDecoration(
+                              hintText: 'Start writing your notes here...',
+                              hintStyle: TextStyle(color: Colors.grey.shade500),
+                              border: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            ),
                           ),
                         ],
                       ),
-                      _isSaving 
-                        ? const Padding(padding: EdgeInsets.all(12), child: SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)))
-                        : ElevatedButton(
-                            onPressed: _saveNote,
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            ),
-                            child: const Text('Save'),
-                          ),
-                    ],
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ),
 
-          // 2. Previous Notes History
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text('Previous Notes', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey)),
+                  // Rich Text Toolbar
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: _isNoteDarkMode ? const Color(0xFF333333) : Colors.grey.shade100,
+                      borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
+                      border: Border(top: BorderSide(color: _isNoteDarkMode ? Colors.grey.shade800 : Colors.grey.shade200)),
+                    ),
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          _buildFormatBtn(Icons.format_bold_rounded, () => _insertFormatting('**', '**'), tooltip: 'Bold'),
+                          _buildFormatBtn(Icons.format_italic_rounded, () => _insertFormatting('*', '*'), tooltip: 'Italic'),
+                          _buildFormatBtn(Icons.format_quote_rounded, () => _insertFormatting('\n> ', ''), tooltip: 'Quote'),
+                          _buildFormatBtn(Icons.format_list_bulleted_rounded, _insertBullet, tooltip: 'Bullet List'),
+                          _buildFormatBtn(Icons.format_color_text_rounded, () => _simulateAction('Text Color Picker'), tooltip: 'Text Color'),
+                          Container(width: 1, height: 24, color: Colors.grey, margin: const EdgeInsets.symmetric(horizontal: 8)),
+                          _buildFormatBtn(Icons.camera_alt_rounded, () => _simulateAction('Camera Scanner (OCR)'), tooltip: 'Scan Text', color: Colors.teal),
+                          _buildFormatBtn(Icons.image_rounded, _pickImage, tooltip: 'Add Image', color: Colors.blue),
+                          _buildFormatBtn(_isRecording ? Icons.stop_circle_rounded : Icons.mic_rounded, _toggleAudioRecording, tooltip: 'Record Audio', color: _isRecording ? Colors.red : Colors.deepOrange),
+                          Container(width: 1, height: 24, color: Colors.grey, margin: const EdgeInsets.symmetric(horizontal: 8)),
+                          _buildFormatBtn(Icons.summarize_rounded, _summarizeNoteWithAI, tooltip: 'AI Summary', color: Colors.purple),
+                          _buildFormatBtn(Icons.auto_awesome_rounded, _writeWithAI, tooltip: 'Write with AI', color: Colors.indigo),
+                          Container(width: 1, height: 24, color: Colors.grey, margin: const EdgeInsets.symmetric(horizontal: 8)),
+                          _buildFormatBtn(Icons.text_increase_rounded, () => setState(() => _fontSize += 2), tooltip: 'Increase Font'),
+                          _buildFormatBtn(Icons.text_decrease_rounded, () => setState(() => _fontSize > 10 ? _fontSize -= 2 : null), tooltip: 'Decrease Font'),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // Audio Attachment Indicator
+                  if (_audioFilePath != null && !_isRecording)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.check_circle_rounded, color: Colors.green, size: 16),
+                          const SizedBox(width: 6),
+                          const Text('Voice note attached', style: TextStyle(color: Colors.green, fontSize: 13, fontWeight: FontWeight.bold)),
+                          const Spacer(),
+                          IconButton(icon: const Icon(Icons.close_rounded, size: 18, color: Colors.red), constraints: const BoxConstraints(), padding: EdgeInsets.zero, onPressed: () => setState(() => _audioFilePath = null)),
+                        ],
+                      ),
+                    ),
+
+                  // Image Attachment Indicator
+                  if (_imageFilePath != null)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: Row(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.file(File(_imageFilePath!), width: 40, height: 40, fit: BoxFit.cover),
+                          ),
+                          const SizedBox(width: 12),
+                          const Text('Image attached', style: TextStyle(color: Colors.blue, fontSize: 13, fontWeight: FontWeight.bold)),
+                          const Spacer(),
+                          IconButton(icon: const Icon(Icons.close_rounded, size: 18, color: Colors.red), constraints: const BoxConstraints(), padding: EdgeInsets.zero, onPressed: () => setState(() => _imageFilePath = null)),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
             ),
-          ),
-          
-          Expanded(
-            child: currentUser == null 
+
+            // 2. Previous Notes Section
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Previous Notes', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor.withOpacity(0.7))),
+                  TextButton(onPressed: _showPreviousNotesBottomSheet, child: const Text('View All'))
+                ],
+              ),
+            ),
+            currentUser == null 
               ? const Center(child: Text('Please log in to view notes.'))
               : StreamBuilder<QuerySnapshot>(
-                  stream: FirebaseFirestore.instance
-                      .collection('users')
-                      .doc(currentUser!.uid)
-                      .collection('notes')
-                      .orderBy('timestamp', descending: true)
-                      .snapshots(),
+                  stream: _notesLimitStream,
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-                    if (!snapshot.hasData || snapshot.data!.docs.isEmpty) return const Center(child: Text('No notes found. Create your first note above!', style: TextStyle(color: Colors.grey)));
+                    if (!snapshot.hasData || snapshot.data!.docs.isEmpty) return Center(child: Text('No notes found. Create your first note above!', style: TextStyle(color: Colors.grey)));
 
                     return ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       itemCount: snapshot.data!.docs.length,
                       itemBuilder: (context, index) {
@@ -717,6 +1266,8 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
                         final title = data['title'] ?? 'Untitled';
                         final content = data['content'] ?? '';
                         final timestamp = data['timestamp'] as Timestamp?;
+                        final audioUrl = data['audioUrl'] as String?;
+                        final imageUrl = data['imageUrl'] as String?;
                         String dateStr = 'Just now';
                         if (timestamp != null) {
                           dateStr = DateFormat('MMM dd, yyyy - hh:mm a').format(timestamp.toDate());
@@ -725,9 +1276,10 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
                         return Card(
                           elevation: 0,
                           margin: const EdgeInsets.only(bottom: 12),
+                          color: cardColor,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
-                            side: BorderSide(color: Colors.grey.shade300),
+                            side: BorderSide(color: _isNoteDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
                           ),
                           child: InkWell(
                             borderRadius: BorderRadius.circular(16),
@@ -736,6 +1288,8 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
                                 title: title,
                                 content: content,
                                 date: dateStr,
+                                audioUrl: audioUrl,
+                                imageUrl: imageUrl,
                               )));
                             },
                             child: Padding(
@@ -743,28 +1297,55 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Colors.black87)),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Expanded(child: Text(title, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: textColor), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                                      if (audioUrl != null)
+                                        Icon(Icons.mic_rounded, color: textColor.withOpacity(0.6), size: 20),
+                                      if (imageUrl != null)
+                                        Padding(padding: const EdgeInsets.only(left: 4), child: Icon(Icons.image_rounded, color: textColor.withOpacity(0.6), size: 20)),
+                                    ],
+                                  ),
                                   const SizedBox(height: 6),
                                   Text(
                                     content,
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(color: Colors.black54),
+                                    style: TextStyle(color: textColor.withOpacity(0.7)),
                                   ),
                                   const SizedBox(height: 12),
-                                  Text(dateStr, style: const TextStyle(fontSize: 12, color: Colors.black38, fontStyle: FontStyle.italic)),
+                                  Text(dateStr, style: TextStyle(fontSize: 12, color: textColor.withOpacity(0.5), fontStyle: FontStyle.italic)),
                                 ],
                               ),
                             ),
                           ),
                         );
-                      },
-                    );
+                    },
+                  );
                   },
                 ),
-          ),
-        ],
+          ],
+        ),
       ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _isSaving ? null : _saveNote,
+        label: _isSaving ? const Text('Saving...') : const Text('Save Note'),
+        icon: _isSaving 
+            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) 
+            : const Icon(Icons.save_rounded),
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        foregroundColor: Colors.white,
+      ),
+    );
+  }
+
+  Widget _buildFormatBtn(IconData icon, VoidCallback onTap, {String? tooltip, Color? color}) {
+    return IconButton(
+      icon: Icon(icon, color: color ?? (_isNoteDarkMode ? Colors.grey.shade300 : Colors.black87)),
+      tooltip: tooltip,
+      onPressed: onTap,
+      splashRadius: 20,
     );
   }
 }
@@ -772,41 +1353,90 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
 // ==========================================
 // Note Detail Screen (নোট পড়ার স্ক্রিন)
 // ==========================================
-class NoteDetailScreen extends StatelessWidget {
+class NoteDetailScreen extends StatefulWidget {
   final String title;
   final String content;
   final String date;
+  final String? audioUrl;
+  final String? imageUrl;
 
-  const NoteDetailScreen({super.key, required this.title, required this.content, required this.date});
+  const NoteDetailScreen({super.key, required this.title, required this.content, required this.date, this.audioUrl, this.imageUrl});
 
-  void _readNoteAloud(BuildContext context) {
-    // Text-to-Speech (TTS) Simulation
+  @override
+  State<NoteDetailScreen> createState() => _NoteDetailScreenState();
+}
+
+class _NoteDetailScreenState extends State<NoteDetailScreen> {
+  bool _isNoteDarkMode = false;
+  bool _isPlayingAudio = false;
+  bool _isPlayingAttachedAudio = false; // User Recorded Audio
+  final AudioPlayer _audioPlayer = AudioPlayer();
+
+  @override
+  void initState() {
+    super.initState();
+    _audioPlayer.onPlayerComplete.listen((event) {
+      setState(() => _isPlayingAttachedAudio = false);
+    });
+  }
+
+  @override
+  void dispose() {
+    _audioPlayer.dispose();
+    super.dispose();
+  }
+
+  Future<void> _toggleAttachedAudio() async {
+    if (widget.audioUrl == null) return;
+    if (_isPlayingAttachedAudio) {
+      await _audioPlayer.pause();
+      setState(() => _isPlayingAttachedAudio = false);
+    } else {
+      await _audioPlayer.play(UrlSource(widget.audioUrl!));
+      setState(() => _isPlayingAttachedAudio = true);
+    }
+  }
+
+  void _toggleAudio() {
+    setState(() {
+      _isPlayingAudio = !_isPlayingAudio;
+    });
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
+      SnackBar(
         content: Row(
           children: [
-            Icon(Icons.volume_up_rounded, color: Colors.white),
-            SizedBox(width: 8),
-            Text('Reading note aloud... (TTS activated)'),
+            Icon(_isPlayingAudio ? Icons.volume_up_rounded : Icons.volume_off_rounded, color: Colors.white),
+            const SizedBox(width: 8),
+            Text(_isPlayingAudio ? 'Reading note aloud... (TTS activated)' : 'Audio paused.'),
           ],
         ),
         backgroundColor: Colors.deepPurple,
+        duration: const Duration(seconds: 2),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    Color bgColor = _isNoteDarkMode ? const Color(0xFF1E1E1E) : Theme.of(context).colorScheme.surface;
+    Color textColor = _isNoteDarkMode ? Colors.white : Colors.black87;
+
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surface,
+      backgroundColor: bgColor,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
+        iconTheme: IconThemeData(color: textColor),
         actions: [
           IconButton(
-            icon: const Icon(Icons.record_voice_over_rounded, color: Colors.deepPurple),
+            icon: Icon(_isNoteDarkMode ? Icons.light_mode_rounded : Icons.dark_mode_rounded),
+            tooltip: 'Toggle Dark Mode',
+            onPressed: () => setState(() => _isNoteDarkMode = !_isNoteDarkMode),
+          ),
+          IconButton(
+            icon: Icon(_isPlayingAudio ? Icons.stop_circle_rounded : Icons.record_voice_over_rounded, color: Colors.deepPurple),
             tooltip: 'Read Aloud (TTS)',
-            onPressed: () => _readNoteAloud(context),
+            onPressed: _toggleAudio,
           ),
           const SizedBox(width: 10),
         ],
@@ -816,14 +1446,56 @@ class NoteDetailScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w900)),
+            Text(widget.title, style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w900, color: textColor)),
             const SizedBox(height: 8),
-            Text(date, style: const TextStyle(color: Colors.grey, fontStyle: FontStyle.italic)),
-            const Divider(height: 40),
-            Text(
-              content,
-              style: const TextStyle(fontSize: 16, height: 1.8, color: Colors.black87),
-            ),
+            Text(widget.date, style: const TextStyle(color: Colors.grey, fontStyle: FontStyle.italic)),
+            Divider(height: 40, color: _isNoteDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
+            // Markdown রেন্ডার করার জন্য Text এর বদলে MarkdownBody ব্যবহার করা হলো
+            MarkdownBody(
+              data: widget.content,
+              styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+                p: TextStyle(fontSize: 18, height: 1.8, color: textColor),
+                blockquote: TextStyle(fontSize: 18, fontStyle: FontStyle.italic, color: textColor.withOpacity(0.8)),
+                blockquoteDecoration: BoxDecoration(
+                  color: Colors.grey.withOpacity(0.2),
+                  border: Border(left: BorderSide(color: Theme.of(context).colorScheme.primary, width: 4)),
+                ),
+              ),
+            ), 
+            
+            if (widget.imageUrl != null) ...[
+              const SizedBox(height: 24),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Image.network(widget.imageUrl!, fit: BoxFit.cover, width: double.infinity),
+              ),
+            ],
+            
+            if (widget.audioUrl != null) ...[
+              const SizedBox(height: 32),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      child: IconButton(
+                        icon: Icon(_isPlayingAttachedAudio ? Icons.pause_rounded : Icons.play_arrow_rounded, color: Colors.white),
+                        onPressed: _toggleAttachedAudio,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(child: Text('Recorded Voice Note', style: TextStyle(fontWeight: FontWeight.bold, color: textColor))),
+                  ],
+                ),
+              ),
+            ],
+
             const SizedBox(height: 80), // Fab এর জন্য জায়গা
           ],
         ),
@@ -836,8 +1508,32 @@ class NoteDetailScreen extends StatelessWidget {
         icon: const Icon(Icons.quiz_rounded),
         label: const Text('Generate AI Quiz'),
         backgroundColor: Theme.of(context).colorScheme.primary,
+        foregroundColor: Colors.white,
       ),
     );
+  }
+}
+
+// ডায়েরির মতো দাগ আঁকার জন্য কাস্টম পেইন্টার
+class _LinedPaperPainter extends CustomPainter {
+  final double lineHeight;
+  final bool isDarkMode;
+  _LinedPaperPainter({required this.lineHeight, this.isDarkMode = false});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300
+      ..strokeWidth = 1.0;
+
+    for (double y = lineHeight; y < size.height; y += lineHeight) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) {
+    return false;
   }
 }
 
@@ -2076,40 +2772,98 @@ class BreathingPlayerScreen extends StatefulWidget {
   State<BreathingPlayerScreen> createState() => _BreathingPlayerScreenState();
 }
 
-class _BreathingPlayerScreenState extends State<BreathingPlayerScreen> {
+class _BreathingPlayerScreenState extends State<BreathingPlayerScreen> with SingleTickerProviderStateMixin {
   bool _isRunning = false;
   int _phaseIndex = 0; // 0: Inhale, 1: Hold, 2: Exhale, 3: Hold
+  late AnimationController _animationController;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(vsync: this);
+    _animationController.addStatusListener((status) {
+      if (!_isRunning || !mounted) return;
+      
+      bool phaseCompleted = false;
+      if (_phaseIndex == 2) {
+        // Exhale phase runs in reverse, so it completes when it reaches 0.0 (dismissed)
+        if (status == AnimationStatus.dismissed) {
+          phaseCompleted = true;
+        }
+      } else {
+        // Other phases run forward, so they complete when they reach 1.0 (completed)
+        if (status == AnimationStatus.completed) {
+          phaseCompleted = true;
+        }
+      }
+
+      if (phaseCompleted) {
+        _advancePhase();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
 
   void _toggleBreathing() {
     if (_isRunning) {
       setState(() {
         _isRunning = false;
-        _phaseIndex = 0; // রিসেট
+        _phaseIndex = 0;
       });
+      _animationController.stop();
+      _animationController.value = 0.0;
     } else {
       setState(() {
         _isRunning = true;
         _phaseIndex = 0;
       });
-      _runPhase();
+      _startPhase();
     }
   }
 
-  Future<void> _runPhase() async {
+  void _startPhase() {
     if (!_isRunning || !mounted) return;
 
     int duration = widget.phases[_phaseIndex];
-
-    if (duration > 0) {
-      setState(() {}); // UI আপডেট (অ্যানিমেশন শুরু)
-      await Future.delayed(Duration(seconds: duration));
+    if (duration <= 0) {
+      // Use microtask to break synchronous recursion
+      Future.microtask(() {
+        if (mounted && _isRunning) {
+          _advancePhase();
+        }
+      });
+      return;
     }
 
-    if (!_isRunning || !mounted) return;
+    _animationController.duration = Duration(seconds: duration);
 
-    // পরবর্তী ফেজে যাওয়া
-    _phaseIndex = (_phaseIndex + 1) % 4;
-    _runPhase();
+    if (_phaseIndex == 0) {
+      // Inhale: Animate forward from 0.0 to 1.0
+      _animationController.forward(from: 0.0);
+    } else if (_phaseIndex == 1) {
+      // Hold after Inhale: Animate forward from 0.0 to 1.0
+      _animationController.forward(from: 0.0);
+    } else if (_phaseIndex == 2) {
+      // Exhale: Animate backward from 1.0 to 0.0
+      _animationController.reverse(from: 1.0);
+    } else if (_phaseIndex == 3) {
+      // Hold after Exhale: Animate forward from 0.0 to 1.0
+      _animationController.forward(from: 0.0);
+    }
+    setState(() {});
+  }
+
+  void _advancePhase() {
+    if (!_isRunning || !mounted) return;
+    setState(() {
+      _phaseIndex = (_phaseIndex + 1) % 4;
+    });
+    _startPhase();
   }
 
   String get _currentInstruction {
@@ -2121,17 +2875,6 @@ class _BreathingPlayerScreenState extends State<BreathingPlayerScreen> {
       case 3: return 'Hold';
       default: return '';
     }
-  }
-
-  double get _currentScale {
-    if (!_isRunning) return 1.0;
-    if (_phaseIndex == 0 || _phaseIndex == 1) return 2.2; // Inhale এবং Hold করার সময় সার্কেল বড় থাকবে
-    return 1.0; // Exhale এবং Hold করার সময় সার্কেল ছোট হয়ে যাবে
-  }
-
-  int get _currentDuration {
-    if (!_isRunning) return 1;
-    return widget.phases[_phaseIndex];
   }
 
   @override
@@ -2148,30 +2891,94 @@ class _BreathingPlayerScreenState extends State<BreathingPlayerScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Animated Breathing Circle
+            // Animated Breathing Circle with Glowing Progress Ring
             SizedBox(
-              height: 300,
-              width: 300,
-              child: Center(
-                child: AnimatedScale(
-                  scale: _currentScale,
-                  duration: Duration(seconds: _currentDuration),
-                  curve: Curves.easeInOutSine, // Smooth, natural breathing curve
-                  child: Container(
-                    width: 120,
-                    height: 120,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: RadialGradient(
-                        colors: [
-                          Colors.lightBlueAccent.withValues(alpha: 0.6),
-                          Colors.lightBlueAccent.withValues(alpha: 0.1),
-                        ],
+              height: 320,
+              width: 320,
+              child: AnimatedBuilder(
+                animation: _animationController,
+                builder: (context, child) {
+                  double scale = 1.0;
+                  if (_isRunning) {
+                    if (_phaseIndex == 0) {
+                      scale = 1.0 + (_animationController.value * 1.2);
+                    } else if (_phaseIndex == 1) {
+                      scale = 2.2;
+                    } else if (_phaseIndex == 2) {
+                      scale = 1.0 + (_animationController.value * 1.2);
+                    } else if (_phaseIndex == 3) {
+                      scale = 1.0;
+                    }
+                  }
+
+                  double progress = 0.0;
+                  Color ringColor = Colors.lightBlueAccent;
+                  bool isReversed = false;
+
+                  if (_isRunning) {
+                    if (_phaseIndex == 0) {
+                      progress = _animationController.value;
+                      ringColor = Colors.cyanAccent;
+                      isReversed = false;
+                    } else if (_phaseIndex == 1) {
+                      progress = 1.0; // Static filled circle during Hold
+                      ringColor = Colors.purpleAccent;
+                      isReversed = false;
+                    } else if (_phaseIndex == 2) {
+                      progress = 1.0 - _animationController.value; // Grow counter-clockwise from empty to full during exhale
+                      ringColor = Colors.tealAccent;
+                      isReversed = true; // Backward motion!
+                    } else if (_phaseIndex == 3) {
+                      progress = 0.0; // Static empty circle during Hold
+                      ringColor = Colors.amberAccent;
+                      isReversed = false;
+                    }
+                  }
+
+                  return Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      // 1. Glowing Circular Progress Ring
+                      SizedBox(
+                        width: 280,
+                        height: 280,
+                        child: CustomPaint(
+                          painter: _GlowingProgressPainter(
+                            progress: progress,
+                            color: ringColor,
+                            isReversed: isReversed,
+                          ),
+                        ),
                       ),
-                      border: Border.all(color: Colors.lightBlueAccent.withValues(alpha: 0.8), width: 2),
-                    ),
-                  ),
-                ),
+                      
+                      // 2. Breathing Bubble
+                      Transform.scale(
+                        scale: scale,
+                        child: Container(
+                          width: 100,
+                          height: 100,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: RadialGradient(
+                              colors: [
+                                ringColor.withValues(alpha: 0.6),
+                                ringColor.withValues(alpha: 0.1),
+                              ],
+                            ),
+                            border: Border.all(color: ringColor.withValues(alpha: 0.8), width: 2),
+                            boxShadow: [
+                              BoxShadow(
+                                color: ringColor.withValues(alpha: 0.3),
+                                blurRadius: 15,
+                                spreadRadius: 2,
+                              )
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
             const SizedBox(height: 40),
@@ -2180,7 +2987,23 @@ class _BreathingPlayerScreenState extends State<BreathingPlayerScreen> {
               _currentInstruction,
               style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.w300, letterSpacing: 2),
             ),
-            const SizedBox(height: 60),
+            const SizedBox(height: 8),
+            // Seconds Counter
+            if (_isRunning)
+              AnimatedBuilder(
+                animation: _animationController,
+                builder: (context, _) {
+                  int duration = widget.phases[_phaseIndex];
+                  double elapsed = _animationController.value * duration;
+                  int remaining = (duration - elapsed).ceil();
+                  if (remaining < 0) remaining = 0;
+                  return Text(
+                    '${remaining}s',
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 24, fontWeight: FontWeight.w200),
+                  );
+                }
+              ),
+            const SizedBox(height: 40),
             // Play / Stop Button
             FloatingActionButton.large(
               onPressed: _toggleBreathing,
@@ -2192,6 +3015,73 @@ class _BreathingPlayerScreenState extends State<BreathingPlayerScreen> {
         ),
       ),
     );
+  }
+}
+
+// Glowing progress indicator painter for Breathing exercises
+class _GlowingProgressPainter extends CustomPainter {
+  final double progress;
+  final Color color;
+  final bool isReversed;
+
+  _GlowingProgressPainter({
+    required this.progress,
+    required this.color,
+    this.isReversed = false,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = (size.width - 12) / 2;
+
+    // 1. Draw background faint circle
+    final bgPaint = Paint()
+      ..color = color.withValues(alpha: 0.1)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 6.0;
+    canvas.drawCircle(center, radius, bgPaint);
+
+    if (progress <= 0) return;
+
+    // 2. Draw glowing shadow layer
+    final shadowPaint = Paint()
+      ..color = color.withValues(alpha: 0.4)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 10.0
+      ..strokeCap = StrokeCap.round
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6.0);
+
+    // 3. Draw active progress arc
+    final activePaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 6.0
+      ..strokeCap = StrokeCap.round;
+
+    const startAngle = -math.pi / 2;
+    final sweepAngle = 2 * math.pi * progress * (isReversed ? -1 : 1);
+
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      startAngle,
+      sweepAngle,
+      false,
+      shadowPaint,
+    );
+
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      startAngle,
+      sweepAngle,
+      false,
+      activePaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _GlowingProgressPainter oldDelegate) {
+    return oldDelegate.progress != progress || oldDelegate.color != color || oldDelegate.isReversed != isReversed;
   }
 }
 
@@ -2420,8 +3310,40 @@ class _AIStudyPlannerBottomSheetState extends State<AIStudyPlannerBottomSheet> {
   final List<SubjectItem> _subjects = [SubjectItem()];
   double _studyHours = 2.0;
   final TextEditingController _daysController = TextEditingController();
+  String? _geminiApiKey;
+  final User? _currentUser = FirebaseAuth.instance.currentUser;
 
   List<Task> _generatedTasks = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadApiKey();
+  }
+
+  @override
+  void dispose() {
+    _daysController.dispose();
+    for (var subject in _subjects) {
+      subject.nameCtrl.dispose();
+      subject.topicCtrl.dispose();
+    }
+    super.dispose();
+  }
+
+  Future<void> _loadApiKey() async {
+    if (_currentUser == null) return;
+    try {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(_currentUser.uid).get();
+      if (doc.exists && doc.data() != null) {
+        setState(() {
+          _geminiApiKey = doc.data()?['geminiApiKey'] as String?;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading API key in study planner: $e');
+    }
+  }
 
   void _addSubject() {
     setState(() {
@@ -2431,7 +3353,9 @@ class _AIStudyPlannerBottomSheetState extends State<AIStudyPlannerBottomSheet> {
 
   void _removeSubject(int index) {
     setState(() {
-      _subjects.removeAt(index);
+      final sub = _subjects.removeAt(index);
+      sub.nameCtrl.dispose();
+      sub.topicCtrl.dispose();
     });
   }
 
@@ -2445,30 +3369,70 @@ class _AIStudyPlannerBottomSheetState extends State<AIStudyPlannerBottomSheet> {
       _step = 2;
     });
 
-    await Future.delayed(const Duration(seconds: 3));
+    final String goals = _subjects.map((sub) {
+      final name = sub.nameCtrl.text.trim();
+      final topic = sub.topicCtrl.text.trim();
+      return topic.isEmpty ? name : '$name (Topic: $topic)';
+    }).join(', ');
+
+    final promptContext = 'Subjects/topics: $goals. Total study hours: $_studyHours hours. Days remaining: ${_daysController.text.trim().isEmpty ? "unspecified" : _daysController.text.trim()}.';
+
+    List<Map<String, dynamic>> rawTasks = [];
+    try {
+      rawTasks = await AIService.generateStudyPlan(promptContext, _geminiApiKey);
+    } catch (e) {
+      debugPrint('Error generating study plan with Gemini: $e');
+    }
 
     int totalMinutes = (_studyHours * 60).toInt();
-    int timePerSubject = totalMinutes ~/ _subjects.length;
     DateTime currentTime = DateTime.now();
     List<Task> tempTasks = [];
 
-    for (int i = 0; i < _subjects.length; i++) {
-      var sub = _subjects[i];
-      DateTime taskEndTime = currentTime.add(Duration(minutes: timePerSubject));
-      
-      tempTasks.add(Task(
-        id: DateTime.now().millisecondsSinceEpoch.toString() + i.toString(),
-        title: sub.nameCtrl.text.trim(),
-        subject: sub.nameCtrl.text.trim(),
-        notes: 'Topic: ${sub.topicCtrl.text.trim().isEmpty ? "General review" : sub.topicCtrl.text.trim()}',
-        startTime: currentTime,
-        endTime: taskEndTime,
-        totalDurationMinutes: timePerSubject,
-        category: 'AI Planned',
-      ));
-      
-      if (i < _subjects.length - 1) {
-        currentTime = taskEndTime.add(const Duration(minutes: 10)); 
+    if (rawTasks.isNotEmpty) {
+      for (int i = 0; i < rawTasks.length; i++) {
+        var rawTask = rawTasks[i];
+        final String title = rawTask['title'] ?? 'Study Session';
+        final String category = rawTask['category'] ?? 'Study';
+        final int duration = rawTask['durationMinutes'] ?? (totalMinutes ~/ rawTasks.length);
+        
+        DateTime taskEndTime = currentTime.add(Duration(minutes: duration));
+        
+        tempTasks.add(Task(
+          id: DateTime.now().millisecondsSinceEpoch.toString() + i.toString(),
+          title: title,
+          subject: _subjects[0].nameCtrl.text.trim(),
+          notes: 'AI generated study plan task',
+          startTime: currentTime,
+          endTime: taskEndTime,
+          totalDurationMinutes: duration,
+          category: category,
+        ));
+        
+        if (i < rawTasks.length - 1) {
+          currentTime = taskEndTime.add(const Duration(minutes: 10)); 
+        }
+      }
+    } else {
+      // Local fallback logic
+      int timePerSubject = totalMinutes ~/ _subjects.length;
+      for (int i = 0; i < _subjects.length; i++) {
+        var sub = _subjects[i];
+        DateTime taskEndTime = currentTime.add(Duration(minutes: timePerSubject));
+        
+        tempTasks.add(Task(
+          id: DateTime.now().millisecondsSinceEpoch.toString() + i.toString(),
+          title: sub.nameCtrl.text.trim(),
+          subject: sub.nameCtrl.text.trim(),
+          notes: 'Topic: ${sub.topicCtrl.text.trim().isEmpty ? "General review" : sub.topicCtrl.text.trim()}',
+          startTime: currentTime,
+          endTime: taskEndTime,
+          totalDurationMinutes: timePerSubject,
+          category: 'AI Planned',
+        ));
+        
+        if (i < _subjects.length - 1) {
+          currentTime = taskEndTime.add(const Duration(minutes: 10)); 
+        }
       }
     }
 
@@ -2529,7 +3493,7 @@ class _AIStudyPlannerBottomSheetState extends State<AIStudyPlannerBottomSheet> {
   }
 
   void _saveAsCombinedTask() {
-    int totalMinutes = _generatedTasks.fold(0, (sum, task) => sum + task.totalDurationMinutes);
+    int totalMinutes = _generatedTasks.fold<int>(0, (int sum, Task task) => sum + task.totalDurationMinutes);
     int totalBreaks = (_generatedTasks.length > 1) ? (_generatedTasks.length - 1) * 10 : 0;
     String combinedNotes = "AI Combined Session Breakdown:\n";
     for (var t in _generatedTasks) {
