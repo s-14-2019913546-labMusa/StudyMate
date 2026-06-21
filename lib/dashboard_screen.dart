@@ -11,6 +11,7 @@ import 'task_details_screen.dart'; // নতুন ফাইলটি ইমপ�
 import 'tools_screen.dart'; // Tools স্ক্রিন ইমপোর্ট
 import 'profile_screen.dart'; // Profile স্ক্রিন ইমপোর্ট
 import 'chat_screen.dart';
+import 'shared_task_form.dart';
 
 // ==========================================
 // 4. Dashboard Screen (ড্যাশবোর্ড স্ক্রিন)
@@ -700,6 +701,7 @@ class AddTaskBottomSheet extends StatefulWidget {
 }
 
 class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
+  String? _timeError;
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _subjectController = TextEditingController();
   final TextEditingController _topicController = TextEditingController();
@@ -709,58 +711,16 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
   TimeOfDay? _startTime;
   TimeOfDay? _endTime;
   bool _isPrivate = false;
-  String _selectedCategory = 'Study'; // Default category
-
+  String _selectedCategory = 'Study';
   final List<String> _categories = ['Study', 'Work', 'Sports', 'Other'];
   final List<Map<String, dynamic>> _customFolders = [];
   String? _selectedFolderSubject;
   String? _selectedFolderTopic;
 
-  @override
-  void initState() {
-    super.initState();
-    _loadCustomFolders();
-  }
-
-  Future<void> _loadCustomFolders() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-    try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .collection('studyFolders')
-          .get();
-      final folders = snapshot.docs.map((doc) => doc.data()).toList();
-      if (mounted) {
-        setState(() {
-          _customFolders.addAll(folders);
-          for (var f in folders) {
-            final name = f['name'] as String;
-            if (!_categories.contains(name)) {
-              _categories.add(name);
-            }
-          }
-        });
-      }
-    } catch (e) {
-      debugPrint("Error loading custom folders in AddTaskBottomSheet: $e");
-    }
-  }
-
-  @override
-  void dispose() {
-    _subjectController.dispose();
-    _topicController.dispose();
-    _challengesController.dispose();
-    _notesController.dispose();
-    super.dispose();
-  }
-
   Future<void> _pickTime(bool isStart) async {
     final TimeOfDay? picked = await showTimePicker(
       context: context,
-      initialTime: TimeOfDay.now(),
+      initialTime: isStart ? (_startTime ?? TimeOfDay.now()) : (_endTime ?? TimeOfDay.now()),
     );
     if (picked != null) {
       setState(() {
@@ -774,20 +734,27 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
   }
 
   void _submit() {
-    if (_formKey.currentState!.validate()) {
+    if (_formKey.currentState?.validate() ?? false) {
       if (_startTime == null || _endTime == null) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Please select both Start and End Time.'.tr())));
+        setState(() => _timeError = 'Please select both start and end times.');
         return;
       }
-
-      // সময় ক্যালকুলেশন
       final now = DateTime.now();
       final start = DateTime(now.year, now.month, now.day, _startTime!.hour, _startTime!.minute);
       var end = DateTime(now.year, now.month, now.day, _endTime!.hour, _endTime!.minute);
 
-      // যদি শেষের সময় শুরুর সময়ের আগে হয়, ধরে নেওয়া হবে এটি পরের দিনের সময়
       if (end.isBefore(start)) {
         end = end.add(const Duration(days: 1));
+      }
+
+      final bufferTime = now.subtract(const Duration(minutes: 1));
+      if (start.isBefore(bufferTime)) {
+        setState(() => _timeError = 'Start time cannot be in the past!');
+        return;
+      }
+      if (end.isBefore(bufferTime)) {
+        setState(() => _timeError = 'End time cannot be in the past!');
+        return;
       }
 
       final durationMinutes = end.difference(start).inMinutes;
@@ -807,313 +774,35 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
       );
 
       widget.onTaskAdded(newTask);
-      Navigator.pop(context); // ফর্ম বন্ধ করে দেবে
+      Navigator.pop(context);
     }
   }
+
+
 
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     final colorScheme = Theme.of(context).colorScheme;
     final onSurfaceColor = colorScheme.onSurface;
-
     return Container(
       decoration: BoxDecoration(
         color: colorScheme.surface,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      child: SafeArea(
-        top: true,
-        bottom: false,
-        child: Padding(
-          padding: EdgeInsets.only(left: 24.0, right: 24.0, top: 24.0, bottom: bottomInset + 24.0),
-          child: Form(
-            key: _formKey,
-            child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'Add New Task'.tr(),
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: onSurfaceColor),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 20),
-              
-              // সাবজেক্টের নাম
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Subject Name *',
-                    style: TextStyle(fontWeight: FontWeight.bold, color: onSurfaceColor, fontSize: 14),
-                  ),
-                  const SizedBox(height: 6),
-                  TextFormField(
-                    controller: _subjectController,
-                    decoration: InputDecoration(
-                      hintText: 'e.g. Mathematics, Bangla',
-                      prefixIcon: const Icon(Icons.subject),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    validator: (val) => val == null || val.isEmpty ? 'Enter a subject name' : null,
-                    style: TextStyle(color: onSurfaceColor),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // টপিক নেম
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Topic Name',
-                    style: TextStyle(fontWeight: FontWeight.bold, color: onSurfaceColor, fontSize: 14),
-                  ),
-                  const SizedBox(height: 6),
-                  TextFormField(
-                    controller: _topicController,
-                    decoration: InputDecoration(
-                      hintText: 'e.g. Chapter 3, Algebra',
-                      prefixIcon: const Icon(Icons.title),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    style: TextStyle(color: onSurfaceColor),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // সম্ভাব্য সমস্যা (Possible Challenges)
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Possible Challenges',
-                    style: TextStyle(fontWeight: FontWeight.bold, color: onSurfaceColor, fontSize: 14),
-                  ),
-                  const SizedBox(height: 6),
-                  TextFormField(
-                    controller: _challengesController,
-                    decoration: InputDecoration(
-                      hintText: 'e.g. Power outage, complex equations',
-                      prefixIcon: const Icon(Icons.warning_amber_rounded),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    style: TextStyle(color: onSurfaceColor),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              
-              // টাস্ক গোল বা নোটস
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Task Goal / Notes',
-                    style: TextStyle(fontWeight: FontWeight.bold, color: onSurfaceColor, fontSize: 14),
-                  ),
-                  const SizedBox(height: 6),
-                  TextFormField(
-                    controller: _notesController,
-                    decoration: InputDecoration(
-                      hintText: 'e.g. Complete exercise questions 1-10',
-                      prefixIcon: const Icon(Icons.notes),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    maxLines: 3,
-                    style: TextStyle(color: onSurfaceColor),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // সময় নির্বাচন
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () => _pickTime(true),
-                      icon: Icon(Icons.access_time, color: onSurfaceColor),
-                      label: Text(
-                        _startTime?.format(context) ?? 'Start Time',
-                        style: TextStyle(color: onSurfaceColor),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: onSurfaceColor.withValues(alpha: 0.3)),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () => _pickTime(false),
-                      icon: Icon(Icons.access_time, color: onSurfaceColor),
-                      label: Text(
-                        _endTime?.format(context) ?? 'End Time',
-                        style: TextStyle(color: onSurfaceColor),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: onSurfaceColor.withValues(alpha: 0.3)),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // ক্যাটাগরি চিপস
-              Text('Category', style: Theme.of(context).textTheme.titleSmall?.copyWith(color: onSurfaceColor)),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 10.0,
-                children: _categories.map((cat) {
-                  final isSelected = _selectedCategory == cat;
-                  return ChoiceChip(
-                    label: Text(
-                      cat.tr(),
-                      style: TextStyle(color: isSelected ? Colors.white : onSurfaceColor),
-                    ),
-                    selected: isSelected,
-                    selectedColor: colorScheme.primary,
-                    backgroundColor: colorScheme.surface,
-                    onSelected: (selected) {
-                      if (selected) {
-                        setState(() {
-                          _selectedCategory = cat;
-                          _selectedFolderSubject = null;
-                          _selectedFolderTopic = null;
-                        });
-                      }
-                    },
-                  );
-                }).toList(),
-              ),
-              // Syllabus Integration for custom folders
-              Builder(
-                builder: (context) {
-                  final matchingFolder = _customFolders.firstWhere(
-                    (f) => f['name'] == _selectedCategory,
-                    orElse: () => {},
-                  );
-                  final subjects = matchingFolder['subjects'] as List<dynamic>? ?? [];
-
-                  if (matchingFolder.isNotEmpty && subjects.isNotEmpty) {
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 12),
-                        Text(
-                          'Select Subject from Syllabus'.tr(),
-                          style: TextStyle(fontWeight: FontWeight.bold, color: onSurfaceColor, fontSize: 13),
-                        ),
-                        const SizedBox(height: 6),
-                        Wrap(
-                          spacing: 8,
-                          children: subjects.map((sub) {
-                            final subName = sub['name'] as String;
-                            final isSubSelected = _selectedFolderSubject == subName;
-                            return ChoiceChip(
-                              label: Text(subName),
-                              selected: isSubSelected,
-                              selectedColor: colorScheme.secondary,
-                              onSelected: (selected) {
-                                setState(() {
-                                  _selectedFolderSubject = selected ? subName : null;
-                                  _selectedFolderTopic = null;
-                                  if (selected) {
-                                    _subjectController.text = subName;
-                                  }
-                                });
-                              },
-                            );
-                          }).toList(),
-                        ),
-                        if (_selectedFolderSubject != null) ...[
-                          const SizedBox(height: 12),
-                          Text(
-                            'Select Topic from Syllabus'.tr(),
-                            style: TextStyle(fontWeight: FontWeight.bold, color: onSurfaceColor, fontSize: 13),
-                          ),
-                          const SizedBox(height: 6),
-                          Builder(
-                            builder: (context) {
-                              final subMap = subjects.firstWhere(
-                                (s) => s['name'] == _selectedFolderSubject,
-                                orElse: () => {},
-                              );
-                              final topics = subMap['topics'] as List<dynamic>? ?? [];
-                              if (topics.isEmpty) {
-                                  return Text(
-                                    'No topics in this subject'.tr(),
-                                    style: const TextStyle(fontSize: 12, color: Colors.grey),
-                                  );
-                              }
-                              return Wrap(
-                                spacing: 8,
-                                children: topics.map((t) {
-                                  final topicName = t['name'] as String;
-                                  final isTopicSelected = _selectedFolderTopic == topicName;
-                                  return ChoiceChip(
-                                    label: Text(topicName),
-                                    selected: isTopicSelected,
-                                    selectedColor: colorScheme.secondary.withValues(alpha: 0.8),
-                                    onSelected: (selected) {
-                                      setState(() {
-                                        _selectedFolderTopic = selected ? topicName : null;
-                                        if (selected) {
-                                          _topicController.text = topicName;
-                                        }
-                                      });
-                                    },
-                                  );
-                                }).toList(),
-                              );
-                            },
-                          ),
-                        ],
-                      ],
-                    );
-                  }
-                  return const SizedBox.shrink();
-                },
-              ),
-              const SizedBox(height: 16),
-
-              // প্রাইভেট টগল
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text('Private Task', style: TextStyle(fontWeight: FontWeight.bold, color: onSurfaceColor)),
-                subtitle: Text('Hide task name from others', style: TextStyle(color: colorScheme.onSurfaceVariant)),
-                value: _isPrivate,
-                activeColor: Theme.of(context).colorScheme.primary,
-                onChanged: (val) => setState(() => _isPrivate = val),
-              ),
-              const SizedBox(height: 24),
-
-              // যুক্ত করার বাটন
-              ElevatedButton(
-                onPressed: _submit,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: colorScheme.primary,
-                  foregroundColor: colorScheme.onPrimary,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                child: const Text('টাস্ক যুক্ত করুন (Add Task)'),
-              ),
-            ],
-          ),
-        ),
+      padding: EdgeInsets.only(left: 24.0, right: 24.0, top: 24.0, bottom: bottomInset + 24.0),
+      child: SharedTaskForm(
+        categories: _categories,
+        onSubmit: (Task newTask) {
+          widget.onTaskAdded(newTask);
+          Navigator.pop(context);
+        },
       ),
-    ),
-  ),
-);
+    );
+  }
 }
-}
+
+
 
 class EditTaskBottomSheet extends StatefulWidget {
   final Task task;
@@ -1130,6 +819,7 @@ class EditTaskBottomSheet extends StatefulWidget {
 }
 
 class _EditTaskBottomSheetState extends State<EditTaskBottomSheet> {
+  String? _timeError;
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _subjectController;
   late final TextEditingController _topicController;
@@ -1234,6 +924,28 @@ class _EditTaskBottomSheetState extends State<EditTaskBottomSheet> {
 
       if (end.isBefore(start)) {
         end = end.add(const Duration(days: 1));
+      }
+
+      // Check if start or end times were changed to a past time
+      final bufferTime = now.subtract(const Duration(minutes: 1));
+      final bool startChanged = widget.task.startTime == null ||
+          widget.task.startTime!.hour != _startTime!.hour ||
+          widget.task.startTime!.minute != _startTime!.minute;
+      final bool endChanged = widget.task.endTime == null ||
+          widget.task.endTime!.hour != _endTime!.hour ||
+          widget.task.endTime!.minute != _endTime!.minute;
+
+      if (startChanged && start.isBefore(bufferTime)) {
+          setState(() {
+            _timeError = 'Start time cannot be in the past!';
+          });
+          return;
+      }
+      if (endChanged && end.isBefore(bufferTime)) {
+          setState(() {
+            _timeError = 'End time cannot be in the past!';
+          });
+          return;
       }
 
       final durationMinutes = end.difference(start).inMinutes;
@@ -1840,7 +1552,7 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                     backgroundColor: Theme.of(context).colorScheme.primary,
                     foregroundColor: Theme.of(context).colorScheme.onPrimary,
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+
                   ),
                   child: const Text('Submit & Done', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                 ),

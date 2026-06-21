@@ -310,7 +310,25 @@ Write in the same language as the prompt (if the prompt is in Bengali, write in 
   // -------------------------------------------------------------
   // 4. Study Planner
   // -------------------------------------------------------------
-  static Future<List<Map<String, dynamic>>> generateStudyPlan(String goals, String? apiKey) async {
+  static bool _hasBengali(String text) {
+    for (int i = 0; i < text.length; i++) {
+      int code = text.codeUnitAt(i);
+      if (code >= 0x0980 && code <= 0x09FF) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // -------------------------------------------------------------
+  // 4. Study Planner
+  // -------------------------------------------------------------
+  static Future<List<Map<String, dynamic>>> generateStudyPlan(
+    String goals,
+    String? apiKey, {
+    List<Map<String, String>>? subjects,
+    double studyHours = 2.0,
+  }) async {
     if (apiKey != null && apiKey.isNotEmpty) {
       try {
         final prompt = '''
@@ -349,13 +367,108 @@ Do not write any markdown code blocks (like ```json), explanations, or preamble.
       }
     }
 
-    // Local fallback study plans
-    return [
-      {'title': 'পড়া শুরু করার প্রস্তুতি ও পরিকল্পনা', 'category': 'Study', 'durationMinutes': 15},
-      {'title': 'মূল বিষয়ের গুরুত্বপূর্ণ অধ্যায় রিভিশন', 'category': 'Study', 'durationMinutes': 60},
-      {'title': 'পড়াশোনার মাঝে ফোকাস ও মাইন্ড রিফ্রেশমেন্ট', 'category': 'Other', 'durationMinutes': 10},
-      {'title': 'নিজের শেখা বিষয়গুলো লিখে নোট তৈরি', 'category': 'Study', 'durationMinutes': 45},
-    ];
+    // Local smart dynamic fallback
+    if (subjects == null || subjects.isEmpty) {
+      return [
+        {'title': 'পড়া শুরু করার প্রস্তুতি ও পরিকল্পনা', 'category': 'Study', 'durationMinutes': 15},
+        {'title': 'মূল বিষয়ের গুরুত্বপূর্ণ অধ্যায় রিভিশন', 'category': 'Study', 'durationMinutes': 60},
+        {'title': 'পড়াশোনার মাঝে ফোকাস ও মাইন্ড রিফ্রেশমেন্ট', 'category': 'Other', 'durationMinutes': 10},
+        {'title': 'নিজের শেখা বিষয়গুলো লিখে নোট তৈরি', 'category': 'Study', 'durationMinutes': 45},
+      ];
+    }
+
+    final int totalMinutes = (studyHours * 60).toInt();
+    final int N = subjects.length;
+    
+    // Determine break duration
+    int breakDuration = 10;
+    int totalBreaks = N - 1;
+    int totalBreakMinutes = totalBreaks * breakDuration;
+    int totalStudyMinutes = totalMinutes - totalBreakMinutes;
+
+    if (totalStudyMinutes < 15 * N) {
+      breakDuration = 5;
+      totalBreakMinutes = totalBreaks * breakDuration;
+      totalStudyMinutes = totalMinutes - totalBreakMinutes;
+      if (totalStudyMinutes < 15 * N) {
+        breakDuration = 0;
+        totalBreakMinutes = 0;
+        totalStudyMinutes = totalMinutes;
+      }
+    }
+
+    final int studyMinutesPerSubject = totalStudyMinutes ~/ N;
+    final int remainderMinutes = totalStudyMinutes % N;
+
+    // Detect language: if any subject name or topic has Bengali characters, use Bengali
+    bool useBengali = false;
+    for (var s in subjects) {
+      final subName = s['subject'] ?? '';
+      final subTopic = s['topic'] ?? '';
+      if (_hasBengali(subName) || _hasBengali(subTopic)) {
+        useBengali = true;
+        break;
+      }
+    }
+
+    final List<Map<String, dynamic>> localTasks = [];
+    for (int i = 0; i < N; i++) {
+      final subMap = subjects[i];
+      final String subName = (subMap['subject'] ?? '').trim();
+      final String subTopic = (subMap['topic'] ?? '').trim();
+
+      int currentSlotDuration = studyMinutesPerSubject;
+      if (i == 0) {
+        currentSlotDuration += remainderMinutes;
+      }
+
+      // Generate localized titles and notes
+      String title = '';
+      String notes = '';
+
+      if (useBengali) {
+        if (subTopic.isNotEmpty) {
+          title = '$subName - $subTopic';
+          notes = 'টপিক: $subTopic এর ওপর বিস্তারিত পড়াশোনা ও অনুশীলন সেশন।';
+        } else {
+          title = '$subName রিভিশন';
+          notes = '$subName বিষয়ের গুরুত্বপূর্ণ অংশসমূহ রিভিশন ও প্র্যাকটিস সেশন।';
+        }
+      } else {
+        if (subTopic.isNotEmpty) {
+          title = '$subName - $subTopic';
+          notes = 'Focus on topic: $subTopic in $subName. Study concepts & practice.';
+        } else {
+          title = 'Study $subName';
+          notes = 'Review key concepts and practice problems for $subName.';
+        }
+      }
+
+      localTasks.add({
+        'title': title,
+        'category': 'Study',
+        'durationMinutes': currentSlotDuration,
+        'subject': subName,
+        'notes': notes,
+      });
+
+      // Add break if not the last subject and breakDuration > 0
+      if (i < N - 1 && breakDuration > 0) {
+        String breakTitle = useBengali ? '১০ মিনিটের রিফ্রেশমেন্ট বিরতি' : '10 Mins Refreshment Break';
+        String breakNotes = useBengali 
+            ? 'একটু হেঁটে আসুন, পানি পান করুন এবং চোখের বিশ্রাম দিন।' 
+            : 'Stretch, hydrate, and relax your eyes.';
+        localTasks.add({
+          'title': breakTitle,
+          'category': 'Other',
+          'durationMinutes': breakDuration,
+          'subject': 'Break',
+          'notes': breakNotes,
+        });
+      }
+    }
+
+    return localTasks;
   }
 
   // -------------------------------------------------------------

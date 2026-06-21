@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -444,17 +445,17 @@ class AddWeeklyRoutineTaskBottomSheet extends StatefulWidget {
 }
 
 class _AddWeeklyRoutineTaskBottomSheetState extends State<AddWeeklyRoutineTaskBottomSheet> {
-  final _formKey = GlobalKey<FormState>();
-  final TextEditingController _subjectController = TextEditingController();
-  final TextEditingController _topicController = TextEditingController();
-  final TextEditingController _challengesController = TextEditingController();
-  final TextEditingController _notesController = TextEditingController();
-
+  String _selectedDay = 'Saturday';
+  String _selectedCategory = 'Study';
+  bool _isPrivate = false;
   TimeOfDay? _startTime;
   TimeOfDay? _endTime;
-  bool _isPrivate = false;
-  String _selectedCategory = 'Study';
-  String _selectedDay = 'Saturday';
+
+  final _formKey = GlobalKey<FormState>();
+  final _subjectController = TextEditingController();
+  final _topicController = TextEditingController();
+  final _challengesController = TextEditingController();
+  final _notesController = TextEditingController();
 
   final List<String> _categories = ['Study', 'Work', 'Sports', 'Other'];
   final List<String> _days = ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
@@ -463,6 +464,15 @@ class _AddWeeklyRoutineTaskBottomSheetState extends State<AddWeeklyRoutineTaskBo
   void initState() {
     super.initState();
     _loadCustomFolders();
+  }
+
+  @override
+  void dispose() {
+    _subjectController.dispose();
+    _topicController.dispose();
+    _challengesController.dispose();
+    _notesController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadCustomFolders() async {
@@ -485,121 +495,166 @@ class _AddWeeklyRoutineTaskBottomSheetState extends State<AddWeeklyRoutineTaskBo
     }
   }
 
-  @override
-  void dispose() {
-    _subjectController.dispose();
-    _topicController.dispose();
-    _challengesController.dispose();
-    _notesController.dispose();
-    super.dispose();
-  }
-
   Future<void> _pickTime(bool isStart) async {
-    final TimeOfDay? picked = await showTimePicker(
+    final picked = await showTimePicker(
       context: context,
-      initialTime: TimeOfDay.now(),
+      initialTime: isStart
+          ? (_startTime ?? TimeOfDay.now())
+          : (_endTime ?? TimeOfDay.now()),
     );
-    if (picked != null) {
-      setState(() {
-        if (isStart) {
-          _startTime = picked;
-        } else {
-          _endTime = picked;
-        }
-      });
-    }
+    if (picked == null) return;
+    setState(() {
+      if (isStart) {
+        _startTime = picked;
+      } else {
+        _endTime = picked;
+      }
+    });
   }
 
-  void _submit() async {
-    final User? user = FirebaseAuth.instance.currentUser;
+  DateTime _getNextWeekdayDate(String dayName) {
+    const dayMap = {
+      'Saturday': DateTime.saturday,
+      'Sunday': DateTime.sunday,
+      'Monday': DateTime.monday,
+      'Tuesday': DateTime.tuesday,
+      'Wednesday': DateTime.wednesday,
+      'Thursday': DateTime.thursday,
+      'Friday': DateTime.friday,
+    };
+    final target = dayMap[dayName] ?? DateTime.saturday;
+    final now = DateTime.now();
+    int daysUntil = (target - now.weekday + 7) % 7;
+    if (daysUntil == 0) daysUntil = 7;
+    return now.add(Duration(days: daysUntil));
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    if (_startTime == null || _endTime == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('অনুগ্রহ করে শুরু ও শেষের সময় দিন')),
+      );
+      return;
+    }
+    final startMinutes = _startTime!.hour * 60 + _startTime!.minute;
+    final endMinutes = _endTime!.hour * 60 + _endTime!.minute;
+    if (endMinutes <= startMinutes) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('শেষের সময় শুরুর সময়ের পরে হতে হবে')),
+      );
+      return;
+    }
+
+    final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    if (_formKey.currentState!.validate()) {
-      if (_startTime == null || _endTime == null) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select both Start and End Time.')));
-        return;
-      }
+    final targetDate = _getNextWeekdayDate(_selectedDay);
+    final startDateTime = DateTime(
+      targetDate.year, targetDate.month, targetDate.day,
+      _startTime!.hour, _startTime!.minute,
+    );
+    final endDateTime = DateTime(
+      targetDate.year, targetDate.month, targetDate.day,
+      _endTime!.hour, _endTime!.minute,
+    );
 
-      final now = DateTime.now();
-      final start = DateTime(now.year, now.month, now.day, _startTime!.hour, _startTime!.minute);
-      var end = DateTime(now.year, now.month, now.day, _endTime!.hour, _endTime!.minute);
+    final taskSubject = _subjectController.text.trim();
+    final task = Task(
+      id: UniqueKey().toString(),
+      title: taskSubject,
+      subject: taskSubject,
+      topic: _topicController.text.trim(),
+      challenges: _challengesController.text.trim(),
+      notes: _notesController.text.trim(),
+      startTime: startDateTime,
+      endTime: endDateTime,
+      category: _selectedCategory,
+      isPrivate: _isPrivate,
+    );
 
-      if (end.isBefore(start)) {
-        end = end.add(const Duration(days: 1));
-      }
-
-      final durationMinutes = end.difference(start).inMinutes;
-
-      final newTask = Task(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        title: _subjectController.text.trim(),
-        subject: _subjectController.text.trim(),
-        topic: _topicController.text.trim(),
-        challenges: _challengesController.text.trim(),
-        notes: _notesController.text.trim(),
-        startTime: start,
-        endTime: end,
-        isPrivate: _isPrivate,
-        category: _selectedCategory,
-        totalDurationMinutes: durationMinutes,
-      );
-
-      final docRef = FirebaseFirestore.instance
+    try {
+      await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
           .collection('weeklyRoutines')
-          .doc(_selectedDay);
-
-      final snapshot = await docRef.get();
-      if (snapshot.exists) {
-        await docRef.update({
-          'tasks': FieldValue.arrayUnion([newTask.toMap()])
-        });
-      } else {
-        await docRef.set({
-          'day': _selectedDay,
-          'tasks': [newTask.toMap()],
-        });
-      }
+          .doc(_selectedDay)
+          .collection('tasks')
+          .add(task.toMap());
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Added to $_selectedDay weekly routine!')));
-        Navigator.pop(context);
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$_selectedDay-এ টাস্ক যুক্ত হয়েছে!')),
+        );
+      }
+    } catch (e) {
+      debugPrint("Error saving weekly task: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('টাস্ক সেভ করতে সমস্যা হয়েছে')),
+        );
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     final colorScheme = Theme.of(context).colorScheme;
     final onSurfaceColor = colorScheme.onSurface;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      padding: EdgeInsets.only(left: 24.0, right: 24.0, top: 24.0, bottom: bottomInset + 24.0),
-      child: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'Add Weekly Routine Task',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+        child: Container(
+          decoration: BoxDecoration(
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.82)
+                : Colors.white.withValues(alpha: 0.92),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+            border: Border.all(
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.08)
+                  : Colors.black.withValues(alpha: 0.06),
+            ),
+          ),
+          child: Padding(
+            padding: EdgeInsets.only(
+              left: 16, right: 16, top: 16,
+              bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+            ),
+            child: Form(
+              key: _formKey,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+              // Header
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'উইকলি রুটিনে টাস্ক যুক্ত করুন',
+                    style: TextStyle(
+                      fontSize: 18,
                       fontWeight: FontWeight.bold,
                       color: onSurfaceColor,
                     ),
-                textAlign: TextAlign.center,
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
 
+              // Day selector
               Text(
-                'Select Day (দিন নির্বাচন)',
+                'দিন বাছুন (Select Day)',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
@@ -609,8 +664,6 @@ class _AddWeeklyRoutineTaskBottomSheetState extends State<AddWeeklyRoutineTaskBo
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
                 value: _selectedDay,
-                dropdownColor: colorScheme.surface,
-                style: TextStyle(color: onSurfaceColor),
                 decoration: InputDecoration(
                   border: const OutlineInputBorder(),
                   enabledBorder: OutlineInputBorder(
@@ -619,18 +672,21 @@ class _AddWeeklyRoutineTaskBottomSheetState extends State<AddWeeklyRoutineTaskBo
                   focusedBorder: OutlineInputBorder(
                     borderSide: BorderSide(color: colorScheme.primary),
                   ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  prefixIcon: Icon(Icons.calendar_today, color: colorScheme.primary),
                 ),
-                items: _days.map((d) => DropdownMenuItem(
-                  value: d,
-                  child: Text(d, style: TextStyle(color: onSurfaceColor)),
+                dropdownColor: colorScheme.surface,
+                style: TextStyle(color: onSurfaceColor),
+                items: _days.map((day) => DropdownMenuItem(
+                  value: day,
+                  child: Text(day, style: TextStyle(color: onSurfaceColor)),
                 )).toList(),
                 onChanged: (val) {
                   if (val != null) setState(() => _selectedDay = val);
                 },
               ),
               const SizedBox(height: 16),
-              
+
+              // Subject
               Text(
                 'Subject Name (বিষয়)',
                 style: TextStyle(
@@ -644,7 +700,7 @@ class _AddWeeklyRoutineTaskBottomSheetState extends State<AddWeeklyRoutineTaskBo
                 controller: _subjectController,
                 style: TextStyle(color: onSurfaceColor),
                 decoration: InputDecoration(
-                  hintText: 'Enter Subject Name', 
+                  hintText: 'Enter Subject Name',
                   hintStyle: TextStyle(color: onSurfaceColor.withValues(alpha: 0.6)),
                   prefixIcon: Icon(Icons.subject, color: colorScheme.primary),
                   border: const OutlineInputBorder(),
@@ -655,10 +711,11 @@ class _AddWeeklyRoutineTaskBottomSheetState extends State<AddWeeklyRoutineTaskBo
                     borderSide: BorderSide(color: colorScheme.primary),
                   ),
                 ),
-                validator: (val) => val == null || val.isEmpty ? 'Enter a subject name' : null,
+                validator: (val) => val == null || val.isEmpty ? 'বিষয়ের নাম দিন' : null,
               ),
               const SizedBox(height: 16),
 
+              // Topic
               Text(
                 'Topic Name (বিষয়বস্তু)',
                 style: TextStyle(
@@ -672,7 +729,7 @@ class _AddWeeklyRoutineTaskBottomSheetState extends State<AddWeeklyRoutineTaskBo
                 controller: _topicController,
                 style: TextStyle(color: onSurfaceColor),
                 decoration: InputDecoration(
-                  hintText: 'Enter Topic Name', 
+                  hintText: 'Enter Topic Name',
                   hintStyle: TextStyle(color: onSurfaceColor.withValues(alpha: 0.6)),
                   prefixIcon: Icon(Icons.title_rounded, color: colorScheme.primary),
                   border: const OutlineInputBorder(),
@@ -686,6 +743,7 @@ class _AddWeeklyRoutineTaskBottomSheetState extends State<AddWeeklyRoutineTaskBo
               ),
               const SizedBox(height: 16),
 
+              // Challenges
               Text(
                 'Possible Challenges (সম্ভাব্য সমস্যা)',
                 style: TextStyle(
@@ -699,7 +757,7 @@ class _AddWeeklyRoutineTaskBottomSheetState extends State<AddWeeklyRoutineTaskBo
                 controller: _challengesController,
                 style: TextStyle(color: onSurfaceColor),
                 decoration: InputDecoration(
-                  hintText: 'Describe potential issues or difficulties...', 
+                  hintText: 'Describe potential issues or difficulties...',
                   hintStyle: TextStyle(color: onSurfaceColor.withValues(alpha: 0.6)),
                   prefixIcon: Icon(Icons.warning_amber_rounded, color: colorScheme.primary),
                   border: const OutlineInputBorder(),
@@ -712,7 +770,8 @@ class _AddWeeklyRoutineTaskBottomSheetState extends State<AddWeeklyRoutineTaskBo
                 ),
               ),
               const SizedBox(height: 16),
-              
+
+              // Notes
               Text(
                 'Task Goal / Notes (লক্ষ্য ও নোট)',
                 style: TextStyle(
@@ -726,7 +785,7 @@ class _AddWeeklyRoutineTaskBottomSheetState extends State<AddWeeklyRoutineTaskBo
                 controller: _notesController,
                 style: TextStyle(color: onSurfaceColor),
                 decoration: InputDecoration(
-                  hintText: 'Enter notes or specific goals...', 
+                  hintText: 'Enter notes or specific goals...',
                   hintStyle: TextStyle(color: onSurfaceColor.withValues(alpha: 0.6)),
                   prefixIcon: Icon(Icons.notes, color: colorScheme.primary),
                   border: const OutlineInputBorder(),
@@ -741,6 +800,7 @@ class _AddWeeklyRoutineTaskBottomSheetState extends State<AddWeeklyRoutineTaskBo
               ),
               const SizedBox(height: 16),
 
+              // Time pickers
               Row(
                 children: [
                   Expanded(
@@ -774,6 +834,7 @@ class _AddWeeklyRoutineTaskBottomSheetState extends State<AddWeeklyRoutineTaskBo
               ),
               const SizedBox(height: 16),
 
+              // Category
               Text(
                 'Category',
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(color: onSurfaceColor),
@@ -799,6 +860,7 @@ class _AddWeeklyRoutineTaskBottomSheetState extends State<AddWeeklyRoutineTaskBo
               ),
               const SizedBox(height: 16),
 
+              // Private toggle
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 title: Text(
@@ -815,21 +877,29 @@ class _AddWeeklyRoutineTaskBottomSheetState extends State<AddWeeklyRoutineTaskBo
               ),
               const SizedBox(height: 24),
 
+              // Submit button
               ElevatedButton(
                 onPressed: _submit,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: colorScheme.primary,
                   foregroundColor: colorScheme.onPrimary,
+                  minimumSize: const Size.fromHeight(48),
                 ),
-                child: const Text('উইকলি রুটিনে যুক্ত করুন (Add to Weekly)'),
+                child: const Text('উইকলি রুটিনে যুক্ত করুন'),
               ),
-            ],
+              const SizedBox(height: 8),
+                  ],
+                ),
+              ),
+            ),
           ),
         ),
       ),
     );
   }
 }
+
+
 
 // ==========================================
 // 10. Sleep Tracker Screen (স্লিপ ট্র্যাকার ও অ্যালার্ম)
@@ -4087,11 +4157,11 @@ class _AIStudyPlannerBottomSheetState extends State<AIStudyPlannerBottomSheet> {
   int _step = 1; // 1: Input, 2: Loading, 3: Result
   final List<SubjectItem> _subjects = [SubjectItem()];
   double _studyHours = 2.0;
-  final TextEditingController _daysController = TextEditingController();
   String? _geminiApiKey;
   final User? _currentUser = FirebaseAuth.instance.currentUser;
 
   List<Task> _generatedTasks = [];
+  bool _isOfflineGeneration = true;
 
   @override
   void initState() {
@@ -4101,7 +4171,6 @@ class _AIStudyPlannerBottomSheetState extends State<AIStudyPlannerBottomSheet> {
 
   @override
   void dispose() {
-    _daysController.dispose();
     for (var subject in _subjects) {
       subject.nameCtrl.dispose();
       subject.topicCtrl.dispose();
@@ -4153,13 +4222,39 @@ class _AIStudyPlannerBottomSheetState extends State<AIStudyPlannerBottomSheet> {
       return topic.isEmpty ? name : '$name (Topic: $topic)';
     }).join(', ');
 
-    final promptContext = 'Subjects/topics: $goals. Total study hours: $_studyHours hours. Days remaining: ${_daysController.text.trim().isEmpty ? "unspecified" : _daysController.text.trim()}.';
+    final promptContext = 'Subjects/topics: $goals. Total study hours: $_studyHours hours.';
+
+    final List<Map<String, String>> subjectsList = _subjects.map((sub) => {
+      'subject': sub.nameCtrl.text.trim(),
+      'topic': sub.topicCtrl.text.trim(),
+    }).toList();
 
     List<Map<String, dynamic>> rawTasks = [];
+    bool isOffline = true;
     try {
-      rawTasks = await AIService.generateStudyPlan(promptContext, _geminiApiKey);
+      if (_geminiApiKey != null && _geminiApiKey!.isNotEmpty) {
+        rawTasks = await AIService.generateStudyPlan(
+          promptContext,
+          _geminiApiKey,
+          subjects: subjectsList,
+          studyHours: _studyHours,
+        );
+        if (rawTasks.isNotEmpty) {
+          isOffline = false;
+        }
+      }
     } catch (e) {
       debugPrint('Error generating study plan with Gemini: $e');
+    }
+
+    if (rawTasks.isEmpty) {
+      isOffline = true;
+      rawTasks = await AIService.generateStudyPlan(
+        promptContext,
+        null,
+        subjects: subjectsList,
+        studyHours: _studyHours,
+      );
     }
 
     int totalMinutes = (_studyHours * 60).toInt();
@@ -4167,6 +4262,7 @@ class _AIStudyPlannerBottomSheetState extends State<AIStudyPlannerBottomSheet> {
     List<Task> tempTasks = [];
 
     if (rawTasks.isNotEmpty) {
+      final bool hasBreaksInRaw = rawTasks.any((t) => t['category'] == 'Other');
       for (int i = 0; i < rawTasks.length; i++) {
         var rawTask = rawTasks[i];
         final String title = rawTask['title'] ?? 'Study Session';
@@ -4178,8 +4274,8 @@ class _AIStudyPlannerBottomSheetState extends State<AIStudyPlannerBottomSheet> {
         tempTasks.add(Task(
           id: DateTime.now().millisecondsSinceEpoch.toString() + i.toString(),
           title: title,
-          subject: _subjects[0].nameCtrl.text.trim(),
-          notes: 'AI generated study plan task',
+          subject: rawTask['subject'] ?? _subjects[0].nameCtrl.text.trim(),
+          notes: rawTask['notes'] ?? 'AI generated study plan task',
           startTime: currentTime,
           endTime: taskEndTime,
           totalDurationMinutes: duration,
@@ -4187,34 +4283,13 @@ class _AIStudyPlannerBottomSheetState extends State<AIStudyPlannerBottomSheet> {
         ));
         
         if (i < rawTasks.length - 1) {
-          currentTime = taskEndTime.add(const Duration(minutes: 10)); 
-        }
-      }
-    } else {
-      // Local fallback logic
-      int timePerSubject = totalMinutes ~/ _subjects.length;
-      for (int i = 0; i < _subjects.length; i++) {
-        var sub = _subjects[i];
-        DateTime taskEndTime = currentTime.add(Duration(minutes: timePerSubject));
-        
-        tempTasks.add(Task(
-          id: DateTime.now().millisecondsSinceEpoch.toString() + i.toString(),
-          title: sub.nameCtrl.text.trim(),
-          subject: sub.nameCtrl.text.trim(),
-          notes: 'Topic: ${sub.topicCtrl.text.trim().isEmpty ? "General review" : sub.topicCtrl.text.trim()}',
-          startTime: currentTime,
-          endTime: taskEndTime,
-          totalDurationMinutes: timePerSubject,
-          category: 'AI Planned',
-        ));
-        
-        if (i < _subjects.length - 1) {
-          currentTime = taskEndTime.add(const Duration(minutes: 10)); 
+          currentTime = hasBreaksInRaw ? taskEndTime : taskEndTime.add(const Duration(minutes: 10)); 
         }
       }
     }
 
     setState(() {
+      _isOfflineGeneration = isOffline;
       _generatedTasks = tempTasks;
       _step = 3;
     });
@@ -4222,7 +4297,8 @@ class _AIStudyPlannerBottomSheetState extends State<AIStudyPlannerBottomSheet> {
 
   void _recalculateTimeline() {
     if (_generatedTasks.isEmpty) return;
-    DateTime currentTime = _generatedTasks.first.startTime ?? DateTime.now();
+    DateTime currentTime = DateTime.now();
+    final bool hasBreaksInRaw = _generatedTasks.any((t) => t.category == 'Other');
     for (int i = 0; i < _generatedTasks.length; i++) {
       var task = _generatedTasks[i];
       DateTime taskEndTime = currentTime.add(Duration(minutes: task.totalDurationMinutes));
@@ -4231,7 +4307,7 @@ class _AIStudyPlannerBottomSheetState extends State<AIStudyPlannerBottomSheet> {
         endTime: taskEndTime,
       );
       if (i < _generatedTasks.length - 1) {
-        currentTime = taskEndTime.add(const Duration(minutes: 10));
+        currentTime = hasBreaksInRaw ? taskEndTime : taskEndTime.add(const Duration(minutes: 10));
       }
     }
   }
@@ -4266,6 +4342,21 @@ class _AIStudyPlannerBottomSheetState extends State<AIStudyPlannerBottomSheet> {
   }
 
   void _saveAsSeparateTasks() {
+    if (_generatedTasks.isNotEmpty) {
+      DateTime currentTime = DateTime.now();
+      final bool hasBreaksInRaw = _generatedTasks.any((t) => t.category == 'Other');
+      for (int i = 0; i < _generatedTasks.length; i++) {
+        var task = _generatedTasks[i];
+        DateTime taskEndTime = currentTime.add(Duration(minutes: task.totalDurationMinutes));
+        _generatedTasks[i] = task.copyWith(
+          startTime: currentTime,
+          endTime: taskEndTime,
+        );
+        if (i < _generatedTasks.length - 1) {
+          currentTime = hasBreaksInRaw ? taskEndTime : taskEndTime.add(const Duration(minutes: 10));
+        }
+      }
+    }
     widget.onTasksGenerated(_generatedTasks);
     Navigator.pop(context);
   }
@@ -4340,12 +4431,6 @@ class _AIStudyPlannerBottomSheetState extends State<AIStudyPlannerBottomSheet> {
               Text('${_studyHours.toStringAsFixed(1)} Hrs', style: const TextStyle(fontWeight: FontWeight.bold)),
             ],
           ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _daysController,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(labelText: 'Days until Exam (Optional)', prefixIcon: Icon(Icons.calendar_today_rounded)),
-          ),
           const SizedBox(height: 24),
           Text('Subjects & Topics', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
@@ -4412,6 +4497,41 @@ class _AIStudyPlannerBottomSheetState extends State<AIStudyPlannerBottomSheet> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text('🎯 Your Smart Routine is Ready!', textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: Colors.green.shade600)),
+        const SizedBox(height: 8),
+        Center(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: _isOfflineGeneration 
+                  ? Theme.of(context).colorScheme.secondary.withValues(alpha: 0.1)
+                  : Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  _isOfflineGeneration ? Icons.offline_bolt_rounded : Icons.bolt_rounded,
+                  size: 16,
+                  color: _isOfflineGeneration 
+                      ? Theme.of(context).colorScheme.secondary 
+                      : Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  _isOfflineGeneration ? 'Offline Smart Mode (অফলাইন স্মার্ট মোড)' : 'Online AI Mode (অনলাইন এআই মোড)',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: _isOfflineGeneration 
+                        ? Theme.of(context).colorScheme.secondary 
+                        : Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
         const SizedBox(height: 20),
         Expanded(
           child: ListView.builder(
