@@ -712,6 +712,41 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
   String _selectedCategory = 'Study'; // Default category
 
   final List<String> _categories = ['Study', 'Work', 'Sports', 'Other'];
+  final List<Map<String, dynamic>> _customFolders = [];
+  String? _selectedFolderSubject;
+  String? _selectedFolderTopic;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCustomFolders();
+  }
+
+  Future<void> _loadCustomFolders() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('studyFolders')
+          .get();
+      final folders = snapshot.docs.map((doc) => doc.data()).toList();
+      if (mounted) {
+        setState(() {
+          _customFolders.addAll(folders);
+          for (var f in folders) {
+            final name = f['name'] as String;
+            if (!_categories.contains(name)) {
+              _categories.add(name);
+            }
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint("Error loading custom folders in AddTaskBottomSheet: $e");
+    }
+  }
 
   @override
   void dispose() {
@@ -939,17 +974,112 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
                   final isSelected = _selectedCategory == cat;
                   return ChoiceChip(
                     label: Text(
-                      cat,
+                      cat.tr(),
                       style: TextStyle(color: isSelected ? Colors.white : onSurfaceColor),
                     ),
                     selected: isSelected,
                     selectedColor: colorScheme.primary,
                     backgroundColor: colorScheme.surface,
                     onSelected: (selected) {
-                      if (selected) setState(() => _selectedCategory = cat);
+                      if (selected) {
+                        setState(() {
+                          _selectedCategory = cat;
+                          _selectedFolderSubject = null;
+                          _selectedFolderTopic = null;
+                        });
+                      }
                     },
                   );
                 }).toList(),
+              ),
+              // Syllabus Integration for custom folders
+              Builder(
+                builder: (context) {
+                  final matchingFolder = _customFolders.firstWhere(
+                    (f) => f['name'] == _selectedCategory,
+                    orElse: () => {},
+                  );
+                  final subjects = matchingFolder['subjects'] as List<dynamic>? ?? [];
+
+                  if (matchingFolder.isNotEmpty && subjects.isNotEmpty) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 12),
+                        Text(
+                          'Select Subject from Syllabus'.tr(),
+                          style: TextStyle(fontWeight: FontWeight.bold, color: onSurfaceColor, fontSize: 13),
+                        ),
+                        const SizedBox(height: 6),
+                        Wrap(
+                          spacing: 8,
+                          children: subjects.map((sub) {
+                            final subName = sub['name'] as String;
+                            final isSubSelected = _selectedFolderSubject == subName;
+                            return ChoiceChip(
+                              label: Text(subName),
+                              selected: isSubSelected,
+                              selectedColor: colorScheme.secondary,
+                              onSelected: (selected) {
+                                setState(() {
+                                  _selectedFolderSubject = selected ? subName : null;
+                                  _selectedFolderTopic = null;
+                                  if (selected) {
+                                    _subjectController.text = subName;
+                                  }
+                                });
+                              },
+                            );
+                          }).toList(),
+                        ),
+                        if (_selectedFolderSubject != null) ...[
+                          const SizedBox(height: 12),
+                          Text(
+                            'Select Topic from Syllabus'.tr(),
+                            style: TextStyle(fontWeight: FontWeight.bold, color: onSurfaceColor, fontSize: 13),
+                          ),
+                          const SizedBox(height: 6),
+                          Builder(
+                            builder: (context) {
+                              final subMap = subjects.firstWhere(
+                                (s) => s['name'] == _selectedFolderSubject,
+                                orElse: () => {},
+                              );
+                              final topics = subMap['topics'] as List<dynamic>? ?? [];
+                              if (topics.isEmpty) {
+                                  return Text(
+                                    'No topics in this subject'.tr(),
+                                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                  );
+                              }
+                              return Wrap(
+                                spacing: 8,
+                                children: topics.map((t) {
+                                  final topicName = t['name'] as String;
+                                  final isTopicSelected = _selectedFolderTopic == topicName;
+                                  return ChoiceChip(
+                                    label: Text(topicName),
+                                    selected: isTopicSelected,
+                                    selectedColor: colorScheme.secondary.withValues(alpha: 0.8),
+                                    onSelected: (selected) {
+                                      setState(() {
+                                        _selectedFolderTopic = selected ? topicName : null;
+                                        if (selected) {
+                                          _topicController.text = topicName;
+                                        }
+                                      });
+                                    },
+                                  );
+                                }).toList(),
+                              );
+                            },
+                          ),
+                        ],
+                      ],
+                    );
+                  }
+                  return const SizedBox.shrink();
+                },
               ),
               const SizedBox(height: 16),
 
@@ -1013,6 +1143,9 @@ class _EditTaskBottomSheetState extends State<EditTaskBottomSheet> {
   late String _selectedCategory;
 
   final List<String> _categories = ['Study', 'Work', 'Sports', 'Other'];
+  final List<Map<String, dynamic>> _customFolders = [];
+  String? _selectedFolderSubject;
+  String? _selectedFolderTopic;
 
   @override
   void initState() {
@@ -1031,6 +1164,33 @@ class _EditTaskBottomSheetState extends State<EditTaskBottomSheet> {
     }
     _isPrivate = widget.task.isPrivate;
     _selectedCategory = widget.task.category ?? 'Study';
+    _loadCustomFolders();
+  }
+
+  Future<void> _loadCustomFolders() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('studyFolders')
+          .get();
+      final folders = snapshot.docs.map((doc) => doc.data()).toList();
+      if (mounted) {
+        setState(() {
+          _customFolders.addAll(folders);
+          for (var f in folders) {
+            final name = f['name'] as String;
+            if (!_categories.contains(name)) {
+              _categories.add(name);
+            }
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint("Error loading custom folders in EditTaskBottomSheet: $e");
+    }
   }
 
   @override
@@ -1301,17 +1461,112 @@ class _EditTaskBottomSheetState extends State<EditTaskBottomSheet> {
                   final isSelected = _selectedCategory == cat;
                   return ChoiceChip(
                     label: Text(
-                      cat,
+                      cat.tr(),
                       style: TextStyle(color: isSelected ? Colors.white : onSurfaceColor),
                     ),
                     selected: isSelected,
                     selectedColor: colorScheme.primary,
                     backgroundColor: colorScheme.surface,
                     onSelected: (selected) {
-                      if (selected) setState(() => _selectedCategory = cat);
+                      if (selected) {
+                        setState(() {
+                          _selectedCategory = cat;
+                          _selectedFolderSubject = null;
+                          _selectedFolderTopic = null;
+                        });
+                      }
                     },
                   );
                 }).toList(),
+              ),
+              // Syllabus Integration for custom folders
+              Builder(
+                builder: (context) {
+                  final matchingFolder = _customFolders.firstWhere(
+                    (f) => f['name'] == _selectedCategory,
+                    orElse: () => {},
+                  );
+                  final subjects = matchingFolder['subjects'] as List<dynamic>? ?? [];
+
+                  if (matchingFolder.isNotEmpty && subjects.isNotEmpty) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 12),
+                        Text(
+                          'Select Subject from Syllabus'.tr(),
+                          style: TextStyle(fontWeight: FontWeight.bold, color: onSurfaceColor, fontSize: 13),
+                        ),
+                        const SizedBox(height: 6),
+                        Wrap(
+                          spacing: 8,
+                          children: subjects.map((sub) {
+                            final subName = sub['name'] as String;
+                            final isSubSelected = _selectedFolderSubject == subName;
+                            return ChoiceChip(
+                              label: Text(subName),
+                              selected: isSubSelected,
+                              selectedColor: colorScheme.secondary,
+                              onSelected: (selected) {
+                                setState(() {
+                                  _selectedFolderSubject = selected ? subName : null;
+                                  _selectedFolderTopic = null;
+                                  if (selected) {
+                                    _subjectController.text = subName;
+                                  }
+                                });
+                              },
+                            );
+                          }).toList(),
+                        ),
+                        if (_selectedFolderSubject != null) ...[
+                          const SizedBox(height: 12),
+                          Text(
+                            'Select Topic from Syllabus'.tr(),
+                            style: TextStyle(fontWeight: FontWeight.bold, color: onSurfaceColor, fontSize: 13),
+                          ),
+                          const SizedBox(height: 6),
+                          Builder(
+                            builder: (context) {
+                              final subMap = subjects.firstWhere(
+                                (s) => s['name'] == _selectedFolderSubject,
+                                orElse: () => {},
+                              );
+                              final topics = subMap['topics'] as List<dynamic>? ?? [];
+                              if (topics.isEmpty) {
+                                  return Text(
+                                    'No topics in this subject'.tr(),
+                                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                  );
+                              }
+                              return Wrap(
+                                spacing: 8,
+                                children: topics.map((t) {
+                                  final topicName = t['name'] as String;
+                                  final isTopicSelected = _selectedFolderTopic == topicName;
+                                  return ChoiceChip(
+                                    label: Text(topicName),
+                                    selected: isTopicSelected,
+                                    selectedColor: colorScheme.secondary.withValues(alpha: 0.8),
+                                    onSelected: (selected) {
+                                      setState(() {
+                                        _selectedFolderTopic = selected ? topicName : null;
+                                        if (selected) {
+                                          _topicController.text = topicName;
+                                        }
+                                      });
+                                    },
+                                  );
+                                }).toList(),
+                              );
+                            },
+                          ),
+                        ],
+                      ],
+                    );
+                  }
+                  return const SizedBox.shrink();
+                },
               ),
               const SizedBox(height: 16),
 
@@ -1370,6 +1625,7 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
   Timer? _timer;
   late int _elapsedSeconds;
   late String _status;
+  final List<Map<String, dynamic>> _folders = [];
 
   @override
   void initState() {
@@ -1378,6 +1634,47 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
     _status = widget.task.status;
     if (_status == 'running') {
       _startTimer(saveToDb: false);
+    }
+    _loadFolders();
+  }
+
+  Future<void> _loadFolders() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('studyFolders')
+          .get();
+      final list = snapshot.docs.map((doc) => doc.data()).toList();
+      if (mounted) {
+        setState(() {
+          _folders.addAll(list);
+        });
+      }
+    } catch (e) {
+      debugPrint("Error loading folders in ActiveTaskCard: $e");
+    }
+  }
+
+  Color _getCategoryColor(String category) {
+    for (var folder in _folders) {
+      if (folder['name'] == category && folder['color'] != null) {
+        try {
+          return Color(int.parse(folder['color'].replaceFirst('#', '0xFF')));
+        } catch (_) {}
+      }
+    }
+    switch (category) {
+      case 'Study':
+        return const Color(0xFF6366F1);
+      case 'Work':
+        return const Color(0xFFD97706);
+      case 'Sports':
+        return const Color(0xFF10B981);
+      default:
+        return Colors.blueGrey;
     }
   }
 
@@ -1616,6 +1913,28 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                       ),
                       const SizedBox(height: 4),
+                      if (widget.task.category != null && widget.task.category!.isNotEmpty) ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: _getCategoryColor(widget.task.category!).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: _getCategoryColor(widget.task.category!).withValues(alpha: 0.2),
+                              width: 1,
+                            ),
+                          ),
+                          child: Text(
+                            widget.task.category!.tr(),
+                            style: TextStyle(
+                              color: _getCategoryColor(widget.task.category!),
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                      ],
                       Text(
                         dateText,
                         style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),

@@ -26,6 +26,7 @@ import 'study_analytics_screen.dart';
 import 'task_history_screen.dart';
 import 'gamification_service.dart';
 import 'language_manager.dart';
+import 'study_folder_manager_screen.dart';
 
 class ToolsScreen extends StatelessWidget {
   final Function(List<Task>) onTasksGenerated;
@@ -47,6 +48,7 @@ class ToolsScreen extends StatelessWidget {
           {'title': 'PDF Reader', 'icon': Icons.picture_as_pdf_rounded, 'color': Colors.redAccent, 'action': 'pdf_reader'},
           {'title': 'Flashcards', 'icon': Icons.style_rounded, 'color': Colors.purpleAccent, 'action': 'flash'},
           {'title': 'Task History', 'icon': Icons.history_rounded, 'color': Colors.blueGrey, 'action': 'task_history'},
+          {'title': 'Study Folders', 'icon': Icons.folder_copy_rounded, 'color': Colors.teal, 'action': 'study_folders'},
         ]
       },
       {
@@ -177,6 +179,8 @@ class ToolsScreen extends StatelessWidget {
                                   Navigator.push(context, MaterialPageRoute(builder: (_) => const Revision147Screen()));
                                 } else if (tool['action'] == 'task_history') {
                                   Navigator.push(context, MaterialPageRoute(builder: (_) => const TaskHistoryScreen()));
+                                } else if (tool['action'] == 'study_folders') {
+                                  Navigator.push(context, MaterialPageRoute(builder: (_) => const StudyFolderManagerScreen()));
                                 } else if (tool['action'] == 'islamic') {
                                   Navigator.push(context, MaterialPageRoute(builder: (_) => const IslamicLifeScreen()));
                                 } else if (tool['action'] == 'theme') {
@@ -454,6 +458,32 @@ class _AddWeeklyRoutineTaskBottomSheetState extends State<AddWeeklyRoutineTaskBo
 
   final List<String> _categories = ['Study', 'Work', 'Sports', 'Other'];
   final List<String> _days = ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCustomFolders();
+  }
+
+  Future<void> _loadCustomFolders() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('studyFolders')
+          .get();
+      final folderNames = snapshot.docs.map((doc) => doc.data()['name'] as String).toList();
+      if (mounted && folderNames.isNotEmpty) {
+        setState(() {
+          _categories.addAll(folderNames);
+        });
+      }
+    } catch (e) {
+      debugPrint("Error loading custom folders for weekly routine: $e");
+    }
+  }
 
   @override
   void dispose() {

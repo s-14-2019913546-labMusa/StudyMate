@@ -23,7 +23,8 @@ class _TaskHistoryScreenState extends State<TaskHistoryScreen> with SingleTicker
   
   // Filter variables
   String _selectedCategory = 'All';
-  final List<String> _categories = ['All', 'Study', 'Work', 'Sports', 'BCS', 'Bank', 'Other'];
+  final List<String> _categories = ['All', 'Study', 'Work', 'Sports', 'Other'];
+  final List<Map<String, dynamic>> _folders = [];
 
   // Cache/Routines list loaded for week/month
   List<DailyRoutine> _loadedRoutines = [];
@@ -39,6 +40,52 @@ class _TaskHistoryScreenState extends State<TaskHistoryScreen> with SingleTicker
       }
     });
     _loadDataForActiveTab();
+    _loadCustomFolders();
+  }
+
+  Future<void> _loadCustomFolders() async {
+    if (_currentUser == null) return;
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(_currentUser.uid)
+          .collection('studyFolders')
+          .get();
+      final list = snapshot.docs.map((doc) => doc.data()).toList();
+      if (mounted) {
+        setState(() {
+          _folders.addAll(list);
+          for (var f in list) {
+            final name = f['name'] as String;
+            if (!_categories.contains(name)) {
+              _categories.add(name);
+            }
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint("Error loading folders in TaskHistoryScreen: $e");
+    }
+  }
+
+  Color _getCategoryColor(String category) {
+    for (var folder in _folders) {
+      if (folder['name'] == category && folder['color'] != null) {
+        try {
+          return Color(int.parse(folder['color'].replaceFirst('#', '0xFF')));
+        } catch (_) {}
+      }
+    }
+    switch (category) {
+      case 'Study':
+        return const Color(0xFF6366F1);
+      case 'Work':
+        return const Color(0xFFD97706);
+      case 'Sports':
+        return const Color(0xFF10B981);
+      default:
+        return Colors.blueGrey;
+    }
   }
 
   @override
@@ -630,12 +677,20 @@ class _TaskHistoryScreenState extends State<TaskHistoryScreen> with SingleTicker
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.primary.withValues(alpha: 0.08),
+                      color: _getCategoryColor(task.category!).withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: _getCategoryColor(task.category!).withValues(alpha: 0.15),
+                        width: 1,
+                      ),
                     ),
                     child: Text(
                       task.category!.tr(),
-                      style: TextStyle(color: theme.colorScheme.primary, fontSize: 10, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        color: _getCategoryColor(task.category!),
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 8),
