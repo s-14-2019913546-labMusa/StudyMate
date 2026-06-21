@@ -654,6 +654,8 @@ class AddTaskBottomSheet extends StatefulWidget {
 class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _subjectController = TextEditingController();
+  final TextEditingController _topicController = TextEditingController();
+  final TextEditingController _challengesController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
 
   TimeOfDay? _startTime;
@@ -666,6 +668,8 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
   @override
   void dispose() {
     _subjectController.dispose();
+    _topicController.dispose();
+    _challengesController.dispose();
     _notesController.dispose();
     super.dispose();
   }
@@ -709,6 +713,8 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         title: _subjectController.text.trim(),
         subject: _subjectController.text.trim(),
+        topic: _topicController.text.trim(),
+        challenges: _challengesController.text.trim(),
         notes: _notesController.text.trim(),
         startTime: start,
         endTime: end,
@@ -724,10 +730,15 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
 
   @override
   Widget build(BuildContext context) {
-    // কিবোর্ডের জন্য নিচে প্যাডিং যোগ করা
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final colorScheme = Theme.of(context).colorScheme;
+    final onSurfaceColor = colorScheme.onSurface;
 
-    return Padding(
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       padding: EdgeInsets.only(left: 24.0, right: 24.0, top: 24.0, bottom: bottomInset + 24.0),
       child: Form(
         key: _formKey,
@@ -738,24 +749,98 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
             children: [
               Text(
                 'Add New Task',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: onSurfaceColor),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 20),
               
               // সাবজেক্টের নাম
-              TextFormField(
-                controller: _subjectController,
-                decoration: const InputDecoration(labelText: 'Subject Name', prefixIcon: Icon(Icons.subject)),
-                validator: (val) => val == null || val.isEmpty ? 'Enter a subject name' : null,
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Subject Name *',
+                    style: TextStyle(fontWeight: FontWeight.bold, color: onSurfaceColor, fontSize: 14),
+                  ),
+                  const SizedBox(height: 6),
+                  TextFormField(
+                    controller: _subjectController,
+                    decoration: InputDecoration(
+                      hintText: 'e.g. Mathematics, Bangla',
+                      prefixIcon: const Icon(Icons.subject),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    validator: (val) => val == null || val.isEmpty ? 'Enter a subject name' : null,
+                    style: TextStyle(color: onSurfaceColor),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // টপিক নেম
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Topic Name',
+                    style: TextStyle(fontWeight: FontWeight.bold, color: onSurfaceColor, fontSize: 14),
+                  ),
+                  const SizedBox(height: 6),
+                  TextFormField(
+                    controller: _topicController,
+                    decoration: InputDecoration(
+                      hintText: 'e.g. Chapter 3, Algebra',
+                      prefixIcon: const Icon(Icons.title),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    style: TextStyle(color: onSurfaceColor),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // সম্ভাব্য সমস্যা (Possible Challenges)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Possible Challenges',
+                    style: TextStyle(fontWeight: FontWeight.bold, color: onSurfaceColor, fontSize: 14),
+                  ),
+                  const SizedBox(height: 6),
+                  TextFormField(
+                    controller: _challengesController,
+                    decoration: InputDecoration(
+                      hintText: 'e.g. Power outage, complex equations',
+                      prefixIcon: const Icon(Icons.warning_amber_rounded),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    style: TextStyle(color: onSurfaceColor),
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
               
               // টাস্ক গোল বা নোটস
-              TextFormField(
-                controller: _notesController,
-                decoration: const InputDecoration(labelText: 'Task Goal / Notes', prefixIcon: Icon(Icons.notes)),
-                maxLines: 3,
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Task Goal / Notes',
+                    style: TextStyle(fontWeight: FontWeight.bold, color: onSurfaceColor, fontSize: 14),
+                  ),
+                  const SizedBox(height: 6),
+                  TextFormField(
+                    controller: _notesController,
+                    decoration: InputDecoration(
+                      hintText: 'e.g. Complete exercise questions 1-10',
+                      prefixIcon: const Icon(Icons.notes),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    maxLines: 3,
+                    style: TextStyle(color: onSurfaceColor),
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
 
@@ -765,16 +850,28 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: () => _pickTime(true),
-                      icon: const Icon(Icons.access_time),
-                      label: Text(_startTime?.format(context) ?? 'Start Time'),
+                      icon: Icon(Icons.access_time, color: onSurfaceColor),
+                      label: Text(
+                        _startTime?.format(context) ?? 'Start Time',
+                        style: TextStyle(color: onSurfaceColor),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: onSurfaceColor.withValues(alpha: 0.3)),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: () => _pickTime(false),
-                      icon: const Icon(Icons.access_time),
-                      label: Text(_endTime?.format(context) ?? 'End Time'),
+                      icon: Icon(Icons.access_time, color: onSurfaceColor),
+                      label: Text(
+                        _endTime?.format(context) ?? 'End Time',
+                        style: TextStyle(color: onSurfaceColor),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: onSurfaceColor.withValues(alpha: 0.3)),
+                      ),
                     ),
                   ),
                 ],
@@ -782,14 +879,20 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
               const SizedBox(height: 16),
 
               // ক্যাটাগরি চিপস
-              Text('Category', style: Theme.of(context).textTheme.titleSmall),
+              Text('Category', style: Theme.of(context).textTheme.titleSmall?.copyWith(color: onSurfaceColor)),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 10.0,
                 children: _categories.map((cat) {
+                  final isSelected = _selectedCategory == cat;
                   return ChoiceChip(
-                    label: Text(cat),
-                    selected: _selectedCategory == cat,
+                    label: Text(
+                      cat,
+                      style: TextStyle(color: isSelected ? Colors.white : onSurfaceColor),
+                    ),
+                    selected: isSelected,
+                    selectedColor: colorScheme.primary,
+                    backgroundColor: colorScheme.surface,
                     onSelected: (selected) {
                       if (selected) setState(() => _selectedCategory = cat);
                     },
@@ -801,8 +904,8 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
               // প্রাইভেট টগল
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Private Task', style: TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: const Text('Hide task name from others'),
+                title: Text('Private Task', style: TextStyle(fontWeight: FontWeight.bold, color: onSurfaceColor)),
+                subtitle: Text('Hide task name from others', style: TextStyle(color: colorScheme.onSurfaceVariant)),
                 value: _isPrivate,
                 activeColor: Theme.of(context).colorScheme.primary,
                 onChanged: (val) => setState(() => _isPrivate = val),
@@ -812,7 +915,375 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
               // যুক্ত করার বাটন
               ElevatedButton(
                 onPressed: _submit,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: colorScheme.primary,
+                  foregroundColor: colorScheme.onPrimary,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
                 child: const Text('টাস্ক যুক্ত করুন (Add Task)'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class EditTaskBottomSheet extends StatefulWidget {
+  final Task task;
+  final Function(Task) onTaskUpdated;
+
+  const EditTaskBottomSheet({
+    super.key,
+    required this.task,
+    required this.onTaskUpdated,
+  });
+
+  @override
+  State<EditTaskBottomSheet> createState() => _EditTaskBottomSheetState();
+}
+
+class _EditTaskBottomSheetState extends State<EditTaskBottomSheet> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _subjectController;
+  late final TextEditingController _topicController;
+  late final TextEditingController _challengesController;
+  late final TextEditingController _notesController;
+  late final TextEditingController _reasonController;
+
+  TimeOfDay? _startTime;
+  TimeOfDay? _endTime;
+  late bool _isPrivate;
+  late String _selectedCategory;
+
+  final List<String> _categories = ['Study', 'Work', 'Sports', 'Other'];
+
+  @override
+  void initState() {
+    super.initState();
+    _subjectController = TextEditingController(text: widget.task.subject ?? widget.task.title);
+    _topicController = TextEditingController(text: widget.task.topic ?? '');
+    _challengesController = TextEditingController(text: widget.task.challenges ?? '');
+    _notesController = TextEditingController(text: widget.task.notes ?? '');
+    _reasonController = TextEditingController();
+
+    if (widget.task.startTime != null) {
+      _startTime = TimeOfDay.fromDateTime(widget.task.startTime!);
+    }
+    if (widget.task.endTime != null) {
+      _endTime = TimeOfDay.fromDateTime(widget.task.endTime!);
+    }
+    _isPrivate = widget.task.isPrivate;
+    _selectedCategory = widget.task.category ?? 'Study';
+  }
+
+  @override
+  void dispose() {
+    _subjectController.dispose();
+    _topicController.dispose();
+    _challengesController.dispose();
+    _notesController.dispose();
+    _reasonController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickTime(bool isStart) async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: isStart ? (_startTime ?? TimeOfDay.now()) : (_endTime ?? TimeOfDay.now()),
+    );
+    if (picked != null) {
+      setState(() {
+        if (isStart) {
+          _startTime = picked;
+        } else {
+          _endTime = picked;
+        }
+      });
+    }
+  }
+
+  void _submit() {
+    if (_formKey.currentState!.validate()) {
+      if (_startTime == null || _endTime == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please select both Start and End Time.')),
+        );
+        return;
+      }
+
+      final now = DateTime.now();
+      final start = DateTime(now.year, now.month, now.day, _startTime!.hour, _startTime!.minute);
+      var end = DateTime(now.year, now.month, now.day, _endTime!.hour, _endTime!.minute);
+
+      if (end.isBefore(start)) {
+        end = end.add(const Duration(days: 1));
+      }
+
+      final durationMinutes = end.difference(start).inMinutes;
+      final reason = _reasonController.text.trim();
+      final updatedNotes = widget.task.notes != null && widget.task.notes!.isNotEmpty
+          ? '${_notesController.text.trim()}\n[Edit Log: $reason]'
+          : '${_notesController.text.trim()}\n[Edit Log: $reason]';
+
+      final updatedComments = List<String>.from(widget.task.comments)..add(reason);
+
+      final updatedTask = widget.task.copyWith(
+        title: _subjectController.text.trim(),
+        subject: _subjectController.text.trim(),
+        topic: _topicController.text.trim(),
+        challenges: _challengesController.text.trim(),
+        notes: updatedNotes,
+        startTime: start,
+        endTime: end,
+        isPrivate: _isPrivate,
+        category: _selectedCategory,
+        totalDurationMinutes: durationMinutes,
+        hasBeenEdited: true, // Mark as edited
+        comments: updatedComments,
+      );
+
+      widget.onTaskUpdated(updatedTask);
+      Navigator.pop(context);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final colorScheme = Theme.of(context).colorScheme;
+    final onSurfaceColor = colorScheme.onSurface;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: EdgeInsets.only(left: 24.0, right: 24.0, top: 24.0, bottom: bottomInset + 24.0),
+      child: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Edit Task (Once)',
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: onSurfaceColor,
+                    ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
+
+              // Subject Name (Read-only)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Subject Name (Read-only)',
+                    style: TextStyle(fontWeight: FontWeight.bold, color: onSurfaceColor.withValues(alpha: 0.6), fontSize: 14),
+                  ),
+                  const SizedBox(height: 6),
+                  TextFormField(
+                    controller: _subjectController,
+                    enabled: false,
+                    decoration: InputDecoration(
+                      hintText: 'Subject Name',
+                      prefixIcon: const Icon(Icons.subject),
+                      disabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: onSurfaceColor.withValues(alpha: 0.2)),
+                      ),
+                    ),
+                    style: TextStyle(color: onSurfaceColor.withValues(alpha: 0.6)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Topic Name
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Topic Name',
+                    style: TextStyle(fontWeight: FontWeight.bold, color: onSurfaceColor, fontSize: 14),
+                  ),
+                  const SizedBox(height: 6),
+                  TextFormField(
+                    controller: _topicController,
+                    decoration: InputDecoration(
+                      hintText: 'e.g. Chapter 3, Algebra',
+                      prefixIcon: const Icon(Icons.title),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    style: TextStyle(color: onSurfaceColor),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Possible Challenges
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Possible Challenges',
+                    style: TextStyle(fontWeight: FontWeight.bold, color: onSurfaceColor, fontSize: 14),
+                  ),
+                  const SizedBox(height: 6),
+                  TextFormField(
+                    controller: _challengesController,
+                    decoration: InputDecoration(
+                      hintText: 'e.g. Power outage, complex equations',
+                      prefixIcon: const Icon(Icons.warning_amber_rounded),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    style: TextStyle(color: onSurfaceColor),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Task Goal / Notes
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Task Goal / Notes',
+                    style: TextStyle(fontWeight: FontWeight.bold, color: onSurfaceColor, fontSize: 14),
+                  ),
+                  const SizedBox(height: 6),
+                  TextFormField(
+                    controller: _notesController,
+                    decoration: InputDecoration(
+                      hintText: 'e.g. Complete exercise questions 1-10',
+                      prefixIcon: const Icon(Icons.notes),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    maxLines: 3,
+                    style: TextStyle(color: onSurfaceColor),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Mandatory Reason for Change
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'What/Why did you change? *',
+                    style: TextStyle(fontWeight: FontWeight.bold, color: onSurfaceColor, fontSize: 14),
+                  ),
+                  const SizedBox(height: 6),
+                  TextFormField(
+                    controller: _reasonController,
+                    decoration: InputDecoration(
+                      hintText: 'e.g. Adjusting times, fixing target topic',
+                      prefixIcon: const Icon(Icons.history_edu_rounded),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    validator: (val) => val == null || val.trim().isEmpty
+                        ? 'Reason for change is required'
+                        : null,
+                    style: TextStyle(color: onSurfaceColor),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Start/End Time pickers
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _pickTime(true),
+                      icon: Icon(Icons.access_time, color: onSurfaceColor),
+                      label: Text(
+                        _startTime?.format(context) ?? 'Start Time',
+                        style: TextStyle(color: onSurfaceColor),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: onSurfaceColor.withValues(alpha: 0.3)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _pickTime(false),
+                      icon: Icon(Icons.access_time, color: onSurfaceColor),
+                      label: Text(
+                        _endTime?.format(context) ?? 'End Time',
+                        style: TextStyle(color: onSurfaceColor),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: onSurfaceColor.withValues(alpha: 0.3)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Category Choice Chips
+              Text(
+                'Category',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(color: onSurfaceColor),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 10.0,
+                children: _categories.map((cat) {
+                  final isSelected = _selectedCategory == cat;
+                  return ChoiceChip(
+                    label: Text(
+                      cat,
+                      style: TextStyle(color: isSelected ? Colors.white : onSurfaceColor),
+                    ),
+                    selected: isSelected,
+                    selectedColor: colorScheme.primary,
+                    backgroundColor: colorScheme.surface,
+                    onSelected: (selected) {
+                      if (selected) setState(() => _selectedCategory = cat);
+                    },
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 16),
+
+              // Private task switch toggle
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(
+                  'Private Task',
+                  style: TextStyle(fontWeight: FontWeight.bold, color: onSurfaceColor),
+                ),
+                subtitle: Text(
+                  'Hide task name from others',
+                  style: TextStyle(color: colorScheme.onSurfaceVariant),
+                ),
+                value: _isPrivate,
+                activeColor: colorScheme.primary,
+                onChanged: (val) => setState(() => _isPrivate = val),
+              ),
+              const SizedBox(height: 24),
+
+              // Submit button
+              ElevatedButton(
+                onPressed: _submit,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: colorScheme.primary,
+                  foregroundColor: colorScheme.onPrimary,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: const Text('পরিবর্তন সংরক্ষণ করুন (Save Changes)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               ),
             ],
           ),
@@ -929,7 +1400,7 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
           actionsAlignment: MainAxisAlignment.spaceBetween,
           actions: [
             if (canReset)
-              TextButton(
+              OutlinedButton(
                 onPressed: () {
                   Navigator.pop(context);
                   setState(() {
@@ -938,8 +1409,13 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                   });
                   widget.onUpdate(widget.task.copyWith(status: 'pending', elapsedSeconds: 0));
                 },
-                style: TextButton.styleFrom(foregroundColor: Colors.red),
-                child: const Text('Reset', style: TextStyle(fontWeight: FontWeight.bold)),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.red,
+                  side: const BorderSide(color: Colors.red, width: 1.5),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: const Text('Reset', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
               )
             else
               const SizedBox.shrink(),
@@ -951,8 +1427,14 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                     Navigator.pop(context);
                     if (wasRunning) _startTimer(saveToDb: false);
                   },
+                  style: TextButton.styleFrom(
+                    foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
                   child: const Text('Cancel'),
                 ),
+                const SizedBox(width: 8),
                 ElevatedButton(
                   onPressed: () {
                     Navigator.pop(context);
@@ -965,7 +1447,13 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                       completionNote: noteController.text.trim(),
                     ));
                   },
-                  child: const Text('Submit & Done'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: const Text('Submit & Done', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                 ),
               ],
             ),
@@ -976,33 +1464,18 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
   }
 
   void _editTask() {
-     if (widget.task.hasBeenEdited) return;
-     TextEditingController titleController = TextEditingController(text: widget.task.subject ?? widget.task.title);
-
-     showDialog(
-       context: context,
-       builder: (ctx) => AlertDialog(
-          title: const Text('Edit Task (Once)'),
-          content: TextField(
-             controller: titleController,
-             decoration: const InputDecoration(labelText: 'Task Subject Name'),
-          ),
-          actions: [
-             TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-             ElevatedButton(
-               onPressed: () {
-                  Navigator.pop(ctx);
-                  widget.onUpdate(widget.task.copyWith(
-                     subject: titleController.text.trim(),
-                     title: titleController.text.trim(),
-                     hasBeenEdited: true, // একবার এডিট করা হয়ে গেল
-                  ));
-               },
-               child: const Text('Save'),
-             ),
-          ]
-       )
-     );
+    if (widget.task.hasBeenEdited) return;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => EditTaskBottomSheet(
+        task: widget.task,
+        onTaskUpdated: widget.onUpdate,
+      ),
+    );
   }
 
   @override
@@ -1151,11 +1624,16 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                   ),
                 ),
 
-                IconButton(
-                  icon: const Icon(Icons.edit_rounded),
-                  color: widget.task.hasBeenEdited ? Colors.grey : Theme.of(context).colorScheme.primary,
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.edit_rounded, size: 16),
+                  label: const Text('Edit'),
                   onPressed: widget.task.hasBeenEdited ? null : _editTask,
-                  tooltip: 'Edit Task (Once)',
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: widget.task.hasBeenEdited ? Colors.grey.shade200 : Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                    foregroundColor: widget.task.hasBeenEdited ? Colors.grey : Theme.of(context).colorScheme.primary,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  ),
                 ),
               ],
             ),

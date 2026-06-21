@@ -26,7 +26,7 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
   }
 
   @override
@@ -120,6 +120,7 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
           labelColor: Theme.of(context).colorScheme.primary,
           unselectedLabelColor: Colors.grey,
           tabs: const [
+            Tab(text: 'Leaderboard'),
             Tab(text: 'Find Friends'),
             Tab(text: 'My Friends'),
             Tab(text: 'Groups'),
@@ -129,6 +130,7 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
       body: TabBarView(
         controller: _tabController,
         children: [
+          _buildLeaderboardTab(),
           _buildFindFriendsTab(),
           _buildMyFriendsTab(),
           _buildGroupsTab(),
@@ -333,6 +335,91 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildLeaderboardTab() {
+    if (currentUser == null) return const Center(child: Text("Please login first"));
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance.collection('users').snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return const Center(child: Text('No leaderboard data yet.'));
+        }
+
+        final users = snapshot.data!.docs.map((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          return {
+            'uid': doc.id,
+            'displayName': data['displayName'] ?? 'Study Buddy',
+            'streak': data['streak'] ?? 0,
+            'email': data['email'] ?? '',
+          };
+        }).toList();
+
+        // Sort by streak descending
+        users.sort((a, b) => (b['streak'] as int).compareTo(a['streak'] as int));
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: users.length,
+          itemBuilder: (context, index) {
+            final userItem = users[index];
+            final rank = index + 1;
+            final isCurrentUser = userItem['uid'] == currentUser!.uid;
+            
+            String medal = '';
+            if (rank == 1) medal = '🥇 ';
+            else if (rank == 2) medal = '🥈 ';
+            else if (rank == 3) medal = '🥉 ';
+
+            return Card(
+              color: isCurrentUser 
+                  ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.1) 
+                  : Theme.of(context).cardColor,
+              margin: const EdgeInsets.symmetric(vertical: 6),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: isCurrentUser 
+                    ? BorderSide(color: Theme.of(context).colorScheme.primary, width: 1.5)
+                    : BorderSide.none,
+              ),
+              child: ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: Colors.amber.withValues(alpha: 0.1),
+                  child: Text(
+                    medal.isEmpty ? '#$rank' : medal,
+                    style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary),
+                  ),
+                ),
+                title: Text(
+                  userItem['displayName'],
+                  style: TextStyle(
+                    fontWeight: isCurrentUser ? FontWeight.bold : FontWeight.normal,
+                    color: isCurrentUser ? Theme.of(context).colorScheme.primary : null,
+                  ),
+                ),
+                subtitle: Text(userItem['email'], style: const TextStyle(fontSize: 12)),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('🔥', style: TextStyle(fontSize: 18)),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${userItem['streak']}',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

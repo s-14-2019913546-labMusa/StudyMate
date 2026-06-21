@@ -24,7 +24,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _academicYear = "";
   String _major = "";
   double _dailyGoal = 2.0;
-  bool _isLoading = false;
 
   @override
   void initState() {
@@ -47,7 +46,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     
     setState(() {
       _user = updatedUser;
-      _isLoading = true;
     });
     
     try {
@@ -74,18 +72,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } catch (e) {
       debugPrint("Error loading profile details: $e");
     } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      // Background load finished
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      child: _isLoading 
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF1D5C42)))
-          : SingleChildScrollView(
+      child: SingleChildScrollView(
               padding: const EdgeInsets.all(20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,

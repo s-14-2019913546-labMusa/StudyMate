@@ -22,6 +22,12 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
   bool _socialHubNotifications = true;
   bool _motivationalPush = true;
 
+  // Sound & Vibration State
+  bool _soundEnabled = true;
+  bool _vibrationEnabled = true;
+  double _volumeLevel = 0.8;
+  String _selectedSound = 'Beep';
+
   @override
   void initState() {
     super.initState();
@@ -45,6 +51,11 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
             _spacedRevisionAlerts = settings['spacedRevisionAlerts'] as bool? ?? true;
             _socialHubNotifications = settings['socialHubNotifications'] as bool? ?? true;
             _motivationalPush = settings['motivationalPush'] as bool? ?? true;
+
+            _soundEnabled = settings['soundEnabled'] as bool? ?? true;
+            _vibrationEnabled = settings['vibrationEnabled'] as bool? ?? true;
+            _volumeLevel = (settings['volumeLevel'] as num?)?.toDouble() ?? 0.8;
+            _selectedSound = settings['selectedSound'] as String? ?? 'Beep';
           });
         }
       }
@@ -57,17 +68,22 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     }
   }
 
-  Future<void> _saveSettings(String key, bool value) async {
+  Future<void> _saveSettings(String key, dynamic value) async {
     if (_currentUser == null) return;
 
     setState(() {
       _isSaving = true;
-      if (key == 'globalNotifications') _globalNotifications = value;
-      if (key == 'studyGoalReminders') _studyGoalReminders = value;
-      if (key == 'taskDueWarnings') _taskDueWarnings = value;
-      if (key == 'spacedRevisionAlerts') _spacedRevisionAlerts = value;
-      if (key == 'socialHubNotifications') _socialHubNotifications = value;
-      if (key == 'motivationalPush') _motivationalPush = value;
+      if (key == 'globalNotifications') _globalNotifications = value as bool;
+      if (key == 'studyGoalReminders') _studyGoalReminders = value as bool;
+      if (key == 'taskDueWarnings') _taskDueWarnings = value as bool;
+      if (key == 'spacedRevisionAlerts') _spacedRevisionAlerts = value as bool;
+      if (key == 'socialHubNotifications') _socialHubNotifications = value as bool;
+      if (key == 'motivationalPush') _motivationalPush = value as bool;
+
+      if (key == 'soundEnabled') _soundEnabled = value as bool;
+      if (key == 'vibrationEnabled') _vibrationEnabled = value as bool;
+      if (key == 'volumeLevel') _volumeLevel = value as double;
+      if (key == 'selectedSound') _selectedSound = value as String;
     });
 
     try {
@@ -78,6 +94,10 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
         'spacedRevisionAlerts': _spacedRevisionAlerts,
         'socialHubNotifications': _socialHubNotifications,
         'motivationalPush': _motivationalPush,
+        'soundEnabled': _soundEnabled,
+        'vibrationEnabled': _vibrationEnabled,
+        'volumeLevel': _volumeLevel,
+        'selectedSound': _selectedSound,
       };
 
       await FirebaseFirestore.instance.collection('users').doc(_currentUser.uid).set({
@@ -217,6 +237,98 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                             icon: Icons.wb_incandescent_outlined,
                             onChanged: (val) => _saveSettings('motivationalPush', val),
                           ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // 2. Sound & Vibration Settings Card
+                  Card(
+                    elevation: 2,
+                    shadowColor: Colors.black.withValues(alpha: 0.05),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const Row(
+                            children: [
+                              Icon(Icons.volume_up_rounded, color: accentGreen),
+                              SizedBox(width: 8),
+                              Text(
+                                'সাউন্ড ও ভাইব্রেশন সেটিংস',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: primaryGreen),
+                              ),
+                            ],
+                          ),
+                          const Divider(height: 24),
+                          
+                          // Sound Toggle
+                          SwitchListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text('নোটিফিকেশন সাউন্ড', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                            subtitle: const Text('নোটিফিকেশন আসার সময়ে সাউন্ড প্লে হবে', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                            value: _soundEnabled,
+                            onChanged: _globalNotifications ? (val) => _saveSettings('soundEnabled', val) : null,
+                            activeThumbColor: accentGreen,
+                          ),
+                          
+                          // Vibration Toggle
+                          SwitchListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text('ভাইব্রেশন', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                            subtitle: const Text('নোটিফিকেশন আসার সাথে ডিভাইস ভাইব্রেট করবে', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                            value: _vibrationEnabled,
+                            onChanged: _globalNotifications ? (val) => _saveSettings('vibrationEnabled', val) : null,
+                            activeThumbColor: accentGreen,
+                          ),
+                          
+                          if (_soundEnabled) ...[
+                            const SizedBox(height: 12),
+                            const Text('নোটিফিকেশন টিউন', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                            const SizedBox(height: 8),
+                            DropdownButtonFormField<String>(
+                              initialValue: _selectedSound,
+                              decoration: InputDecoration(
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              items: ['Beep', 'Chime', 'Marimba', 'Bell', 'Digital']
+                                  .map((sound) => DropdownMenuItem(
+                                        value: sound,
+                                        child: Text(sound),
+                                      ))
+                                  .toList(),
+                              onChanged: _globalNotifications
+                                  ? (val) {
+                                      if (val != null) _saveSettings('selectedSound', val);
+                                    }
+                                  : null,
+                            ),
+                            const SizedBox(height: 16),
+                            
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text('সাউন্ডের মাত্রা', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                Text('${(_volumeLevel * 100).toInt()}%', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: accentGreen)),
+                              ],
+                            ),
+                            Slider(
+                              value: _volumeLevel,
+                              min: 0.0,
+                              max: 1.0,
+                              divisions: 10,
+                              activeColor: accentGreen,
+                              inactiveColor: accentGreen.withValues(alpha: 0.2),
+                              onChanged: _globalNotifications
+                                  ? (val) => _saveSettings('volumeLevel', val)
+                                  : null,
+                            ),
+                          ],
                         ],
                       ),
                     ),

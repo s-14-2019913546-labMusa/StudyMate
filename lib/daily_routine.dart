@@ -25,6 +25,9 @@ class Task {
   final int elapsedSeconds;
   final String? completionNote;
   final List<String> comments;
+  final String? topic;
+  final String? challenges;
+  final bool alarmEnabled;
 
   Task({
     required this.id,
@@ -43,6 +46,9 @@ class Task {
     this.elapsedSeconds = 0,
     this.completionNote,
     this.comments = const [],
+    this.topic,
+    this.challenges,
+    this.alarmEnabled = false,
   });
 
   factory Task.fromMap(Map<String, dynamic> data, String id) {
@@ -63,12 +69,15 @@ class Task {
       elapsedSeconds: data['elapsedSeconds'] ?? 0,
       completionNote: data['completionNote'],
       comments: List<String>.from(data['comments'] ?? []),
+      topic: data['topic'],
+      challenges: data['challenges'],
+      alarmEnabled: data['alarmEnabled'] ?? false,
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
-      'id': id, // Include ID for easier updates if needed
+      'id': id,
       'title': title,
       'isCompleted': isCompleted,
       'totalDurationMinutes': totalDurationMinutes,
@@ -84,6 +93,9 @@ class Task {
       'elapsedSeconds': elapsedSeconds,
       'completionNote': completionNote,
       'comments': comments,
+      'topic': topic,
+      'challenges': challenges,
+      'alarmEnabled': alarmEnabled,
     };
   }
 
@@ -105,6 +117,9 @@ class Task {
     int? elapsedSeconds,
     String? completionNote,
     List<String>? comments,
+    String? topic,
+    String? challenges,
+    bool? alarmEnabled,
   }) {
     return Task(
       id: id ?? this.id,
@@ -123,6 +138,9 @@ class Task {
       elapsedSeconds: elapsedSeconds ?? this.elapsedSeconds,
       completionNote: completionNote ?? this.completionNote,
       comments: comments ?? this.comments,
+      topic: topic ?? this.topic,
+      challenges: challenges ?? this.challenges,
+      alarmEnabled: alarmEnabled ?? this.alarmEnabled,
     );
   }
 }

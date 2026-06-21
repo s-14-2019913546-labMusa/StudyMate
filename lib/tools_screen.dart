@@ -13,6 +13,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 import 'daily_routine.dart'; // Task মডেল ইমপোর্ট করার জন্য
 import 'focus_music_screen.dart';
 import 'flashcards_screen.dart';
@@ -21,6 +22,7 @@ import 'ai_service.dart';
 import 'revision_147_screen.dart';
 import 'islamic_life_screen.dart';
 import 'theme_manager.dart';
+import 'dashboard_screen.dart';
 
 class ToolsScreen extends StatelessWidget {
   final Function(List<Task>) onTasksGenerated;
@@ -33,7 +35,8 @@ class ToolsScreen extends StatelessWidget {
         'name': 'Study & Revision',
         'icon': Icons.school_rounded,
         'tools': [
-          {'title': 'Routine Planner', 'icon': Icons.calendar_month_rounded, 'color': Colors.indigoAccent, 'action': 'routine'},
+          {'title': 'Study Analytics', 'icon': Icons.analytics_rounded, 'color': Colors.teal, 'action': 'analytics'},
+          {'title': 'PDF Reader', 'icon': Icons.picture_as_pdf_rounded, 'color': Colors.redAccent, 'action': 'pdf_reader'},
           {'title': '1-4-7 Revision', 'icon': Icons.published_with_changes_rounded, 'color': Colors.indigo, 'action': 'revision_147'},
           {'title': 'Flashcards', 'icon': Icons.style_rounded, 'color': Colors.purpleAccent, 'action': 'flash'},
           {'title': 'Dictionary', 'icon': Icons.menu_book_rounded, 'color': Colors.orangeAccent, 'action': 'dict'},
@@ -88,6 +91,10 @@ class ToolsScreen extends StatelessWidget {
             
             // AI Study Planner Banner (First Tool)
             _buildAIPlannerBanner(context),
+            const SizedBox(height: 12),
+            _buildNextDayRoutineButton(context),
+            const SizedBox(height: 12),
+            _buildWeeklyRoutineButton(context),
             
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -138,6 +145,10 @@ class ToolsScreen extends StatelessWidget {
                                   showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: Colors.transparent, builder: (_) => const BreathingExerciseBottomSheet());
                                 } else if (tool['action'] == 'routine') {
                                   showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: Colors.transparent, builder: (_) => const RoutinePlannerBottomSheet());
+                                } else if (tool['action'] == 'analytics') {
+                                  Navigator.push(context, MaterialPageRoute(builder: (_) => const StudyAnalyticsScreen()));
+                                } else if (tool['action'] == 'pdf_reader') {
+                                  Navigator.push(context, MaterialPageRoute(builder: (_) => const PdfReaderScreen()));
                                 } else if (tool['action'] == 'pomodoro') {
                                   Navigator.push(context, MaterialPageRoute(builder: (_) => const PomodoroTimerScreen()));
                                 } else if (tool['action'] == 'stopwatch') {
@@ -266,6 +277,514 @@ class ToolsScreen extends StatelessWidget {
             ),
             const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white, size: 16),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNextDayRoutineButton(BuildContext context) {
+    final User? user = FirebaseAuth.instance.currentUser;
+    return GestureDetector(
+      onTap: () {
+        if (user == null) return;
+        final tomorrowDate = DateTime.now().add(const Duration(days: 1));
+        final tomorrowDocId = DateFormat('yyyy-MM-dd').format(tomorrowDate);
+        showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          backgroundColor: Colors.transparent,
+          builder: (context) => AddTaskBottomSheet(
+            onTaskAdded: (newTask) async {
+              await FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(user.uid)
+                  .collection('dailyRoutines')
+                  .doc(tomorrowDocId)
+                  .get()
+                  .then((doc) async {
+                if (doc.exists) {
+                  await doc.reference.update({
+                    'tasks': FieldValue.arrayUnion([newTask.toMap()])
+                  });
+                } else {
+                  final newRoutine = DailyRoutine(
+                    id: tomorrowDocId,
+                    userId: user.uid,
+                    date: tomorrowDate,
+                    tasks: [newTask],
+                  );
+                  await doc.reference.set(newRoutine.toMap());
+                }
+              });
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Added to tomorrow\'s routine!')),
+                );
+              }
+            },
+          ),
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF3B82F6), Color(0xFF1D4ED8)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF3B82F6).withValues(alpha: 0.3),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), shape: BoxShape.circle),
+              child: const Icon(Icons.next_plan_rounded, color: Colors.white, size: 24),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Next-day Routine (নেক্সট ডে রুটিন)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+                  const SizedBox(height: 2),
+                  Text('আগামীকালের পড়ার রুটিন তৈরি করুন', style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.8))),
+                ],
+              ),
+            ),
+            const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white, size: 14),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWeeklyRoutineButton(BuildContext context) {
+    final User? user = FirebaseAuth.instance.currentUser;
+    return GestureDetector(
+      onTap: () {
+        if (user == null) return;
+        showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          backgroundColor: Colors.transparent,
+          builder: (context) => const AddWeeklyRoutineTaskBottomSheet(),
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF10B981), Color(0xFF047857)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF10B981).withValues(alpha: 0.3),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), shape: BoxShape.circle),
+              child: const Icon(Icons.calendar_view_week_rounded, color: Colors.white, size: 24),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Weekly Routine (উইকলি রুটিন)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+                  const SizedBox(height: 2),
+                  Text('সাপ্তাহিক রুটিন কাস্টমাইজ ও আপডেট করুন', style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.8))),
+                ],
+              ),
+            ),
+            const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white, size: 14),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class AddWeeklyRoutineTaskBottomSheet extends StatefulWidget {
+  const AddWeeklyRoutineTaskBottomSheet({super.key});
+
+  @override
+  State<AddWeeklyRoutineTaskBottomSheet> createState() => _AddWeeklyRoutineTaskBottomSheetState();
+}
+
+class _AddWeeklyRoutineTaskBottomSheetState extends State<AddWeeklyRoutineTaskBottomSheet> {
+  final _formKey = GlobalKey<FormState>();
+  final TextEditingController _subjectController = TextEditingController();
+  final TextEditingController _topicController = TextEditingController();
+  final TextEditingController _challengesController = TextEditingController();
+  final TextEditingController _notesController = TextEditingController();
+
+  TimeOfDay? _startTime;
+  TimeOfDay? _endTime;
+  bool _isPrivate = false;
+  String _selectedCategory = 'Study';
+  String _selectedDay = 'Saturday';
+
+  final List<String> _categories = ['Study', 'Work', 'Sports', 'Other'];
+  final List<String> _days = ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+
+  @override
+  void dispose() {
+    _subjectController.dispose();
+    _topicController.dispose();
+    _challengesController.dispose();
+    _notesController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickTime(bool isStart) async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.now(),
+    );
+    if (picked != null) {
+      setState(() {
+        if (isStart) {
+          _startTime = picked;
+        } else {
+          _endTime = picked;
+        }
+      });
+    }
+  }
+
+  void _submit() async {
+    final User? user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    if (_formKey.currentState!.validate()) {
+      if (_startTime == null || _endTime == null) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select both Start and End Time.')));
+        return;
+      }
+
+      final now = DateTime.now();
+      final start = DateTime(now.year, now.month, now.day, _startTime!.hour, _startTime!.minute);
+      var end = DateTime(now.year, now.month, now.day, _endTime!.hour, _endTime!.minute);
+
+      if (end.isBefore(start)) {
+        end = end.add(const Duration(days: 1));
+      }
+
+      final durationMinutes = end.difference(start).inMinutes;
+
+      final newTask = Task(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        title: _subjectController.text.trim(),
+        subject: _subjectController.text.trim(),
+        topic: _topicController.text.trim(),
+        challenges: _challengesController.text.trim(),
+        notes: _notesController.text.trim(),
+        startTime: start,
+        endTime: end,
+        isPrivate: _isPrivate,
+        category: _selectedCategory,
+        totalDurationMinutes: durationMinutes,
+      );
+
+      final docRef = FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('weeklyRoutines')
+          .doc(_selectedDay);
+
+      final snapshot = await docRef.get();
+      if (snapshot.exists) {
+        await docRef.update({
+          'tasks': FieldValue.arrayUnion([newTask.toMap()])
+        });
+      } else {
+        await docRef.set({
+          'day': _selectedDay,
+          'tasks': [newTask.toMap()],
+        });
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Added to $_selectedDay weekly routine!')));
+        Navigator.pop(context);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final colorScheme = Theme.of(context).colorScheme;
+    final onSurfaceColor = colorScheme.onSurface;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: EdgeInsets.only(left: 24.0, right: 24.0, top: 24.0, bottom: bottomInset + 24.0),
+      child: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Add Weekly Routine Task',
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: onSurfaceColor,
+                    ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
+
+              Text(
+                'Select Day (দিন নির্বাচন)',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: onSurfaceColor,
+                ),
+              ),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                value: _selectedDay,
+                dropdownColor: colorScheme.surface,
+                style: TextStyle(color: onSurfaceColor),
+                decoration: InputDecoration(
+                  border: const OutlineInputBorder(),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: onSurfaceColor.withValues(alpha: 0.3)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: colorScheme.primary),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
+                items: _days.map((d) => DropdownMenuItem(
+                  value: d,
+                  child: Text(d, style: TextStyle(color: onSurfaceColor)),
+                )).toList(),
+                onChanged: (val) {
+                  if (val != null) setState(() => _selectedDay = val);
+                },
+              ),
+              const SizedBox(height: 16),
+              
+              Text(
+                'Subject Name (বিষয়)',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: onSurfaceColor,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _subjectController,
+                style: TextStyle(color: onSurfaceColor),
+                decoration: InputDecoration(
+                  hintText: 'Enter Subject Name', 
+                  hintStyle: TextStyle(color: onSurfaceColor.withValues(alpha: 0.6)),
+                  prefixIcon: Icon(Icons.subject, color: colorScheme.primary),
+                  border: const OutlineInputBorder(),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: onSurfaceColor.withValues(alpha: 0.3)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: colorScheme.primary),
+                  ),
+                ),
+                validator: (val) => val == null || val.isEmpty ? 'Enter a subject name' : null,
+              ),
+              const SizedBox(height: 16),
+
+              Text(
+                'Topic Name (বিষয়বস্তু)',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: onSurfaceColor,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _topicController,
+                style: TextStyle(color: onSurfaceColor),
+                decoration: InputDecoration(
+                  hintText: 'Enter Topic Name', 
+                  hintStyle: TextStyle(color: onSurfaceColor.withValues(alpha: 0.6)),
+                  prefixIcon: Icon(Icons.title_rounded, color: colorScheme.primary),
+                  border: const OutlineInputBorder(),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: onSurfaceColor.withValues(alpha: 0.3)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: colorScheme.primary),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              Text(
+                'Possible Challenges (সম্ভাব্য সমস্যা)',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: onSurfaceColor,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _challengesController,
+                style: TextStyle(color: onSurfaceColor),
+                decoration: InputDecoration(
+                  hintText: 'Describe potential issues or difficulties...', 
+                  hintStyle: TextStyle(color: onSurfaceColor.withValues(alpha: 0.6)),
+                  prefixIcon: Icon(Icons.warning_amber_rounded, color: colorScheme.primary),
+                  border: const OutlineInputBorder(),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: onSurfaceColor.withValues(alpha: 0.3)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: colorScheme.primary),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              
+              Text(
+                'Task Goal / Notes (লক্ষ্য ও নোট)',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: onSurfaceColor,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _notesController,
+                style: TextStyle(color: onSurfaceColor),
+                decoration: InputDecoration(
+                  hintText: 'Enter notes or specific goals...', 
+                  hintStyle: TextStyle(color: onSurfaceColor.withValues(alpha: 0.6)),
+                  prefixIcon: Icon(Icons.notes, color: colorScheme.primary),
+                  border: const OutlineInputBorder(),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: onSurfaceColor.withValues(alpha: 0.3)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: colorScheme.primary),
+                  ),
+                ),
+                maxLines: 3,
+              ),
+              const SizedBox(height: 16),
+
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _pickTime(true),
+                      icon: Icon(Icons.access_time, color: colorScheme.primary),
+                      label: Text(
+                        _startTime?.format(context) ?? 'Start Time',
+                        style: TextStyle(color: onSurfaceColor),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: onSurfaceColor.withValues(alpha: 0.3)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _pickTime(false),
+                      icon: Icon(Icons.access_time, color: colorScheme.primary),
+                      label: Text(
+                        _endTime?.format(context) ?? 'End Time',
+                        style: TextStyle(color: onSurfaceColor),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: onSurfaceColor.withValues(alpha: 0.3)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              Text(
+                'Category',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(color: onSurfaceColor),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 10.0,
+                children: _categories.map((cat) {
+                  final isSelected = _selectedCategory == cat;
+                  return ChoiceChip(
+                    label: Text(
+                      cat,
+                      style: TextStyle(color: isSelected ? Colors.white : onSurfaceColor),
+                    ),
+                    selected: isSelected,
+                    selectedColor: colorScheme.primary,
+                    backgroundColor: colorScheme.surface,
+                    onSelected: (selected) {
+                      if (selected) setState(() => _selectedCategory = cat);
+                    },
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 16),
+
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(
+                  'Private Task',
+                  style: TextStyle(fontWeight: FontWeight.bold, color: onSurfaceColor),
+                ),
+                subtitle: Text(
+                  'Hide task name from others',
+                  style: TextStyle(color: colorScheme.onSurfaceVariant),
+                ),
+                value: _isPrivate,
+                activeThumbColor: colorScheme.primary,
+                onChanged: (val) => setState(() => _isPrivate = val),
+              ),
+              const SizedBox(height: 24),
+
+              ElevatedButton(
+                onPressed: _submit,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: colorScheme.primary,
+                  foregroundColor: colorScheme.onPrimary,
+                ),
+                child: const Text('উইকলি রুটিনে যুক্ত করুন (Add to Weekly)'),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -4252,6 +4771,526 @@ class ThemeCustomizerBottomSheet extends StatelessWidget {
             ),
             if (isSelected)
               Icon(Icons.check_circle_rounded, color: theme.colorScheme.primary, size: 16),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ==========================================
+// Study Analytics Screen (স্টাডি অ্যানালিটিক্স)
+// ==========================================
+class StudyAnalyticsScreen extends StatefulWidget {
+  const StudyAnalyticsScreen({super.key});
+
+  @override
+  State<StudyAnalyticsScreen> createState() => _StudyAnalyticsScreenState();
+}
+
+class _StudyAnalyticsScreenState extends State<StudyAnalyticsScreen> {
+  final User? currentUser = FirebaseAuth.instance.currentUser;
+  bool _isLoading = true;
+  List<DailyRoutine> _routines = [];
+  
+  // Aggregated Stats
+  Map<String, int> _subjectTimes = {}; // Subject name -> Minutes
+  Map<String, int> _categoryTimes = {}; // Category name -> Minutes
+  List<double> _weeklyProgress = List.generate(7, (_) => 0.0); // Last 7 days progress
+  List<String> _weeklyDays = [];
+  int _totalHours = 0;
+  int _totalTasksCompleted = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchAnalyticsData();
+  }
+
+  Future<void> _fetchAnalyticsData() async {
+    if (currentUser == null) {
+      setState(() => _isLoading = false);
+      return;
+    }
+
+    try {
+      final now = DateTime.now();
+      // Fetch routines from the last 7 days
+      final lastWeek = now.subtract(const Duration(days: 7));
+      
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(currentUser!.uid)
+          .collection('dailyRoutines')
+          .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(lastWeek))
+          .get();
+
+      final List<DailyRoutine> fetchedRoutines = [];
+      for (var doc in querySnapshot.docs) {
+        fetchedRoutines.add(DailyRoutine.fromMap(doc.data(), doc.id));
+      }
+
+      // Aggregate data
+      int totalMinutes = 0;
+      int completedTasks = 0;
+      final Map<String, int> subTimes = {};
+      final Map<String, int> catTimes = {};
+
+      for (var routine in fetchedRoutines) {
+        for (var task in routine.tasks) {
+          if (task.isCompleted) {
+            completedTasks++;
+          }
+          final int minutes = task.completedDurationMinutes;
+          totalMinutes += minutes;
+
+          if (minutes > 0) {
+            // Subject aggregation
+            final String subName = (task.subject == null || task.subject!.trim().isEmpty) ? 'General' : task.subject!.trim();
+            subTimes[subName] = (subTimes[subName] ?? 0) + minutes;
+
+            // Category aggregation
+            final String catName = (task.category == null || task.category!.trim().isEmpty) ? 'Study' : task.category!.trim();
+            catTimes[catName] = (catTimes[catName] ?? 0) + minutes;
+          }
+        }
+      }
+
+      // Calculate last 7 days daily progress values
+      final List<double> progress = [];
+      final List<String> days = [];
+      final DateFormat dayFormat = DateFormat('E'); // Mon, Tue, etc.
+
+      for (int i = 6; i >= 0; i--) {
+        final targetDate = now.subtract(Duration(days: i));
+        final dateStr = DateFormat('yyyy-MM-dd').format(targetDate);
+        days.add(dayFormat.format(targetDate));
+
+        final routine = fetchedRoutines.firstWhere(
+          (r) => DateFormat('yyyy-MM-dd').format(r.date) == dateStr,
+          orElse: () => DailyRoutine(id: dateStr, userId: currentUser!.uid, date: targetDate, tasks: []),
+        );
+
+        progress.add(routine.progress);
+      }
+
+      setState(() {
+        _routines = fetchedRoutines;
+        _subjectTimes = subTimes;
+        _categoryTimes = catTimes;
+        _weeklyProgress = progress;
+        _weeklyDays = days;
+        _totalHours = totalMinutes ~/ 60;
+        _totalTasksCompleted = completedTasks;
+        _isLoading = false;
+      });
+    } catch (e) {
+      debugPrint('Error fetching analytics data: $e');
+      setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cardDeco = ThemeManager.getCardDecoration(context);
+
+    return Scaffold(
+      backgroundColor: theme.colorScheme.surface,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: const Text('Study Analytics', style: TextStyle(fontWeight: FontWeight.bold)),
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Summary Stats Row
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: cardDeco,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Total Hours', style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontSize: 12)),
+                              const SizedBox(height: 8),
+                              Text('${_totalHours} hrs', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: theme.colorScheme.primary)),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: cardDeco,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Completed Tasks', style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontSize: 12)),
+                              const SizedBox(height: 8),
+                              Text('$_totalTasksCompleted', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.green)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Weekly study progress bar chart card
+                  Text('Weekly Performance', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 12),
+                  Container(
+                    height: 200,
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: cardDeco,
+                    child: CustomPaint(
+                      painter: _WeeklyProgressPainter(
+                        progress: _weeklyProgress,
+                        days: _weeklyDays,
+                        primaryColor: theme.colorScheme.primary,
+                        textColor: theme.colorScheme.onSurface,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Subject-wise Breakdown Card
+                  Text('Subject Breakdown', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 12),
+                  _subjectTimes.isEmpty
+                      ? Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(24),
+                          decoration: cardDeco,
+                          child: const Center(
+                            child: Text('No study tasks logged this week.', style: TextStyle(color: Colors.grey)),
+                          ),
+                        )
+                      : Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: cardDeco,
+                          child: Column(
+                            children: _subjectTimes.entries.map((entry) {
+                              final int totalMin = _subjectTimes.values.fold(0, (sum, item) => sum + item);
+                              final double percentage = totalMin > 0 ? entry.value / totalMin : 0.0;
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                child: Column(
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(entry.key, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                        Text('${entry.value} min (${(percentage * 100).toInt()}%)', style: TextStyle(color: theme.colorScheme.primary)),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 6),
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(4),
+                                      child: LinearProgressIndicator(
+                                        value: percentage,
+                                        minHeight: 8,
+                                        backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.1),
+                                        valueColor: AlwaysStoppedAnimation<Color>(theme.colorScheme.primary),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                  const SizedBox(height: 24),
+
+                  // Category Distribution
+                  Text('Category Breakdown', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 12),
+                  _categoryTimes.isEmpty
+                      ? Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(24),
+                          decoration: cardDeco,
+                          child: const Center(
+                            child: Text('No categorized tasks logged.', style: TextStyle(color: Colors.grey)),
+                          ),
+                        )
+                      : Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: cardDeco,
+                          child: Column(
+                            children: _categoryTimes.entries.map((entry) {
+                              final int totalMin = _categoryTimes.values.fold(0, (sum, item) => sum + item);
+                              final double percentage = totalMin > 0 ? entry.value / totalMin : 0.0;
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                child: Column(
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(entry.key, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                        Text('${entry.value} min', style: const TextStyle(color: Colors.grey)),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 6),
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(4),
+                                      child: LinearProgressIndicator(
+                                        value: percentage,
+                                        minHeight: 8,
+                                        backgroundColor: Colors.teal.withValues(alpha: 0.1),
+                                        valueColor: const AlwaysStoppedAnimation<Color>(Colors.teal),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                ],
+              ),
+            ),
+    );
+  }
+}
+
+class _WeeklyProgressPainter extends CustomPainter {
+  final List<double> progress;
+  final List<String> days;
+  final Color primaryColor;
+  final Color textColor;
+
+  _WeeklyProgressPainter({
+    required this.progress,
+    required this.days,
+    required this.primaryColor,
+    required this.textColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (progress.isEmpty) return;
+
+    final paint = Paint()
+      ..color = primaryColor
+      ..style = PaintingStyle.fill;
+
+    final bgPaint = Paint()
+      ..color = primaryColor.withValues(alpha: 0.1)
+      ..style = PaintingStyle.fill;
+
+    final double width = size.width;
+    final double height = size.height - 24;
+    final int itemCount = progress.length;
+    final double spacing = width / (itemCount + 1);
+    final double barWidth = 16.0;
+
+    for (int i = 0; i < itemCount; i++) {
+      final double x = spacing * (i + 1) - (barWidth / 2);
+      
+      // Draw background track
+      final RRect bgRect = RRect.fromRectAndRadius(
+        Rect.fromLTWH(x, 0, barWidth, height),
+        const Radius.circular(8),
+      );
+      canvas.drawRRect(bgRect, bgPaint);
+
+      // Draw progress filled bar
+      final double p = progress[i].clamp(0.0, 1.0);
+      final double barHeight = height * p;
+      final double y = height - barHeight;
+
+      if (barHeight > 0) {
+        final RRect progressRect = RRect.fromRectAndRadius(
+          Rect.fromLTWH(x, y, barWidth, barHeight),
+          const Radius.circular(8),
+        );
+        canvas.drawRRect(progressRect, paint);
+      }
+
+      // Draw Day Label below bar
+      final textPainter = TextPainter(
+        text: TextSpan(
+          text: days[i],
+          style: TextStyle(color: textColor.withValues(alpha: 0.7), fontSize: 10, fontWeight: FontWeight.bold),
+        ),
+        textDirection: ui.TextDirection.ltr,
+      );
+      textPainter.layout();
+      textPainter.paint(canvas, Offset(x + (barWidth / 2) - (textPainter.width / 2), height + 6));
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _WeeklyProgressPainter oldDelegate) {
+    return oldDelegate.progress != progress || oldDelegate.days != days;
+  }
+}
+
+// ==========================================
+// PDF Reader Screen (পিডিএফ রিডার ও হ্যান্ডনোটস)
+// ==========================================
+class PdfReaderScreen extends StatefulWidget {
+  const PdfReaderScreen({super.key});
+
+  @override
+  State<PdfReaderScreen> createState() => _PdfReaderScreenState();
+}
+
+class _PdfReaderScreenState extends State<PdfReaderScreen> {
+  final ImagePicker _picker = ImagePicker();
+  List<File> _pdfFiles = [];
+  bool _isLoading = false;
+
+  Future<void> _pickPdf() async {
+    // Pick image or file as a simulated PDF / Handnotes document picker
+    try {
+      final XFile? pickedFile = await _picker.pickImage(source: ImageSource.gallery);
+      if (pickedFile != null) {
+        final path = pickedFile.path.toLowerCase();
+        if (!path.endsWith('.pdf')) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Error: Only PDF files (.pdf) are allowed! This is a JPG/PNG image file.'),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+          return;
+        }
+
+        setState(() {
+          _pdfFiles.add(File(pickedFile.path));
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Document imported successfully!')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error importing document: $e')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cardDeco = ThemeManager.getCardDecoration(context);
+
+    return Scaffold(
+      backgroundColor: theme.colorScheme.surface,
+      appBar: AppBar(
+        title: const Text('PDF Reader & Notes', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: cardDeco,
+              child: Column(
+                children: [
+                  const Icon(Icons.picture_as_pdf_rounded, size: 60, color: Colors.redAccent),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Study Handnotes & PDFs',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Import Handnotes, Books or Lecture PDFs to study inside StudyMate.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontSize: 13),
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton.icon(
+                    onPressed: _pickPdf,
+                    icon: const Icon(Icons.add_to_photos_rounded),
+                    label: const Text('Import Document'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: theme.colorScheme.primary,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'My Documents',
+              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: _pdfFiles.isEmpty
+                  ? Center(
+                      child: Text(
+                        'No documents imported yet.',
+                        style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+                      ),
+                    )
+                  : ListView.builder(
+                      itemCount: _pdfFiles.length,
+                      itemBuilder: (context, index) {
+                        final file = _pdfFiles[index];
+                        final String fileName = file.path.split('/').last.split('\\').last;
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          child: ListTile(
+                            leading: const CircleAvatar(
+                              backgroundColor: Colors.redAccent,
+                              child: Icon(Icons.menu_book_rounded, color: Colors.white),
+                            ),
+                            title: Text(fileName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                            subtitle: Text('Size: ${(file.lengthSync() / 1024).toStringAsFixed(1)} KB'),
+                            trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+                            onTap: () {
+                              // Open Viewer Simulation
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => Scaffold(
+                                    appBar: AppBar(title: Text(fileName)),
+                                    body: Center(
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          const Icon(Icons.chrome_reader_mode_rounded, size: 100, color: Colors.blueAccent),
+                                          const SizedBox(height: 16),
+                                          Text(
+                                            'Viewing Document: $fileName',
+                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                          ),
+                                          const SizedBox(height: 8),
+                                          const Text('Reading session started. Stay focused!', style: TextStyle(color: Colors.grey)),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        );
+                      },
+                    ),
+            ),
           ],
         ),
       ),

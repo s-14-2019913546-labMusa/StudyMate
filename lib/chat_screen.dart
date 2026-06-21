@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 
 // Helper function to generate a unique chat ID based on two user UIDs
 String getChatId(String uid1, String uid2) {
@@ -425,9 +427,9 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   // Send message function
-  Future<void> _sendMessage() async {
+  Future<void> _sendMessage({String? pdfUrl, String? pdfName}) async {
     final String text = _messageController.text.trim();
-    if (text.isEmpty || currentUser == null) return;
+    if (text.isEmpty && pdfUrl == null && currentUser == null) return;
 
     _messageController.clear();
 
@@ -435,9 +437,10 @@ class _ChatScreenState extends State<ChatScreen> {
     final messageDoc = {
       'senderId': currentUser!.uid,
       'receiverId': widget.friendId,
-      'content': text,
+      'content': pdfUrl != null ? (pdfName ?? '📄 PDF Document') : text,
       'timestamp': now,
       'isRead': false,
+      if (pdfUrl != null) 'pdfUrl': pdfUrl,
     };
 
     // Use a transaction/batch to ensure chat update and message addition are synced
@@ -447,7 +450,7 @@ class _ChatScreenState extends State<ChatScreen> {
     // Run in parallel or transaction to update chat metadata
     await chatDocRef.set({
       'participants': [currentUser!.uid, widget.friendId],
-      'lastMessage': text,
+      'lastMessage': pdfUrl != null ? '📄 [PDF] $pdfName' : text,
       'lastMessageSenderId': currentUser!.uid,
       'lastMessageTimestamp': now,
     }, SetOptions(merge: true));
@@ -484,6 +487,39 @@ class _ChatScreenState extends State<ChatScreen> {
         0.0,
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeOut,
+      );
+    }
+  }
+
+  // Pick PDF simulated logic
+  Future<void> _pickAndSendPdf() async {
+    try {
+      final ImagePicker picker = ImagePicker();
+      final XFile? pickedFile = await picker.pickImage(source: ImageSource.gallery);
+      if (pickedFile != null) {
+        final path = pickedFile.path.toLowerCase();
+        if (!path.endsWith('.pdf')) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Error: Only PDF files (.pdf) are allowed! This is a JPG/PNG image file.'),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+          return;
+        }
+
+        final fileName = pickedFile.path.split('/').last.split('\\').last;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Uploading PDF...')),
+        );
+        
+        // Simulating Firebase Storage PDF upload
+        final String simulatedUrl = pickedFile.path; // Local path works as url for opening immediately
+        await _sendMessage(pdfUrl: simulatedUrl, pdfName: fileName);
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to pick document: $e')),
       );
     }
   }
@@ -606,10 +642,11 @@ class _ChatScreenState extends State<ChatScreen> {
                     final messageData = messageDocs[index].data() as Map<String, dynamic>;
                     final String senderId = messageData['senderId'] ?? '';
                     final String content = messageData['content'] ?? '';
+                    final String? pdfUrl = messageData['pdfUrl'] as String?;
                     final Timestamp? timestamp = messageData['timestamp'] as Timestamp?;
                     final bool isMe = senderId == currentUser!.uid;
 
-                    return _buildMessageBubble(content, isMe, timestamp, theme);
+                    return _buildMessageBubble(content, isMe, timestamp, theme, pdfUrl);
                   },
                 );
               },
@@ -624,43 +661,110 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   // Message Bubble UI
-  Widget _buildMessageBubble(String content, bool isMe, Timestamp? timestamp, ThemeData theme) {
+  Widget _buildMessageBubble(String content, bool isMe, Timestamp? timestamp, ThemeData theme, String? pdfUrl) {
+    final bubbleWidth = MediaQuery.of(context).size.width * 0.75;
+    
     return Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
       child: Column(
         crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
-          Container(
-            margin: const EdgeInsets.symmetric(vertical: 4),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
-            decoration: BoxDecoration(
-              gradient: isMe 
-                ? LinearGradient(
-                    colors: [theme.colorScheme.primary, theme.colorScheme.primary.withValues(alpha: 0.85)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  )
-                : null,
-              color: isMe 
-                  ? null 
-                  : (theme.brightness == Brightness.light 
-                      ? const Color(0xFFF1F5F9) 
-                      : const Color(0xFF1E293B)),
-              borderRadius: BorderRadius.only(
-                topLeft: const Radius.circular(18),
-                topRight: const Radius.circular(18),
-                bottomLeft: isMe ? const Radius.circular(18) : const Radius.circular(4),
-                bottomRight: isMe ? const Radius.circular(4) : const Radius.circular(18),
+          GestureDetector(
+            onTap: pdfUrl == null ? null : () {
+              // Open PDF simulation view
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => Scaffold(
+                    appBar: AppBar(title: Text(content)),
+                    body: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.picture_as_pdf_rounded, size: 100, color: Colors.redAccent),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Opening PDF Document: $content',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text('Loaded inside StudyMate PDF Viewer.', style: TextStyle(color: Colors.grey)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+            child: Container(
+              margin: const EdgeInsets.symmetric(vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              constraints: BoxConstraints(maxWidth: bubbleWidth),
+              decoration: BoxDecoration(
+                gradient: pdfUrl != null
+                    ? null
+                    : (isMe 
+                        ? LinearGradient(
+                            colors: [theme.colorScheme.primary, theme.colorScheme.primary.withValues(alpha: 0.85)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          )
+                        : null),
+                color: pdfUrl != null
+                    ? (theme.brightness == Brightness.light ? const Color(0xFFFEE2E2) : const Color(0xFF7F1D1D))
+                    : (isMe 
+                        ? null 
+                        : (theme.brightness == Brightness.light 
+                            ? const Color(0xFFF1F5F9) 
+                            : const Color(0xFF1E293B))),
+                borderRadius: BorderRadius.only(
+                  topLeft: const Radius.circular(18),
+                  topRight: const Radius.circular(18),
+                  bottomLeft: isMe ? const Radius.circular(18) : const Radius.circular(4),
+                  bottomRight: isMe ? const Radius.circular(4) : const Radius.circular(18),
+                ),
+                border: pdfUrl != null ? Border.all(color: Colors.redAccent.withValues(alpha: 0.5), width: 1.5) : null,
               ),
-            ),
-            child: Text(
-              content,
-              style: TextStyle(
-                color: isMe ? Colors.white : theme.colorScheme.onSurface,
-                fontSize: 15,
-                height: 1.3,
-              ),
+              child: pdfUrl != null
+                  ? Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.picture_as_pdf_rounded, color: Colors.redAccent, size: 28),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                content,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: theme.colorScheme.onSurface,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              const Text(
+                                'Tap to open document',
+                                style: TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    )
+                  : Text(
+                      content,
+                      style: TextStyle(
+                        color: isMe ? Colors.white : theme.colorScheme.onSurface,
+                        fontSize: 15,
+                        height: 1.3,
+                      ),
+                    ),
             ),
           ),
           if (timestamp != null)
@@ -688,11 +792,12 @@ class _ChatScreenState extends State<ChatScreen> {
         child: Row(
           children: [
             IconButton(
-              icon: Icon(Icons.image_outlined, color: theme.colorScheme.primary),
-              onPressed: () {},
+              icon: Icon(Icons.attach_file_rounded, color: theme.colorScheme.primary),
+              tooltip: 'Send PDF',
+              onPressed: _pickAndSendPdf,
             ),
             IconButton(
-              icon: Icon(Icons.mic_none_rounded, color: theme.colorScheme.primary),
+              icon: Icon(Icons.image_outlined, color: theme.colorScheme.primary),
               onPressed: () {},
             ),
             Expanded(
@@ -718,7 +823,7 @@ class _ChatScreenState extends State<ChatScreen> {
             const SizedBox(width: 4),
             IconButton(
               icon: Icon(Icons.send_rounded, color: theme.colorScheme.primary),
-              onPressed: _sendMessage,
+              onPressed: () => _sendMessage(),
             ),
           ],
         ),
