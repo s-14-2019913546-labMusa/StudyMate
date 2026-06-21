@@ -4,7 +4,9 @@ import 'package:intl/intl.dart';
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'daily_routine.dart';
+import 'language_manager.dart';
 import 'todays_tasks_screen.dart';
+import 'gamification_service.dart';
 import 'task_details_screen.dart'; // নতুন ফাইলটি ইমপোর্ট করা হলো
 import 'tools_screen.dart'; // Tools স্ক্রিন ইমপোর্ট
 import 'profile_screen.dart'; // Profile স্ক্রিন ইমপোর্ট
@@ -21,17 +23,32 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   final User? user = FirebaseAuth.instance.currentUser;
-  final String _todayDateFormatted = DateFormat('EEEE, d MMMM').format(DateTime.now());
+  String get _todayDateFormatted => DateFormat('EEEE, d MMMM', LanguageManager().currentLanguage).format(DateTime.now());
   final String _todayDocId = DateFormat('yyyy-MM-dd').format(DateTime.now()); // e.g., "2023-10-27"
 
   Stream<DailyRoutine?>? _todaysRoutineStream;
   int _bottomNavIndex = 0; // বটম নেভিগেশন বারের ইনডেক্স
+  int _currentStreak = 0;
 
   @override
   void initState() {
     super.initState();
     if (user != null) {
       _todaysRoutineStream = _fetchTodaysRoutine();
+      _loadStreak();
+    }
+  }
+
+  Future<void> _loadStreak() async {
+    try {
+      final streak = await GamificationService.calculateStreak();
+      if (mounted) {
+        setState(() {
+          _currentStreak = streak;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error loading streak on dashboard: $e");
     }
   }
 
@@ -76,7 +93,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       );
       await docRef.set(newRoutine.toMap());
     }
-    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Task Added Successfully!')));
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Task Added Successfully!'.tr())));
   }
 
   // একাধিক টাস্ক ডাটাবেজে একসাথে যুক্ত করার ফাংশন (AI Planner এর জন্য)
@@ -97,7 +114,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final newRoutine = DailyRoutine(id: _todayDocId, userId: user!.uid, date: DateTime.now(), tasks: newTasks);
       await docRef.set(newRoutine.toMap());
     }
-    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('AI Routine Added Successfully!')));
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('AI Routine Added Successfully!'.tr())));
   }
 
   // টাস্ক ডাটাবেজে আপডেট করার ফাংশন
@@ -116,6 +133,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (index != -1) {
         routine.tasks[index] = updatedTask;
         await docRef.update({'tasks': routine.tasks.map((t) => t.toMap()).toList()});
+        if (updatedTask.status == 'completed') {
+          _loadStreak();
+        }
       }
     }
   }
@@ -125,6 +145,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (context) {
         return DraggableScrollableSheet(
@@ -133,32 +154,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
           maxChildSize: 0.9,
           minChildSize: 0.5,
           builder: (_, controller) {
-            return Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "All Missed Tasks", 
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.bold, 
-                          color: Theme.of(context).colorScheme.error,
-                        ),
-                  ),
-                  const SizedBox(height: 16),
-                  Expanded(
-                    child: ListView.builder(
-                      controller: controller,
-                      itemCount: missedTasks.length,
-                      itemBuilder: (context, index) {
-                        return ActiveTaskCard(
-                          task: missedTasks[index],
-                          onUpdate: _updateTaskInFirestore,
-                        );
-                      },
+            return SafeArea(
+              top: true,
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "All Missed Tasks".tr(), 
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.bold, 
+                            color: Theme.of(context).colorScheme.error,
+                          ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 16),
+                    Expanded(
+                      child: ListView.builder(
+                        controller: controller,
+                        itemCount: missedTasks.length,
+                        itemBuilder: (context, index) {
+                          return ActiveTaskCard(
+                            task: missedTasks[index],
+                            onUpdate: _updateTaskInFirestore,
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
               ),
             );
           },
@@ -201,10 +226,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
             _bottomNavIndex = index;
           });
         },
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.home_rounded), label: 'Home'),
-          NavigationDestination(icon: Icon(Icons.build_circle_outlined), selectedIcon: Icon(Icons.build_circle_rounded), label: 'Tools'),
-          NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person_rounded), label: 'Profile'),
+        destinations: [
+          NavigationDestination(icon: const Icon(Icons.home_rounded), label: 'Home'.tr()),
+          NavigationDestination(icon: const Icon(Icons.build_circle_outlined), selectedIcon: const Icon(Icons.build_circle_rounded), label: 'Tools'.tr()),
+          NavigationDestination(icon: const Icon(Icons.person_outline), selectedIcon: const Icon(Icons.person_rounded), label: 'Profile'.tr()),
         ],
       ),
       floatingActionButton: _bottomNavIndex == 0
@@ -213,6 +238,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 showModalBottomSheet(
                   context: context,
                   isScrollControlled: true, // কিবোর্ড উঠলে ফর্ম স্ক্রল করার জন্য
+                  useSafeArea: true,
                   shape: const RoundedRectangleBorder(
                     borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
                   ),
@@ -224,7 +250,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 );
               },
               label: Text(
-                'New Task',
+                'New Task'.tr(),
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -281,11 +307,40 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             color: Theme.of(context).colorScheme.onSurface,
                           ),
                     ),
-                    Text(
-                      'Welcome back!',
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    Row(
+                      children: [
+                        Text(
+                          'Welcome back!'.tr(),
+                          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
+                        ),
+                        if (_currentStreak > 0) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.local_fire_department_rounded, color: Colors.orange, size: 14),
+                                const SizedBox(width: 2),
+                                Text(
+                                  '$_currentStreak ${'Day Streak'.tr()}',
+                                  style: const TextStyle(
+                                    color: Colors.orange,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
+                        ],
+                      ],
                     ),
                   ],
                 ),
@@ -294,7 +349,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             const SizedBox(height: 24),
             Text(
-              _todayDateFormatted,
+              LanguageManager.formatDate(DateTime.now()),
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                     fontWeight: FontWeight.w500,
@@ -347,7 +402,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      "Today's Tasks",
+                      "Today's Tasks".tr(),
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.bold,
                             color: Theme.of(context).colorScheme.onSurface,
@@ -368,7 +423,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       Padding(
                         padding: const EdgeInsets.only(bottom: 20.0, top: 4.0),
                         child: Text(
-                          "আজকের এখন কোনো টাস্ক লিস্টেড নেই।",
+                          "No tasks listed for today.".tr(),
                           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                 color: Theme.of(context).colorScheme.onSurfaceVariant,
                               ),
@@ -381,7 +436,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            "Missed Tasks",
+                            "Missed Tasks".tr(),
                             style: Theme.of(context).textTheme.titleLarge?.copyWith(
                                   fontWeight: FontWeight.bold,
                                   color: Theme.of(context).colorScheme.error,
@@ -389,7 +444,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                           TextButton(
                             onPressed: () => _showAllMissedTasks(missedTasks),
-                            child: const Text("সব দেখুন", style: TextStyle(fontWeight: FontWeight.bold)),
+                            child: Text("See all".tr(), style: const TextStyle(fontWeight: FontWeight.bold)),
                           ),
                         ],
                       ),
@@ -407,7 +462,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                     if (otherTasks.isNotEmpty) ...[
                       Text(
-                        "Other Tasks",
+                        "Other Tasks".tr(),
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
                               fontWeight: FontWeight.bold,
                               color: Theme.of(context).colorScheme.onSurface,
@@ -502,38 +557,58 @@ class _DashboardScreenState extends State<DashboardScreen> {
           return const Center(child: CircularProgressIndicator());
         }
         if (snapshot.hasError) {
-          return Center(child: Text('Error: ${snapshot.error}'));
+          return Center(child: Text('${'Error'.tr()}: ${snapshot.error}'));
         }
 
         final DailyRoutine? routine = snapshot.data;
 
         if (routine == null || routine.tasks.isEmpty) {
-          // No routine or no tasks for today
-          return Card(
+          return Container(
+            width: double.infinity,
             margin: const EdgeInsets.symmetric(vertical: 8),
-            child: Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Center(
-                child: Column(
-                  children: [
-                    Text(
-                      'No routine set for today. Progress is 0%.',
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 8),
-                    TextButton(
-                      onPressed: () {
-                        // For demonstration, add a dummy routine
-                        _addDummyRoutine();
-                      },
-                      child: const Text('Set Today\'s Routine'),
-                    )
-                  ],
-                ),
+            padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 24),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
+                width: 1.5,
               ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.add_task_rounded,
+                    size: 40,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  "No tasks set for today".tr(),
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  "Tap the 'New Task' button at the bottom of the screen to plan your study routine and stay productive!".tr(),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        height: 1.4,
+                      ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
             ),
           );
         }
@@ -610,34 +685,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // Dummy routine for testing and initial setup
-  Future<void> _addDummyRoutine() async {
-    if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please log in to set a routine.')));
-      return;
-    }
 
-    final dummyRoutine = DailyRoutine(
-      id: _todayDocId,
-      userId: user!.uid,
-      date: DateTime.now(),
-      tasks: [
-        Task(id: 'task1', title: 'Complete Flutter UI', totalDurationMinutes: 90, completedDurationMinutes: 45),
-        Task(id: 'task2', title: 'Review Math Chapter', totalDurationMinutes: 60, completedDurationMinutes: 0),
-        Task(id: 'task3', title: 'Read English Novel', totalDurationMinutes: 45, completedDurationMinutes: 30),
-      ],
-    );
-
-    await FirebaseFirestore.instance
-        .collection('users')
-        .doc(user!.uid)
-        .collection('dailyRoutines')
-        .doc(_todayDocId)
-        .set(dummyRoutine.toMap());
-
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Dummy routine added for today!')));
-  }
 }
 
 // ==========================================
@@ -693,7 +741,7 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
   void _submit() {
     if (_formKey.currentState!.validate()) {
       if (_startTime == null || _endTime == null) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select both Start and End Time.')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Please select both Start and End Time.'.tr())));
         return;
       }
 
@@ -739,16 +787,20 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
         color: colorScheme.surface,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      padding: EdgeInsets.only(left: 24.0, right: 24.0, top: 24.0, bottom: bottomInset + 24.0),
-      child: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
+      child: SafeArea(
+        top: true,
+        bottom: false,
+        child: Padding(
+          padding: EdgeInsets.only(left: 24.0, right: 24.0, top: 24.0, bottom: bottomInset + 24.0),
+          child: Form(
+            key: _formKey,
+            child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Add New Task',
+                'Add New Task'.tr(),
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: onSurfaceColor),
                 textAlign: TextAlign.center,
               ),
@@ -927,8 +979,10 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  ),
+);
+}
 }
 
 class EditTaskBottomSheet extends StatefulWidget {
@@ -1061,10 +1115,14 @@ class _EditTaskBottomSheetState extends State<EditTaskBottomSheet> {
         color: colorScheme.surface,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      padding: EdgeInsets.only(left: 24.0, right: 24.0, top: 24.0, bottom: bottomInset + 24.0),
-      child: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
+      child: SafeArea(
+        top: true,
+        bottom: false,
+        child: Padding(
+          padding: EdgeInsets.only(left: 24.0, right: 24.0, top: 24.0, bottom: bottomInset + 24.0),
+          child: Form(
+            key: _formKey,
+            child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1289,8 +1347,10 @@ class _EditTaskBottomSheetState extends State<EditTaskBottomSheet> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  ),
+);
+}
 }
 
 // ==========================================
@@ -1436,16 +1496,48 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                 ),
                 const SizedBox(width: 8),
                 ElevatedButton(
-                  onPressed: () {
+                  onPressed: () async {
                     Navigator.pop(context);
                     _timer?.cancel();
-                    widget.onUpdate(widget.task.copyWith(
+                    
+                    final completedTask = widget.task.copyWith(
                       status: 'completed',
                       isCompleted: true,
                       elapsedSeconds: _elapsedSeconds,
                       completedDurationMinutes: _elapsedSeconds ~/ 60,
                       completionNote: noteController.text.trim(),
-                    ));
+                    );
+                    
+                    widget.onUpdate(completedTask);
+                    
+                    try {
+                      final res = await GamificationService.awardXP(
+                        GamificationService.xpTaskComplete,
+                        reason: 'task_complete',
+                      );
+                      if (context.mounted && res.isNotEmpty) {
+                        final int xpAwarded = res['xpAwarded'] ?? 0;
+                        final List<String> newBadges = List<String>.from(res['newBadges'] ?? []);
+                        
+                        String message = '🎉 Task Completed! +$xpAwarded XP';
+                        if (newBadges.isNotEmpty) {
+                          message += '\n🏆 Unlocked new badge(s): ${newBadges.join(", ")}!';
+                        }
+                        
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              message,
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            backgroundColor: Theme.of(context).colorScheme.primary,
+                            duration: const Duration(seconds: 4),
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      debugPrint('Error awarding XP: $e');
+                    }
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Theme.of(context).colorScheme.primary,
@@ -1468,6 +1560,7 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),

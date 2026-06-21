@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'focus_mode_screen.dart';
+import 'language_manager.dart';
 
 // ==========================================
 // 3. Sign Up Screen (সাইন আপ স্ক্রিন)
@@ -35,7 +36,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   // সাইন-আপ করার ফায়ারবেস লজিক
   Future<void> _signUp() async {
     if (_passwordController.text != _confirmPasswordController.text) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Passwords do not match!')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Passwords do not match!'.tr())));
       return;
     }
     if (!_formKey.currentState!.validate()) {
@@ -56,15 +57,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
       if (mounted) {
         String message;
         if (e.code == 'weak-password') {
-          message = 'The password provided is too weak.';
+          message = 'The password provided is too weak.'.tr();
         } else if (e.code == 'email-already-in-use') {
-          message = 'The email address is already in use by another account.';
+          message = 'The email address is already in use by another account.'.tr();
         } else if (e.code == 'invalid-email') {
-          message = 'The email address is not valid.';
+          message = 'The email address is not valid.'.tr();
         } else if (e.code == 'operation-not-allowed') {
-          message = 'Email/password accounts are not enabled.';
+          message = 'Email/password accounts are not enabled.'.tr();
         } else {
-          message = e.message ?? 'Sign up failed. Please try again.';
+          message = (e.message ?? 'Sign up failed. Please try again.').tr();
         }
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       }
@@ -100,7 +101,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 children: [
                   // শিরোনাম
                   Text(
-                    'Create Account',
+                    'Create Account'.tr(),
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                           fontWeight: FontWeight.bold,
@@ -109,7 +110,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    'Sign up to get started!',
+                    'Sign up to get started!'.tr(),
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -123,12 +124,12 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     controller: _nameController,
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Please enter your full name';
+                        return 'Please enter your full name'.tr();
                       }
                       return null;
                     },
                     decoration: InputDecoration(
-                      labelText: 'Full Name',
+                      labelText: 'Full Name'.tr(),
                       prefixIcon: const Icon(Icons.person_outline),
                     ),
                   ),
@@ -141,15 +142,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     keyboardType: TextInputType.emailAddress,
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Please enter your email';
+                        return 'Please enter your email'.tr();
                       }
                       if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) {
-                        return 'Please enter a valid email address';
+                        return 'Please enter a valid email address'.tr();
                       }
                       return null;
                     },
                     decoration: InputDecoration(
-                      labelText: 'Email Address',
+                      labelText: 'Email Address'.tr(),
                       prefixIcon: const Icon(Icons.email_outlined),
                     ),
                   ),
@@ -162,15 +163,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     obscureText: !_isPasswordVisible,
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Please enter a password';
+                        return 'Please enter a password'.tr();
                       }
                       if (value.length < 6) {
-                        return 'Password must be at least 6 characters long';
+                        return 'Password must be at least 6 characters long'.tr();
                       }
                       return null;
                     },
                     decoration: InputDecoration(
-                      labelText: 'Password',
+                      labelText: 'Password'.tr(),
                       prefixIcon: const Icon(Icons.lock_outline),
                       suffixIcon: IconButton(
                         icon: Icon(
@@ -193,15 +194,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     obscureText: !_isConfirmPasswordVisible,
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Please confirm your password';
+                        return 'Please confirm your password'.tr();
                       }
                       if (value != _passwordController.text) {
-                        return 'Passwords do not match';
+                        return 'Passwords do not match'.tr();
                       }
                       return null;
                     },
                     decoration: InputDecoration(
-                      labelText: 'Confirm Password',
+                      labelText: 'Confirm Password'.tr(),
                       prefixIcon: const Icon(Icons.lock_outline),
                       suffixIcon: IconButton(
                         icon: Icon(
@@ -230,7 +231,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     child: _isLoading
                         ? const CircularProgressIndicator(color: Colors.white)
                         : Text(
-                            'Sign Up',
+                            'Sign Up'.tr(),
                             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                                   color: Colors.white,
                                   fontWeight: FontWeight.bold,

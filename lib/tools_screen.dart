@@ -13,7 +13,6 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'dart:math' as math;
-import 'dart:ui' as ui;
 import 'daily_routine.dart'; // Task মডেল ইমপোর্ট করার জন্য
 import 'focus_music_screen.dart';
 import 'flashcards_screen.dart';
@@ -23,6 +22,9 @@ import 'revision_147_screen.dart';
 import 'islamic_life_screen.dart';
 import 'theme_manager.dart';
 import 'dashboard_screen.dart';
+import 'study_analytics_screen.dart';
+import 'gamification_service.dart';
+import 'language_manager.dart';
 
 class ToolsScreen extends StatelessWidget {
   final Function(List<Task>) onTasksGenerated;
@@ -32,24 +34,26 @@ class ToolsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final List<Map<String, dynamic>> categories = [
       {
-        'name': 'Study & Revision',
+        'name': 'Study Tools',
         'icon': Icons.school_rounded,
         'tools': [
-          {'title': 'Study Analytics', 'icon': Icons.analytics_rounded, 'color': Colors.teal, 'action': 'analytics'},
-          {'title': 'PDF Reader', 'icon': Icons.picture_as_pdf_rounded, 'color': Colors.redAccent, 'action': 'pdf_reader'},
-          {'title': '1-4-7 Revision', 'icon': Icons.published_with_changes_rounded, 'color': Colors.indigo, 'action': 'revision_147'},
-          {'title': 'Flashcards', 'icon': Icons.style_rounded, 'color': Colors.purpleAccent, 'action': 'flash'},
+          {'title': 'Calculator', 'icon': Icons.calculate_rounded, 'color': Colors.blueAccent, 'action': 'calc'},
           {'title': 'Dictionary', 'icon': Icons.menu_book_rounded, 'color': Colors.orangeAccent, 'action': 'dict'},
+          {'title': 'Stopwatch', 'icon': Icons.timer_outlined, 'color': Colors.deepOrangeAccent, 'action': 'stopwatch'},
+          {'title': 'Pomodoro', 'icon': Icons.timer_rounded, 'color': Colors.redAccent, 'action': 'pomodoro'},
+          {'title': 'Notes', 'icon': Icons.note_alt_rounded, 'color': Colors.amber.shade600, 'action': 'notes'},
+          {'title': '1-4-7 Revision', 'icon': Icons.published_with_changes_rounded, 'color': Colors.indigo, 'action': 'revision_147'},
+          {'title': 'PDF Reader', 'icon': Icons.picture_as_pdf_rounded, 'color': Colors.redAccent, 'action': 'pdf_reader'},
+          {'title': 'Flashcards', 'icon': Icons.style_rounded, 'color': Colors.purpleAccent, 'action': 'flash'},
         ]
       },
       {
-        'name': 'Focus & Productivity',
+        'name': 'Focus',
         'icon': Icons.bolt_rounded,
         'tools': [
-          {'title': 'Pomodoro', 'icon': Icons.timer_rounded, 'color': Colors.redAccent, 'action': 'pomodoro'},
-          {'title': 'Stopwatch', 'icon': Icons.timer_outlined, 'color': Colors.deepOrangeAccent, 'action': 'stopwatch'},
+          {'title': 'Islamic Life', 'icon': Icons.mosque_rounded, 'color': Colors.teal, 'action': 'islamic'},
+          {'title': 'Breathing Exercise', 'icon': Icons.air_rounded, 'color': Colors.lightBlueAccent, 'action': 'breath'},
           {'title': 'Focus Music', 'icon': Icons.headphones_rounded, 'color': Colors.teal, 'action': 'music'},
-          {'title': 'Quick Notes', 'icon': Icons.note_alt_rounded, 'color': Colors.amber.shade600, 'action': 'notes'},
         ]
       },
       {
@@ -58,18 +62,16 @@ class ToolsScreen extends StatelessWidget {
         'tools': [
           {'title': 'Study Room', 'icon': Icons.video_camera_front_rounded, 'color': Colors.deepPurpleAccent, 'action': 'study_room'},
           {'title': 'Partner Tasks', 'icon': Icons.group_add_rounded, 'color': Colors.green, 'action': 'partner_tasks'},
+          {'title': 'Study Analytics', 'icon': Icons.analytics_rounded, 'color': Colors.teal, 'action': 'analytics'},
         ]
       },
       {
         'name': 'Well-being & Utilities',
         'icon': Icons.favorite_rounded,
         'tools': [
-          {'title': 'Breathing', 'icon': Icons.air_rounded, 'color': Colors.lightBlueAccent, 'action': 'breath'},
           {'title': 'Mood Tracker', 'icon': Icons.mood_rounded, 'color': Colors.pinkAccent, 'action': 'mood'},
           {'title': 'Sleep Tracker', 'icon': Icons.bedtime_rounded, 'color': Colors.indigoAccent, 'action': 'sleep'},
-          {'title': 'Islamic Life', 'icon': Icons.mosque_rounded, 'color': Colors.teal, 'action': 'islamic'},
-          {'title': 'Calculator', 'icon': Icons.calculate_rounded, 'color': Colors.blueAccent, 'action': 'calc'},
-          {'title': 'Theme Option', 'icon': Icons.palette_rounded, 'color': Colors.amber, 'action': 'theme'},
+          {'title': 'Theme', 'icon': Icons.palette_rounded, 'color': Colors.amber, 'action': 'theme'},
         ]
       },
     ];
@@ -81,7 +83,7 @@ class ToolsScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Study Tools',
+              'Study Tools'.tr(),
               style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: Theme.of(context).colorScheme.primary,
@@ -110,7 +112,7 @@ class ToolsScreen extends StatelessWidget {
                           Icon(category['icon'], size: 20, color: Theme.of(context).colorScheme.primary),
                           const SizedBox(width: 8),
                           Text(
-                            category['name'],
+                            (category['name'] as String).tr(),
                             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                                   fontWeight: FontWeight.bold,
                                   color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
@@ -140,11 +142,11 @@ class ToolsScreen extends StatelessWidget {
                               borderRadius: cardDeco.borderRadius as BorderRadius?,
                               onTap: () {
                                 if (tool['action'] == 'mood') {
-                                  showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: Colors.transparent, builder: (_) => const MoodTrackerBottomSheet());
+                                  showModalBottomSheet(context: context, isScrollControlled: true, useSafeArea: true, backgroundColor: Colors.transparent, builder: (_) => const MoodTrackerBottomSheet());
                                 } else if (tool['action'] == 'breath') {
-                                  showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: Colors.transparent, builder: (_) => const BreathingExerciseBottomSheet());
+                                  showModalBottomSheet(context: context, isScrollControlled: true, useSafeArea: true, backgroundColor: Colors.transparent, builder: (_) => const BreathingExerciseBottomSheet());
                                 } else if (tool['action'] == 'routine') {
-                                  showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: Colors.transparent, builder: (_) => const RoutinePlannerBottomSheet());
+                                  showModalBottomSheet(context: context, isScrollControlled: true, useSafeArea: true, backgroundColor: Colors.transparent, builder: (_) => const RoutinePlannerBottomSheet());
                                 } else if (tool['action'] == 'analytics') {
                                   Navigator.push(context, MaterialPageRoute(builder: (_) => const StudyAnalyticsScreen()));
                                 } else if (tool['action'] == 'pdf_reader') {
@@ -177,6 +179,7 @@ class ToolsScreen extends StatelessWidget {
                                   showModalBottomSheet(
                                     context: context,
                                     isScrollControlled: true,
+                                    useSafeArea: true,
                                     backgroundColor: Colors.transparent,
                                     builder: (_) => const ThemeCustomizerBottomSheet(),
                                   );
@@ -201,7 +204,7 @@ class ToolsScreen extends StatelessWidget {
                                   Padding(
                                     padding: const EdgeInsets.symmetric(horizontal: 4.0),
                                     child: Text(
-                                      tool['title'],
+                                      (tool['title'] as String).tr(),
                                       textAlign: TextAlign.center,
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
@@ -234,6 +237,7 @@ class ToolsScreen extends StatelessWidget {
         showModalBottomSheet(
           context: context,
           isScrollControlled: true,
+          useSafeArea: true,
           backgroundColor: Colors.transparent,
           builder: (context) => AIStudyPlannerBottomSheet(
             onTasksGenerated: onTasksGenerated,
@@ -269,9 +273,9 @@ class ToolsScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('AI Study Planner', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: Colors.white)),
+                  Text('AI Study Planner'.tr(), style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: Colors.white)),
                   const SizedBox(height: 4),
-                  Text('Plan your study smartly in one click!', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white.withValues(alpha: 0.8))),
+                  Text('Plan your study smartly in one click!'.tr(), style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white.withValues(alpha: 0.8))),
                 ],
               ),
             ),
@@ -292,6 +296,7 @@ class ToolsScreen extends StatelessWidget {
         showModalBottomSheet(
           context: context,
           isScrollControlled: true,
+          useSafeArea: true,
           backgroundColor: Colors.transparent,
           builder: (context) => AddTaskBottomSheet(
             onTaskAdded: (newTask) async {
@@ -354,9 +359,9 @@ class ToolsScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Next-day Routine (নেক্সট ডে রুটিন)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+                  Text('Next-day Routine (নেক্সট ডে রুটিন)'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
                   const SizedBox(height: 2),
-                  Text('আগামীকালের পড়ার রুটিন তৈরি করুন', style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.8))),
+                  Text('আগামীকালের পড়ার রুটিন তৈরি করুন'.tr(), style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.8))),
                 ],
               ),
             ),
@@ -375,6 +380,7 @@ class ToolsScreen extends StatelessWidget {
         showModalBottomSheet(
           context: context,
           isScrollControlled: true,
+          useSafeArea: true,
           backgroundColor: Colors.transparent,
           builder: (context) => const AddWeeklyRoutineTaskBottomSheet(),
         );
@@ -408,9 +414,9 @@ class ToolsScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Weekly Routine (উইকলি রুটিন)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+                  Text('Weekly Routine (উইকলি রুটিন)'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
                   const SizedBox(height: 2),
-                  Text('সাপ্তাহিক রুটিন কাস্টমাইজ ও আপডেট করুন', style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.8))),
+                  Text('সাপ্তাহিক রুটিন কাস্টমাইজ ও আপডেট করুন'.tr(), style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.8))),
                 ],
               ),
             ),
@@ -1486,6 +1492,7 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
         bool isDark = _isNoteDarkMode; 
@@ -2293,6 +2300,7 @@ class _PartnerTasksScreenState extends State<PartnerTasksScreen> {
   void _showAddTaskOptions() {
     showModalBottomSheet(
       context: context,
+      useSafeArea: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (ctx) {
         return Padding(
@@ -3071,6 +3079,9 @@ class _PomodoroTimerScreenState extends State<PomodoroTimerScreen> {
     // অ্যালার্ম সাউন্ড এবং ভাইব্রেশন
     HapticFeedback.heavyImpact();
     SystemSound.play(SystemSoundType.alert);
+    if (_currentMode == 'Focus') {
+      _awardPomodoroXP();
+    }
     
     showDialog(
       context: context,
@@ -3100,6 +3111,31 @@ class _PomodoroTimerScreenState extends State<PomodoroTimerScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _awardPomodoroXP() async {
+    try {
+      final res = await GamificationService.awardXP(
+        GamificationService.xpPomodoroSession,
+        reason: 'pomodoro_session_complete',
+      );
+      if (mounted && res.isNotEmpty) {
+        final int xpAwarded = res['xpAwarded'] ?? 0;
+        final List<String> newBadges = List<String>.from(res['newBadges'] ?? []);
+        String msg = '🎉 Pomodoro Focus Completed! +$xpAwarded XP';
+        if (newBadges.isNotEmpty) {
+          msg += '\n🏆 Unlocked: ${newBadges.join(", ")}!';
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(msg, style: const TextStyle(fontWeight: FontWeight.bold)),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error awarding XP for pomodoro: $e');
+    }
   }
 
   @override
@@ -3259,7 +3295,7 @@ class _MoodTrackerBottomSheetState extends State<MoodTrackerBottomSheet> {
           OutlinedButton.icon(
             onPressed: () {
               Navigator.pop(context); // বর্তমান শিট বন্ধ করে হিস্ট্রি শিট ওপেন করবে
-              showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: Colors.transparent, builder: (_) => const MoodHistoryBottomSheet());
+              showModalBottomSheet(context: context, isScrollControlled: true, useSafeArea: true, backgroundColor: Colors.transparent, builder: (_) => const MoodHistoryBottomSheet());
             },
             icon: const Icon(Icons.history_rounded),
             label: const Text('View Mood History'),
@@ -4445,6 +4481,33 @@ class ThemeCustomizerBottomSheet extends StatelessWidget {
         'accent': const Color(0xFFF59E0B),
         'isDark': true,
       },
+      {
+        'type': AppThemeType.cyberpunk,
+        'name': 'Cyberpunk Wasp',
+        'desc': 'High-contrast yellow and deep black cyberpunk theme.',
+        'primary': const Color(0xFFFFD700),
+        'surface': const Color(0xFF0D0D0D),
+        'accent': const Color(0xFFFF9100),
+        'isDark': true,
+      },
+      {
+        'type': AppThemeType.sakura,
+        'name': 'Sakura Dream',
+        'desc': 'Soft pastel cherry blossom pink light theme.',
+        'primary': const Color(0xFFEC4899),
+        'surface': const Color(0xFFFFF5F7),
+        'accent': const Color(0xFFF472B6),
+        'isDark': false,
+      },
+      {
+        'type': AppThemeType.nebula,
+        'name': 'Nebula Purple',
+        'desc': 'Cosmic dark theme with neon purple accents.',
+        'primary': const Color(0xFFA855F7),
+        'surface': const Color(0xFF120E2E),
+        'accent': const Color(0xFFEC4899),
+        'isDark': true,
+      },
     ];
 
     return ListenableBuilder(
@@ -4561,12 +4624,12 @@ class ThemeCustomizerBottomSheet extends StatelessWidget {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    t['name'],
+                                    (t['name'] as String).tr(),
                                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    t['desc'],
+                                    (t['desc'] as String).tr(),
                                     style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontSize: 11),
                                   ),
                                 ],
@@ -4775,366 +4838,6 @@ class ThemeCustomizerBottomSheet extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-// ==========================================
-// Study Analytics Screen (স্টাডি অ্যানালিটিক্স)
-// ==========================================
-class StudyAnalyticsScreen extends StatefulWidget {
-  const StudyAnalyticsScreen({super.key});
-
-  @override
-  State<StudyAnalyticsScreen> createState() => _StudyAnalyticsScreenState();
-}
-
-class _StudyAnalyticsScreenState extends State<StudyAnalyticsScreen> {
-  final User? currentUser = FirebaseAuth.instance.currentUser;
-  bool _isLoading = true;
-  List<DailyRoutine> _routines = [];
-  
-  // Aggregated Stats
-  Map<String, int> _subjectTimes = {}; // Subject name -> Minutes
-  Map<String, int> _categoryTimes = {}; // Category name -> Minutes
-  List<double> _weeklyProgress = List.generate(7, (_) => 0.0); // Last 7 days progress
-  List<String> _weeklyDays = [];
-  int _totalHours = 0;
-  int _totalTasksCompleted = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _fetchAnalyticsData();
-  }
-
-  Future<void> _fetchAnalyticsData() async {
-    if (currentUser == null) {
-      setState(() => _isLoading = false);
-      return;
-    }
-
-    try {
-      final now = DateTime.now();
-      // Fetch routines from the last 7 days
-      final lastWeek = now.subtract(const Duration(days: 7));
-      
-      final querySnapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(currentUser!.uid)
-          .collection('dailyRoutines')
-          .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(lastWeek))
-          .get();
-
-      final List<DailyRoutine> fetchedRoutines = [];
-      for (var doc in querySnapshot.docs) {
-        fetchedRoutines.add(DailyRoutine.fromMap(doc.data(), doc.id));
-      }
-
-      // Aggregate data
-      int totalMinutes = 0;
-      int completedTasks = 0;
-      final Map<String, int> subTimes = {};
-      final Map<String, int> catTimes = {};
-
-      for (var routine in fetchedRoutines) {
-        for (var task in routine.tasks) {
-          if (task.isCompleted) {
-            completedTasks++;
-          }
-          final int minutes = task.completedDurationMinutes;
-          totalMinutes += minutes;
-
-          if (minutes > 0) {
-            // Subject aggregation
-            final String subName = (task.subject == null || task.subject!.trim().isEmpty) ? 'General' : task.subject!.trim();
-            subTimes[subName] = (subTimes[subName] ?? 0) + minutes;
-
-            // Category aggregation
-            final String catName = (task.category == null || task.category!.trim().isEmpty) ? 'Study' : task.category!.trim();
-            catTimes[catName] = (catTimes[catName] ?? 0) + minutes;
-          }
-        }
-      }
-
-      // Calculate last 7 days daily progress values
-      final List<double> progress = [];
-      final List<String> days = [];
-      final DateFormat dayFormat = DateFormat('E'); // Mon, Tue, etc.
-
-      for (int i = 6; i >= 0; i--) {
-        final targetDate = now.subtract(Duration(days: i));
-        final dateStr = DateFormat('yyyy-MM-dd').format(targetDate);
-        days.add(dayFormat.format(targetDate));
-
-        final routine = fetchedRoutines.firstWhere(
-          (r) => DateFormat('yyyy-MM-dd').format(r.date) == dateStr,
-          orElse: () => DailyRoutine(id: dateStr, userId: currentUser!.uid, date: targetDate, tasks: []),
-        );
-
-        progress.add(routine.progress);
-      }
-
-      setState(() {
-        _routines = fetchedRoutines;
-        _subjectTimes = subTimes;
-        _categoryTimes = catTimes;
-        _weeklyProgress = progress;
-        _weeklyDays = days;
-        _totalHours = totalMinutes ~/ 60;
-        _totalTasksCompleted = completedTasks;
-        _isLoading = false;
-      });
-    } catch (e) {
-      debugPrint('Error fetching analytics data: $e');
-      setState(() => _isLoading = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cardDeco = ThemeManager.getCardDecoration(context);
-
-    return Scaffold(
-      backgroundColor: theme.colorScheme.surface,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: const Text('Study Analytics', style: TextStyle(fontWeight: FontWeight.bold)),
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Summary Stats Row
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: cardDeco,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Total Hours', style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontSize: 12)),
-                              const SizedBox(height: 8),
-                              Text('${_totalHours} hrs', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: theme.colorScheme.primary)),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: cardDeco,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Completed Tasks', style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontSize: 12)),
-                              const SizedBox(height: 8),
-                              Text('$_totalTasksCompleted', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.green)),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Weekly study progress bar chart card
-                  Text('Weekly Performance', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 12),
-                  Container(
-                    height: 200,
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(20),
-                    decoration: cardDeco,
-                    child: CustomPaint(
-                      painter: _WeeklyProgressPainter(
-                        progress: _weeklyProgress,
-                        days: _weeklyDays,
-                        primaryColor: theme.colorScheme.primary,
-                        textColor: theme.colorScheme.onSurface,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Subject-wise Breakdown Card
-                  Text('Subject Breakdown', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 12),
-                  _subjectTimes.isEmpty
-                      ? Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(24),
-                          decoration: cardDeco,
-                          child: const Center(
-                            child: Text('No study tasks logged this week.', style: TextStyle(color: Colors.grey)),
-                          ),
-                        )
-                      : Container(
-                          padding: const EdgeInsets.all(20),
-                          decoration: cardDeco,
-                          child: Column(
-                            children: _subjectTimes.entries.map((entry) {
-                              final int totalMin = _subjectTimes.values.fold(0, (sum, item) => sum + item);
-                              final double percentage = totalMin > 0 ? entry.value / totalMin : 0.0;
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 8.0),
-                                child: Column(
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text(entry.key, style: const TextStyle(fontWeight: FontWeight.bold)),
-                                        Text('${entry.value} min (${(percentage * 100).toInt()}%)', style: TextStyle(color: theme.colorScheme.primary)),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 6),
-                                    ClipRRect(
-                                      borderRadius: BorderRadius.circular(4),
-                                      child: LinearProgressIndicator(
-                                        value: percentage,
-                                        minHeight: 8,
-                                        backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.1),
-                                        valueColor: AlwaysStoppedAnimation<Color>(theme.colorScheme.primary),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            }).toList(),
-                          ),
-                        ),
-                  const SizedBox(height: 24),
-
-                  // Category Distribution
-                  Text('Category Breakdown', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 12),
-                  _categoryTimes.isEmpty
-                      ? Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(24),
-                          decoration: cardDeco,
-                          child: const Center(
-                            child: Text('No categorized tasks logged.', style: TextStyle(color: Colors.grey)),
-                          ),
-                        )
-                      : Container(
-                          padding: const EdgeInsets.all(20),
-                          decoration: cardDeco,
-                          child: Column(
-                            children: _categoryTimes.entries.map((entry) {
-                              final int totalMin = _categoryTimes.values.fold(0, (sum, item) => sum + item);
-                              final double percentage = totalMin > 0 ? entry.value / totalMin : 0.0;
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 8.0),
-                                child: Column(
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text(entry.key, style: const TextStyle(fontWeight: FontWeight.bold)),
-                                        Text('${entry.value} min', style: const TextStyle(color: Colors.grey)),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 6),
-                                    ClipRRect(
-                                      borderRadius: BorderRadius.circular(4),
-                                      child: LinearProgressIndicator(
-                                        value: percentage,
-                                        minHeight: 8,
-                                        backgroundColor: Colors.teal.withValues(alpha: 0.1),
-                                        valueColor: const AlwaysStoppedAnimation<Color>(Colors.teal),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            }).toList(),
-                          ),
-                        ),
-                ],
-              ),
-            ),
-    );
-  }
-}
-
-class _WeeklyProgressPainter extends CustomPainter {
-  final List<double> progress;
-  final List<String> days;
-  final Color primaryColor;
-  final Color textColor;
-
-  _WeeklyProgressPainter({
-    required this.progress,
-    required this.days,
-    required this.primaryColor,
-    required this.textColor,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (progress.isEmpty) return;
-
-    final paint = Paint()
-      ..color = primaryColor
-      ..style = PaintingStyle.fill;
-
-    final bgPaint = Paint()
-      ..color = primaryColor.withValues(alpha: 0.1)
-      ..style = PaintingStyle.fill;
-
-    final double width = size.width;
-    final double height = size.height - 24;
-    final int itemCount = progress.length;
-    final double spacing = width / (itemCount + 1);
-    final double barWidth = 16.0;
-
-    for (int i = 0; i < itemCount; i++) {
-      final double x = spacing * (i + 1) - (barWidth / 2);
-      
-      // Draw background track
-      final RRect bgRect = RRect.fromRectAndRadius(
-        Rect.fromLTWH(x, 0, barWidth, height),
-        const Radius.circular(8),
-      );
-      canvas.drawRRect(bgRect, bgPaint);
-
-      // Draw progress filled bar
-      final double p = progress[i].clamp(0.0, 1.0);
-      final double barHeight = height * p;
-      final double y = height - barHeight;
-
-      if (barHeight > 0) {
-        final RRect progressRect = RRect.fromRectAndRadius(
-          Rect.fromLTWH(x, y, barWidth, barHeight),
-          const Radius.circular(8),
-        );
-        canvas.drawRRect(progressRect, paint);
-      }
-
-      // Draw Day Label below bar
-      final textPainter = TextPainter(
-        text: TextSpan(
-          text: days[i],
-          style: TextStyle(color: textColor.withValues(alpha: 0.7), fontSize: 10, fontWeight: FontWeight.bold),
-        ),
-        textDirection: ui.TextDirection.ltr,
-      );
-      textPainter.layout();
-      textPainter.paint(canvas, Offset(x + (barWidth / 2) - (textPainter.width / 2), height + 6));
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _WeeklyProgressPainter oldDelegate) {
-    return oldDelegate.progress != progress || oldDelegate.days != days;
   }
 }
 

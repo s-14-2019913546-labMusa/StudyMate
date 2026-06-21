@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'signup_screen.dart';
 import 'focus_mode_screen.dart';
+import 'language_manager.dart';
 
 // ==========================================
 // 2. Login Screen (লগইন স্ক্রিন)
@@ -47,21 +48,96 @@ class _LoginScreenState extends State<LoginScreen> {
       if (mounted) {
         String message;
         if (e.code == 'user-not-found') {
-          message = 'No user found for that email.';
+          message = 'No user found for that email.'.tr();
         } else if (e.code == 'wrong-password') {
-          message = 'Wrong password provided for that user.';
+          message = 'Wrong password provided for that user.'.tr();
         } else if (e.code == 'invalid-email') {
-          message = 'The email address is not valid.';
+          message = 'The email address is not valid.'.tr();
         } else if (e.code == 'user-disabled') {
-          message = 'This user account has been disabled.';
+          message = 'This user account has been disabled.'.tr();
         } else {
-          message = e.message ?? 'Login failed. Please try again.';
+          message = (e.message ?? 'Login failed. Please try again.').tr();
         }
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  Future<void> _showForgotPasswordDialog() async {
+    final TextEditingController resetEmailController = TextEditingController(text: _emailController.text);
+    final formKey = GlobalKey<FormState>();
+
+    return showDialog<void>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Forgot Password?'.tr()),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Enter your email address and we will send you a link to reset your password.'.tr(),
+                  style: const TextStyle(fontSize: 14),
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: resetEmailController,
+                  keyboardType: TextInputType.emailAddress,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter your email'.tr();
+                    }
+                    if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) {
+                      return 'Please enter a valid email address'.tr();
+                    }
+                    return null;
+                  },
+                  decoration: InputDecoration(
+                    labelText: 'Email Address'.tr(),
+                    prefixIcon: const Icon(Icons.email_outlined),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text('Cancel'.tr()),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (formKey.currentState!.validate()) {
+                  final email = resetEmailController.text.trim();
+                  try {
+                    await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+                    if (context.mounted) {
+                      Navigator.of(context).pop();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('${'Password reset email sent to '.tr()}$email')),
+                      );
+                    }
+                  } on FirebaseAuthException catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text((e.message ?? 'An error occurred. Please try again.').tr())),
+                      );
+                    }
+                  }
+                }
+              },
+              child: Text('Reset Password'.tr()),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -83,7 +159,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   Icon(Icons.school, size: 80, color: Theme.of(context).colorScheme.primary),
                   const SizedBox(height: 10),
                   Text(
-                    'StudyMate',
+                    'StudyMate'.tr(),
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                           fontWeight: FontWeight.bold,
@@ -100,15 +176,15 @@ class _LoginScreenState extends State<LoginScreen> {
                     validator: (value) {
                       // Add validator
                       if (value == null || value.isEmpty) {
-                        return 'Please enter your email';
+                        return 'Please enter your email'.tr();
                       }
                       if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) {
-                        return 'Please enter a valid email address';
+                        return 'Please enter a valid email address'.tr();
                       }
                       return null;
                     },
                     decoration: InputDecoration(
-                      labelText: 'Email Address',
+                      labelText: 'Email Address'.tr(),
                       prefixIcon: const Icon(Icons.email_outlined),
                       // Using global InputDecorationTheme for border
                     ),
@@ -122,12 +198,12 @@ class _LoginScreenState extends State<LoginScreen> {
                     validator: (value) {
                       // Add validator
                       if (value == null || value.isEmpty) {
-                        return 'Please enter your password';
+                        return 'Please enter your password'.tr();
                       }
                       return null;
                     },
                     decoration: InputDecoration(
-                      labelText: 'Password',
+                      labelText: 'Password'.tr(),
                       prefixIcon: const Icon(Icons.lock_outline),
                       suffixIcon: IconButton(
                         icon: Icon(
@@ -147,10 +223,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton(
-                      onPressed: () {
-                        // ফরগেট পাসওয়ার্ড লজিক এখানে হবে
-                      },
-                      child: const Text('Forgot Password?'),
+                      onPressed: _showForgotPasswordDialog,
+                      child: Text('Forgot Password?'.tr()),
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -168,7 +242,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: _isLoading
                         ? const CircularProgressIndicator(color: Colors.white)
                         : Text(
-                            'Log In',
+                            'Log In'.tr(),
                             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                                   color: Colors.white,
                                   fontWeight: FontWeight.bold,
@@ -182,7 +256,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        "Don't have an account?", // Style is now inherited from the global theme
+                        "Don't have an account?".tr(), // Style is now inherited from the global theme
                       ),
                       TextButton(
                         onPressed: () {
@@ -192,7 +266,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           );
                         },
                         // The style for this TextButton is defined globally in main.dart's theme
-                        child: const Text('Create New Account'),
+                        child: Text('Create New Account'.tr()),
                       ),
                     ],
                   ),

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'gamification_service.dart';
 
 class FlashcardStudyScreen extends StatefulWidget {
   final String deckId;
@@ -79,6 +80,7 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen> {
       setState(() {
         _sessionCompleted = true;
       });
+      _awardFlashcardXP();
     }
   }
 
@@ -459,6 +461,31 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen> {
         ),
       ],
     );
+  }
+
+  Future<void> _awardFlashcardXP() async {
+    try {
+      final res = await GamificationService.awardXP(
+        GamificationService.xpFlashcardDeck,
+        reason: 'flashcard_deck_complete',
+      );
+      if (mounted && res.isNotEmpty) {
+        final int xpAwarded = res['xpAwarded'] ?? 0;
+        final List<String> newBadges = List<String>.from(res['newBadges'] ?? []);
+        String msg = '🎉 Flashcard Study Completed! +$xpAwarded XP';
+        if (newBadges.isNotEmpty) {
+          msg += '\n🏆 Unlocked: ${newBadges.join(", ")}!';
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(msg, style: const TextStyle(fontWeight: FontWeight.bold)),
+            backgroundColor: Colors.indigoAccent,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error awarding XP for flashcard: $e');
+    }
   }
 }
 

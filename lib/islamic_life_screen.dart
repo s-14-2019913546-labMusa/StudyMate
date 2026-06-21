@@ -8,6 +8,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'islamic_service.dart';
 import 'quran_reader_screen.dart';
+import 'qibla_compass_screen.dart';
+import 'tasbeeh_counter_screen.dart';
 
 class IslamicLifeScreen extends StatefulWidget {
   const IslamicLifeScreen({super.key});
@@ -206,98 +208,103 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
       context: context,
       backgroundColor: cardBg,
       isScrollControlled: true,
+      useSafeArea: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (ctx) {
         return StatefulBuilder(builder: (ctx, setModal) {
-          return Padding(
-            padding: const EdgeInsets.fromLTRB(24, 20, 24, 36),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Center(
-                  child: Container(
-                    width: 40, height: 4,
-                    decoration: const BoxDecoration(
-                      color: Colors.white24,
-                      borderRadius: BorderRadius.all(Radius.circular(2)),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 18),
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: goldAccent.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(12),
+          return SafeArea(
+            top: true,
+            bottom: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 36),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40, height: 4,
+                      decoration: const BoxDecoration(
+                        color: Colors.white24,
+                        borderRadius: BorderRadius.all(Radius.circular(2)),
                       ),
-                      child: const Icon(Icons.notifications_active_rounded, color: goldAccent, size: 22),
                     ),
-                    const SizedBox(width: 14),
-                    const Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('ইসলামিক নোটিফিকেশন',
-                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-                        Text('শুধুমাত্র এখান থেকে নিয়ন্ত্রণ করা যাবে',
-                            style: TextStyle(color: Colors.white54, fontSize: 11)),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                const Divider(color: Colors.white12),
-                const SizedBox(height: 8),
-                _buildNotifTile(
-                  ctx, setModal,
-                  icon: Icons.alarm_rounded,
-                  title: 'নামাজ শুরুর নোটিফিকেশন',
-                  subtitle: 'ওয়াক্ত শুরুর ৫ মিনিট পর অনুস্মারক',
-                  key: 'prayerStart',
-                  goldAccent: goldAccent,
-                ),
-                _buildNotifTile(
-                  ctx, setModal,
-                  icon: Icons.timer_off_rounded,
-                  title: 'ওয়াক্ত শেষের সতর্কতা',
-                  subtitle: 'ওয়াক্ত শেষ হওয়ার ২০ মিনিট আগে সতর্কতা',
-                  key: 'prayerWarning',
-                  goldAccent: goldAccent,
-                ),
-                _buildNotifTile(
-                  ctx, setModal,
-                  icon: Icons.mosque_rounded,
-                  title: 'জুমার অনুস্মারক',
-                  subtitle: 'প্রতি শুক্রবার বিশেষ জুমার নোটিফিকেশন',
-                  key: 'jummaReminder',
-                  goldAccent: goldAccent,
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.04),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.white12),
                   ),
-                  child: Row(
+                  const SizedBox(height: 18),
+                  Row(
                     children: [
-                      const Icon(Icons.info_outline_rounded, color: Colors.white38, size: 16),
-                      const SizedBox(width: 10),
-                      const Expanded(
-                        child: Text(
-                          'এই সেটিংসগুলো গ্লোবাল অ্যাপ সেটিংস থেকে আলাদা এবং শুধুমাত্র ইসলামিক লাইফ সেকশন থেকেই নিয়ন্ত্রণ করা যাবে।',
-                          style: TextStyle(color: Colors.white38, fontSize: 11, height: 1.5),
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: goldAccent.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(12),
                         ),
+                        child: const Icon(Icons.notifications_active_rounded, color: goldAccent, size: 22),
+                      ),
+                      const SizedBox(width: 14),
+                      const Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('ইসলামিক নোটিফিকেশন',
+                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                          Text('শুধুমাত্র এখান থেকে নিয়ন্ত্রণ করা যাবে',
+                              style: TextStyle(color: Colors.white54, fontSize: 11)),
+                        ],
                       ),
                     ],
                   ),
-                ),
-              ],
+                  const SizedBox(height: 20),
+                  const Divider(color: Colors.white12),
+                  const SizedBox(height: 8),
+                  _buildNotifTile(
+                    ctx, setModal,
+                    icon: Icons.alarm_rounded,
+                    title: 'নামাজ শুরুর নোটিফিকেশন',
+                    subtitle: 'ওয়াক্ত শুরুর ৫ মিনিট পর অনুস্মারক',
+                    key: 'prayerStart',
+                    goldAccent: goldAccent,
+                  ),
+                  _buildNotifTile(
+                    ctx, setModal,
+                    icon: Icons.timer_off_rounded,
+                    title: 'ওয়াক্ত শেষের সতর্কতা',
+                    subtitle: 'ওয়াক্ত শেষ হওয়ার ২০ মিনিট আগে সতর্কতা',
+                    key: 'prayerWarning',
+                    goldAccent: goldAccent,
+                  ),
+                  _buildNotifTile(
+                    ctx, setModal,
+                    icon: Icons.mosque_rounded,
+                    title: 'জুমার অনুস্মারক',
+                    subtitle: 'প্রতি শুক্রবার বিশেষ জুমার নোটিফিকেশন',
+                    key: 'jummaReminder',
+                    goldAccent: goldAccent,
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.04),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.white12),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.info_outline_rounded, color: Colors.white38, size: 16),
+                        const SizedBox(width: 10),
+                        const Expanded(
+                          child: Text(
+                            'এই সেটিংসগুলো গলোবাল অ্যাপ সেটিংস থেকে আলাদা এবং শুধুমাত্র ইসলামিক লাইফ সেকশন থেকেই নিয়ন্ত্রণ করা যাবে।',
+                            style: TextStyle(color: Colors.white38, fontSize: 11, height: 1.5),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           );
         });
@@ -1137,6 +1144,82 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                         ],
                       ),
                     ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // 3c. Qibla and Tasbeeh Row
+                  Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const QiblaCompassScreen(),
+                              ),
+                            );
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
+                            decoration: BoxDecoration(
+                              color: cardBg,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+                            ),
+                            child: const Column(
+                              children: [
+                                Icon(Icons.explore_rounded, color: goldAccent, size: 32),
+                                SizedBox(height: 8),
+                                Text(
+                                  'কিবলা কম্পাস',
+                                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                                ),
+                                Text(
+                                  'Qibla Direction',
+                                  style: TextStyle(color: Colors.white38, fontSize: 11),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const TasbeehCounterScreen(),
+                              ),
+                            );
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
+                            decoration: BoxDecoration(
+                              color: cardBg,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+                            ),
+                            child: const Column(
+                              children: [
+                                Icon(Icons.radar_rounded, color: goldAccent, size: 32),
+                                SizedBox(height: 8),
+                                Text(
+                                  'তাসবীহ কাউন্টার',
+                                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                                ),
+                                Text(
+                                  'Tasbeeh Counter',
+                                  style: TextStyle(color: Colors.white38, fontSize: 11),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 24),
 

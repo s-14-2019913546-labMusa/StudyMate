@@ -632,6 +632,7 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
+      useSafeArea: true,
       builder: (context) {
         return Container(
           decoration: const BoxDecoration(

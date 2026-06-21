@@ -244,8 +244,8 @@ class GamificationService {
         if (doc.exists && doc.data() != null) {
           final tasks = doc.data()!['tasks'] as List<dynamic>? ?? [];
           final hasCompletedTask = tasks.any((t) =>
-              (t as Map<String, dynamic>)['status'] == 'completed' ||
-              (t as Map<String, dynamic>)['isCompleted'] == true);
+              t['status'] == 'completed' ||
+              t['isCompleted'] == true);
 
           if (hasCompletedTask) {
             streak++;

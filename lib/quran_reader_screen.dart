@@ -266,6 +266,7 @@ class _QuranReaderScreenState extends State<QuranReaderScreen>
       context: context,
       backgroundColor: const Color(0xFF0F1E19),
       isScrollControlled: true,
+      useSafeArea: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -276,109 +277,113 @@ class _QuranReaderScreenState extends State<QuranReaderScreen>
           minChildSize: 0.4,
           expand: false,
           builder: (ctx, scrollCtrl) {
-            return Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
-                  child: Column(
-                    children: [
-                      Container(
-                        width: 40, height: 4,
-                        decoration: const BoxDecoration(
-                          color: Colors.white24,
-                          borderRadius: BorderRadius.all(Radius.circular(2)),
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      const Text(
-                        'পারা নির্বাচন করুন',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
-                      ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        '৩০টি পারা • প্রতি পারায় ২০ পৃষ্ঠা',
-                        style: TextStyle(color: Colors.white54, fontSize: 12),
-                      ),
-                      const SizedBox(height: 12),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: ListView.builder(
-                    controller: scrollCtrl,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    itemCount: juzData.length,
-                    itemBuilder: (ctx, index) {
-                      final juz = juzData[index];
-                      final bool isCurrent = (juz['juz'] as int) == _currentJuz;
-                      return GestureDetector(
-                        onTap: () {
-                          Navigator.pop(ctx);
-                          _jumpToJuz(juz['juz'] as int);
-                        },
-                        child: Container(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                          decoration: BoxDecoration(
-                            color: isCurrent ? const Color(0xFF1D3E32) : const Color(0xFF162D24),
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(
-                              color: isCurrent ? goldAccent.withValues(alpha: 0.7) : Colors.white.withValues(alpha: 0.05),
-                              width: isCurrent ? 1.5 : 1.0,
-                            ),
+            return SafeArea(
+              top: true,
+              bottom: false,
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+                    child: Column(
+                      children: [
+                        Container(
+                          width: 40, height: 4,
+                          decoration: const BoxDecoration(
+                            color: Colors.white24,
+                            borderRadius: BorderRadius.all(Radius.circular(2)),
                           ),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 36, height: 36,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: isCurrent
-                                      ? goldAccent.withValues(alpha: 0.2)
-                                      : Colors.white.withValues(alpha: 0.05),
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    '${juz['juz']}',
-                                    style: TextStyle(
-                                      color: isCurrent ? goldAccent : Colors.white60,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
+                        ),
+                        const SizedBox(height: 14),
+                        const Text(
+                          'পারা নির্বাচন করুন',
+                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          '৩০টি পারা • প্রতি পারায় ২০ পৃষ্ঠা',
+                          style: TextStyle(color: Colors.white54, fontSize: 12),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: ListView.builder(
+                      controller: scrollCtrl,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      itemCount: juzData.length,
+                      itemBuilder: (ctx, index) {
+                        final juz = juzData[index];
+                        final bool isCurrent = (juz['juz'] as int) == _currentJuz;
+                        return GestureDetector(
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            _jumpToJuz(juz['juz'] as int);
+                          },
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            decoration: BoxDecoration(
+                              color: isCurrent ? const Color(0xFF1D3E32) : const Color(0xFF162D24),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: isCurrent ? goldAccent.withValues(alpha: 0.7) : Colors.white.withValues(alpha: 0.05),
+                                width: isCurrent ? 1.5 : 1.0,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 36, height: 36,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: isCurrent
+                                        ? goldAccent.withValues(alpha: 0.2)
+                                        : Colors.white.withValues(alpha: 0.05),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      '${juz['juz']}',
+                                      style: TextStyle(
+                                        color: isCurrent ? goldAccent : Colors.white60,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: 14),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      juz['bn'] as String,
-                                      style: TextStyle(
-                                        color: isCurrent ? Colors.white : Colors.white70,
-                                        fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
-                                        fontSize: 13,
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        juz['bn'] as String,
+                                        style: TextStyle(
+                                          color: isCurrent ? Colors.white : Colors.white70,
+                                          fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+                                          fontSize: 13,
+                                        ),
                                       ),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      'পৃষ্ঠা ${juz['start']} – ${juz['end']}',
-                                      style: const TextStyle(color: Colors.white38, fontSize: 11),
-                                    ),
-                                  ],
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        'পৃষ্ঠা ${juz['start']} – ${juz['end']}',
+                                        style: const TextStyle(color: Colors.white38, fontSize: 11),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                              if (isCurrent)
-                                const Icon(Icons.bookmark_rounded, color: goldAccent, size: 18),
-                            ],
+                                if (isCurrent)
+                                  const Icon(Icons.bookmark_rounded, color: goldAccent, size: 18),
+                              ],
+                            ),
                           ),
-                        ),
-                      );
-                    },
+                        );
+                      },
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             );
           },
         );
@@ -690,6 +695,7 @@ class _QuranReaderScreenState extends State<QuranReaderScreen>
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF162D24),
+      useSafeArea: true,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (ctx) {

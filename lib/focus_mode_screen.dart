@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:math';
 import 'dashboard_screen.dart';
+import 'language_manager.dart';
 
 // ==========================================
 // 5. Focus Mode Screen (ফোকাস মোড স্ক্রিন)
@@ -56,10 +57,23 @@ class _FocusModeScreenState extends State<FocusModeScreen> {
   }
 
   void _selectRandomQuote() {
+    final isBengali = LanguageManager().isBengali;
+    final filtered = _quotes.where((q) {
+      final hasBengali = q.contains(RegExp(r'[\u0980-\u09FF]'));
+      return isBengali ? hasBengali : !hasBengali;
+    }).toList();
+
+    if (filtered.isEmpty) {
+      setState(() {
+        _randomQuote = _quotes.first;
+      });
+      return;
+    }
+
     final random = Random();
-    final index = random.nextInt(_quotes.length);
+    final index = random.nextInt(filtered.length);
     setState(() {
-      _randomQuote = _quotes[index];
+      _randomQuote = filtered[index];
     });
   }
 
@@ -75,7 +89,7 @@ class _FocusModeScreenState extends State<FocusModeScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Focus Mode On',
+                'Focus Mode On'.tr(),
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                       fontWeight: FontWeight.w800,
@@ -132,7 +146,7 @@ class _FocusModeScreenState extends State<FocusModeScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      'Continue to Home',
+                      'Continue to Home'.tr(),
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                             color: Colors.white,
                             fontWeight: FontWeight.w600,

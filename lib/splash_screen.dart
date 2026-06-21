@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'login_screen.dart';
 import 'focus_mode_screen.dart';
+import 'language_manager.dart';
 
 // ==========================================
 // 1. Splash Screen (স্প্ল্যাশ স্ক্রিন)
@@ -86,7 +87,7 @@ class _SplashScreenState extends State<SplashScreen> {
                 ),
                 const SizedBox(height: 24),
                 Text(
-                  'StudyMate',
+                  'StudyMate'.tr(),
                   style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                         fontWeight: FontWeight.w800,
                         color: Colors.white,
@@ -95,7 +96,7 @@ class _SplashScreenState extends State<SplashScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Your Educational Companion',
+                  'Your Educational Companion'.tr(),
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         color: Colors.white.withValues(alpha: 0.8),
                         letterSpacing: 0.5,

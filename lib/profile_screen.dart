@@ -7,6 +7,8 @@ import 'social_hub_screen.dart'; // সোশ্যাল হাব স্ক্
 import 'edit_profile_screen.dart';
 import 'notification_settings_screen.dart';
 import 'theme_manager.dart';
+import 'gamification_service.dart';
+import 'language_manager.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -24,6 +26,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _academicYear = "";
   String _major = "";
   double _dailyGoal = 2.0;
+  int _totalTasksDone = 0;
+  int _currentStreak = 0;
+  int _totalXP = 0;
+  List<String> _unlockedBadges = [];
 
   @override
   void initState() {
@@ -71,8 +77,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
     } catch (e) {
       debugPrint("Error loading profile details: $e");
-    } finally {
-      // Background load finished
+    }
+
+    try {
+      final gData = await GamificationService.getUserGamificationData();
+      final streak = await GamificationService.calculateStreak();
+      if (mounted) {
+        setState(() {
+          _totalTasksDone = gData['totalTasksDone'] ?? 0;
+          _totalXP = gData['totalXP'] ?? 0;
+          _unlockedBadges = List<String>.from(gData['badges'] ?? []);
+          _currentStreak = streak;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error loading gamification details: $e");
     }
   }
 
@@ -88,7 +107,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'Profile',
+                        'Profile'.tr(),
                         style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                               fontWeight: FontWeight.bold,
                               color: Theme.of(context).colorScheme.primary,
@@ -96,7 +115,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                       IconButton(
                         icon: Icon(Icons.settings_outlined, color: Theme.of(context).colorScheme.onSurface),
-                        onPressed: () {},
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const NotificationSettingsScreen()),
+                          );
+                        },
                       ),
                     ],
                   ),
@@ -157,7 +181,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       if (_user?.uid != null) {
                         await Clipboard.setData(ClipboardData(text: _user!.uid));
                         if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('ID copied to clipboard!')));
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('ID copied to clipboard!'.tr())));
                         }
                       }
                     },
@@ -172,7 +196,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            'ID: ${_user?.uid ?? 'Unknown'}',
+                            'ID: ${_user?.uid ?? 'Unknown'.tr()}',
                             style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 12, fontWeight: FontWeight.bold),
                           ),
                           const SizedBox(width: 8),
@@ -187,11 +211,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      _buildStatCard(context, '12', 'Tasks Done', Icons.check_circle_rounded, Colors.green),
-                      _buildStatCard(context, '${_dailyGoal.toInt()}h', 'Goal/Day', Icons.access_time_filled_rounded, Colors.blue),
-                      _buildStatCard(context, '5', 'Day Streak', Icons.local_fire_department_rounded, Colors.orange),
+                      _buildStatCard(context, _totalTasksDone.toString(), 'Tasks Done'.tr(), Icons.check_circle_rounded, Colors.green),
+                      _buildStatCard(context, '${_dailyGoal.toInt()}h', 'Goal/Day'.tr(), Icons.access_time_filled_rounded, Colors.blue),
+                      _buildStatCard(context, _currentStreak.toString(), 'Day Streak'.tr(), Icons.local_fire_department_rounded, Colors.orange),
                     ],
                   ),
+                  const SizedBox(height: 28),
+                  
+                  // Gamification Level and XP Card
+                  _buildLevelProgressCard(),
+                  const SizedBox(height: 24),
+                  
+                  // Badges Section
+                  _buildBadgesSection(),
                   const SizedBox(height: 32),
 
                   // ৩. অ্যাপ সেটিংস লিস্ট
@@ -214,7 +246,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     );
                   }),
                   _buildListTile(context, Icons.dark_mode_outlined, 'Dark Mode', isToggle: true),
-                  _buildListTile(context, Icons.privacy_tip_outlined, 'Privacy Policy'),
+                  _buildListTile(
+                    context,
+                    Icons.language_rounded,
+                    'Language (ভাষা)',
+                    onTap: () => _showLanguageDialog(context),
+                  ),
+                  _buildListTile(
+                    context,
+                    Icons.privacy_tip_outlined,
+                    'Privacy Policy',
+                    onTap: () => _showPrivacyPolicyDialog(context),
+                  ),
                   const SizedBox(height: 20),
                   
                   // ৪. লগআউট বাটন
@@ -230,7 +273,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       }
                     },
                     icon: const Icon(Icons.logout_rounded),
-                    label: const Text('Log Out'),
+                    label: Text('Log Out'.tr()),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Theme.of(context).colorScheme.error.withValues(alpha: 0.1),
                       foregroundColor: Theme.of(context).colorScheme.error,
@@ -273,7 +316,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           child: Icon(icon, color: Theme.of(context).colorScheme.primary),
         ),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+        title: Text(title.tr(), style: const TextStyle(fontWeight: FontWeight.w600)),
         trailing: isToggle
             ? ListenableBuilder(
                 listenable: ThemeManager(),
@@ -289,6 +332,377 @@ class _ProfileScreenState extends State<ProfileScreen> {
               )
             : const Icon(Icons.arrow_forward_ios_rounded, size: 16, color: Colors.grey),
         onTap: isToggle ? null : onTap,
+      ),
+    );
+  }
+
+  Widget _buildLevelProgressCard() {
+    final level = GamificationService.getLevel(_totalXP);
+    final progress = GamificationService.getLevelProgress(_totalXP);
+    final title = GamificationService.getLevelTitle(level);
+    final xpNext = GamificationService.xpForNextLevel(_totalXP);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Theme.of(context).colorScheme.primary,
+            Theme.of(context).colorScheme.secondary,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${'Level '.tr()}$level',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.8),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '$_totalXP${' XP'.tr()}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: LinearProgressIndicator(
+              value: progress,
+              backgroundColor: Colors.white.withValues(alpha: 0.25),
+              valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+              minHeight: 10,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            '$xpNext${' XP to next level'.tr()}',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.8),
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBadgesSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Text(
+            'Unlocked Badges'.tr(),
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 100,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: GamificationService.allBadges.length,
+            itemBuilder: (context, index) {
+              final badge = GamificationService.allBadges[index];
+              final isUnlocked = _unlockedBadges.contains(badge['id']);
+              return Container(
+                width: 90,
+                margin: const EdgeInsets.only(right: 12),
+                decoration: BoxDecoration(
+                  color: isUnlocked
+                      ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.05)
+                      : Colors.grey.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isUnlocked
+                        ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.2)
+                        : Colors.grey.withValues(alpha: 0.1),
+                    width: 1.5,
+                  ),
+                ),
+                child: Opacity(
+                  opacity: isUnlocked ? 1.0 : 0.4,
+                  child: Tooltip(
+                    message: badge['description'],
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          badge['icon'] as IconData,
+                          color: isUnlocked ? (badge['color'] as Color) : Colors.grey,
+                          size: 36,
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          badge['name'] as String,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: isUnlocked ? FontWeight.bold : FontWeight.normal,
+                          ),
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showPrivacyPolicyDialog(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: SafeArea(
+            top: true,
+            bottom: false,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 48,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.privacy_tip_rounded,
+                        color: Theme.of(context).colorScheme.primary,
+                        size: 28,
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Privacy Policy'.tr(),
+                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Flexible(
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Last Updated: June 2026'.tr(),
+                            style: TextStyle(
+                              color: Colors.grey.shade600,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          _buildPrivacySection(
+                            '১. তথ্য সংগ্রহ (Information Collection)'.tr(),
+                            'StudyMate আপনার প্রোফাইল তৈরি করতে নাম, ইমেল এবং প্রোফাইল ছবি সংগ্রহ করে। আপনার স্টাডি সেশন, টাস্ক ট্র্যাকিং এবং ইসলামিক লাইফ স্ক্রিনের কার্যক্রম শুধুমাত্র আপনার ব্যক্তিগত অগ্রগতির জন্য ব্যবহার করা হয়।'.tr(),
+                          ),
+                          _buildPrivacySection(
+                            '২. তথ্যের নিরাপত্তা (Data Security)'.tr(),
+                            'আমরা আপনার তথ্যের নিরাপত্তা নিশ্চিত করতে Firebase Authentication এবং Cloud Firestore-এর সিকিউরিটি রুলস ব্যবহার করি। আপনার পাসওয়ার্ড ও ব্যক্তিগত তথ্য সম্পূর্ণ সুরক্ষিত অবস্থায় সংরক্ষিত থাকে।'.tr(),
+                          ),
+                          _buildPrivacySection(
+                            '৩. থার্ড-পার্টি সার্ভিস (Third-Party Services)'.tr(),
+                            'আমাদের অ্যাপটি Firebase (Google-এর অংশ) সার্ভিসসমূহ ব্যবহার করে ডেটা স্টোর ও অথেন্টিকেশনের জন্য। Google-এর প্রাইভেসি পলিসি অনুযায়ী এই ডেটা প্রসেস করা হয়।'.tr(),
+                          ),
+                          _buildPrivacySection(
+                            '৪. আপনার অধিকার (Your Rights)'.tr(),
+                            'আপনি যেকোনো সময় আপনার প্রোফাইল এডিট করে তথ্য পরিবর্তন করতে পারেন অথবা আমাদের সাপোর্ট সেন্টারে যোগাযোগ করে আপনার অ্যাকাউন্ট ও সংশ্লিষ্ট সকল ডেটা সম্পূর্ণ মুছে ফেলার অনুরোধ জানাতে পারেন।'.tr(),
+                          ),
+                          const SizedBox(height: 20),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 50),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    child: Text('Close'.tr()),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showLanguageDialog(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 48,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Icon(
+                    Icons.language_rounded,
+                    color: Theme.of(context).colorScheme.primary,
+                    size: 28,
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Language'.tr(),
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              ListTile(
+                leading: const Icon(Icons.abc_rounded),
+                title: const Text('English', style: TextStyle(fontWeight: FontWeight.bold)),
+                trailing: LanguageManager().currentLanguage == 'en'
+                    ? Icon(Icons.check_circle_rounded, color: Theme.of(context).colorScheme.primary)
+                    : null,
+                onTap: () {
+                  LanguageManager().changeLanguage('en');
+                  Navigator.pop(context);
+                },
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.translate_rounded),
+                title: const Text('বাংলা', style: TextStyle(fontWeight: FontWeight.bold)),
+                trailing: LanguageManager().currentLanguage == 'bn'
+                    ? Icon(Icons.check_circle_rounded, color: Theme.of(context).colorScheme.primary)
+                    : null,
+                onTap: () {
+                  LanguageManager().changeLanguage('bn');
+                  Navigator.pop(context);
+                },
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPrivacySection(String title, String content) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            content,
+            style: TextStyle(
+              color: Colors.grey.shade700,
+              fontSize: 13,
+              height: 1.5,
+            ),
+          ),
+        ],
       ),
     );
   }

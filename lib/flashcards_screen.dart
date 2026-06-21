@@ -499,6 +499,7 @@ class _FlashcardDecksScreenState extends State<FlashcardDecksScreen> {
             context: context,
             backgroundColor: Colors.transparent,
             isScrollControlled: true,
+            useSafeArea: true,
             builder: (context) {
               return CreateDeckBottomSheet(
                 onManualCreate: (title, desc, cards) {
@@ -551,6 +552,7 @@ class _FlashcardDecksScreenState extends State<FlashcardDecksScreen> {
                   context: context,
                   backgroundColor: Colors.transparent,
                   isScrollControlled: true,
+                  useSafeArea: true,
                   builder: (context) {
                     return CreateDeckBottomSheet(
                       onManualCreate: (title, desc, cards) {
@@ -735,36 +737,40 @@ class _CreateDeckBottomSheetState extends State<CreateDeckBottomSheet> {
           color: Theme.of(context).colorScheme.surface,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
         ),
-        child: Column(
-          children: [
-            const SizedBox(height: 12),
-            Container(
-              width: 50,
-              height: 5,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(10),
+        child: SafeArea(
+          top: true,
+          bottom: false,
+          child: Column(
+            children: [
+              const SizedBox(height: 12),
+              Container(
+                width: 50,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            TabBar(
-              labelColor: Theme.of(context).colorScheme.primary,
-              unselectedLabelColor: Colors.grey,
-              indicatorColor: Theme.of(context).colorScheme.primary,
-              tabs: const [
-                Tab(icon: Icon(Icons.auto_awesome_rounded), text: 'AI Generator'),
-                Tab(icon: Icon(Icons.edit_note_rounded), text: 'Create Manually'),
-              ],
-            ),
-            Expanded(
-              child: TabBarView(
-                children: [
-                  _buildAITab(),
-                  _buildManualTab(),
+              const SizedBox(height: 8),
+              TabBar(
+                labelColor: Theme.of(context).colorScheme.primary,
+                unselectedLabelColor: Colors.grey,
+                indicatorColor: Theme.of(context).colorScheme.primary,
+                tabs: const [
+                  Tab(icon: Icon(Icons.auto_awesome_rounded), text: 'AI Generator'),
+                  Tab(icon: Icon(Icons.edit_note_rounded), text: 'Create Manually'),
                 ],
               ),
-            )
-          ],
+              Expanded(
+                child: TabBarView(
+                  children: [
+                    _buildAITab(),
+                    _buildManualTab(),
+                  ],
+                ),
+              )
+            ],
+          ),
         ),
       ),
     );

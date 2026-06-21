@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
+import 'language_manager.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -99,6 +100,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF162D24),
+      useSafeArea: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -109,7 +111,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             children: [
               ListTile(
                 leading: const Icon(Icons.photo_library_rounded, color: Colors.white70),
-                title: const Text('গ্যালারি থেকে বেছে নিন', style: TextStyle(color: Colors.white)),
+                title: Text('গ্যালারি থেকে বেছে নিন'.tr(), style: const TextStyle(color: Colors.white)),
                 onTap: () {
                   Navigator.pop(ctx);
                   _pickImage(ImageSource.gallery);
@@ -117,7 +119,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               ),
               ListTile(
                 leading: const Icon(Icons.camera_alt_rounded, color: Colors.white70),
-                title: const Text('ক্যামেরা দিয়ে ছবি তুলুন', style: TextStyle(color: Colors.white)),
+                title: Text('ক্যামেরা দিয়ে ছবি তুলুন'.tr(), style: const TextStyle(color: Colors.white)),
                 onTap: () {
                   Navigator.pop(ctx);
                   _pickImage(ImageSource.camera);
@@ -174,13 +176,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profile picture uploaded successfully!'), backgroundColor: Colors.teal),
+          SnackBar(content: Text('Profile picture uploaded successfully!'.tr()), backgroundColor: Colors.teal),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error uploading profile picture: $e'), backgroundColor: Colors.redAccent),
+          SnackBar(content: Text('${'Error uploading profile picture: '.tr()}$e'), backgroundColor: Colors.redAccent),
         );
       }
     } finally {
@@ -215,14 +217,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profile updated successfully!'), backgroundColor: Colors.teal),
+          SnackBar(content: Text('Profile updated successfully!'.tr()), backgroundColor: Colors.teal),
         );
         Navigator.pop(context, true);
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error updating profile: $e'), backgroundColor: Colors.redAccent),
+          SnackBar(content: Text('${'Error updating profile: '.tr()}$e'), backgroundColor: Colors.redAccent),
         );
       }
     } finally {
@@ -246,7 +248,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Edit Profile', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text('Edit Profile'.tr(), style: const TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.transparent,
         elevation: 0,
         flexibleSpace: Container(
@@ -307,11 +309,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     // Full name
                     TextFormField(
                       controller: _nameController,
-                      validator: (v) => (v == null || v.isEmpty) ? "Name cannot be empty" : null,
-                      decoration: const InputDecoration(
-                        labelText: 'Display Name',
-                        prefixIcon: Icon(Icons.person_outline_rounded),
-                        border: OutlineInputBorder(),
+                      validator: (v) => (v == null || v.isEmpty) ? "Name cannot be empty".tr() : null,
+                      decoration: InputDecoration(
+                        labelText: 'Display Name'.tr(),
+                        prefixIcon: const Icon(Icons.person_outline_rounded),
+                        border: const OutlineInputBorder(),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -320,10 +322,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     TextFormField(
                       controller: _bioController,
                       maxLines: 2,
-                      decoration: const InputDecoration(
-                        labelText: 'Short Bio / Goal',
-                        prefixIcon: Icon(Icons.description_outlined),
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText: 'Short Bio / Goal'.tr(),
+                        prefixIcon: const Icon(Icons.description_outlined),
+                        border: const OutlineInputBorder(),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -331,10 +333,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     // Institution Name
                     TextFormField(
                       controller: _institutionController,
-                      decoration: const InputDecoration(
-                        labelText: 'School / College / University',
-                        prefixIcon: Icon(Icons.school_outlined),
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText: 'School / College / University'.tr(),
+                        prefixIcon: const Icon(Icons.school_outlined),
+                        border: const OutlineInputBorder(),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -342,10 +344,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     // Major / Subject
                     TextFormField(
                       controller: _majorController,
-                      decoration: const InputDecoration(
-                        labelText: 'Major / Subject',
-                        prefixIcon: Icon(Icons.book_outlined),
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText: 'Major / Subject'.tr(),
+                        prefixIcon: const Icon(Icons.book_outlined),
+                        border: const OutlineInputBorder(),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -356,7 +358,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       items: _academicYears.map((String y) {
                         return DropdownMenuItem<String>(
                           value: y,
-                          child: Text(y),
+                          child: Text(y.tr()),
                         );
                       }).toList(),
                       onChanged: (val) {
@@ -364,10 +366,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           setState(() => _academicYear = val);
                         }
                       },
-                      decoration: const InputDecoration(
-                        labelText: 'Class / Year',
-                        prefixIcon: Icon(Icons.layers_outlined),
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText: 'Class / Year'.tr(),
+                        prefixIcon: const Icon(Icons.layers_outlined),
+                        border: const OutlineInputBorder(),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -377,15 +379,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       controller: _goalController,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       validator: (v) {
-                        if (v == null || v.isEmpty) return "Enter target hours";
+                        if (v == null || v.isEmpty) return "Enter target hours".tr();
                         final val = double.tryParse(v);
-                        if (val == null || val <= 0 || val > 24) return "Enter valid hours (1-24)";
+                        if (val == null || val <= 0 || val > 24) return "Enter valid hours (1-24)".tr();
                         return null;
                       },
-                      decoration: const InputDecoration(
-                        labelText: 'Daily Study Goal (Hours)',
-                        prefixIcon: Icon(Icons.timer_outlined),
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText: 'Daily Study Goal (Hours)'.tr(),
+                        prefixIcon: const Icon(Icons.timer_outlined),
+                        border: const OutlineInputBorder(),
                       ),
                     ),
                     const SizedBox(height: 36),
@@ -400,7 +402,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       ),
                       child: _isSaving
                           ? const CircularProgressIndicator(color: Colors.white)
-                          : const Text('Save Profile Details', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+                          : Text('Save Profile Details'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
                     ),
                   ],
                 ),

@@ -109,6 +109,7 @@ class _SurahViewerScreenState extends State<SurahViewerScreen> {
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF162D24),
+      useSafeArea: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),

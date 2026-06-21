@@ -3,11 +3,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 enum AppThemeType {
-  light,   // Slate Minimal (Light)
-  dark,    // Midnight Indigo (Dark)
-  aurora,  // Aurora Dream (Emerald Green Dark)
-  ocean,   // Ocean Blues (Sapphire Blue Dark)
-  sunset   // Sunset Velvet (Warm Sunset Gold/Pink Dark)
+  light,     // Slate Minimal (Light)
+  dark,      // Midnight Indigo (Dark)
+  aurora,    // Aurora Dream (Emerald Green Dark)
+  ocean,     // Ocean Blues (Sapphire Blue Dark)
+  sunset,    // Sunset Velvet (Warm Sunset Gold/Pink Dark)
+  cyberpunk, // Cyberpunk Wasp (Yellow/Black Dark)
+  sakura,    // Sakura Dream (Cherry Blossom Pink Light)
+  nebula     // Nebula Purple (Royal Velvet Dark)
 }
 
 enum AppFontStyle {
@@ -42,8 +45,8 @@ class ThemeManager extends ChangeNotifier {
   AppLayoutStyle get currentLayoutStyle => _currentLayoutStyle;
 
   // Backward compatibility getters
-  ThemeMode get themeMode => _currentTheme == AppThemeType.light ? ThemeMode.light : ThemeMode.dark;
-  bool get isDarkMode => _currentTheme != AppThemeType.light;
+  ThemeMode get themeMode => (_currentTheme == AppThemeType.light || _currentTheme == AppThemeType.sakura) ? ThemeMode.light : ThemeMode.dark;
+  bool get isDarkMode => !(_currentTheme == AppThemeType.light || _currentTheme == AppThemeType.sakura);
 
   /// Load theme, font, and layout style from local storage
   Future<void> loadTheme() async {
@@ -218,6 +221,60 @@ class ThemeManager extends ChangeNotifier {
         );
         cardColor = const Color(0xFF3D1E25); // Warm Rose Card
         inputColor = const Color(0xFF3D1E25);
+        break;
+
+      case AppThemeType.cyberpunk:
+        brightness = Brightness.dark;
+        colorScheme = const ColorScheme(
+          brightness: Brightness.dark,
+          primary: Color(0xFFFFD700), // Wasp Yellow
+          onPrimary: Colors.black,
+          secondary: Color(0xFFFF9100), // Neon Orange
+          onSecondary: Colors.black,
+          error: Color(0xFFEF4444),
+          onError: Colors.white,
+          surface: Color(0xFF0D0D0D), // Jet Black
+          onSurface: Colors.white,
+          onSurfaceVariant: Color(0xFFFFD700),
+        );
+        cardColor = const Color(0xFF1A1A1A); // Dark Card
+        inputColor = const Color(0xFF1A1A1A);
+        break;
+
+      case AppThemeType.sakura:
+        brightness = Brightness.light;
+        colorScheme = const ColorScheme(
+          brightness: Brightness.light,
+          primary: Color(0xFFEC4899), // Sakura Pink
+          onPrimary: Colors.white,
+          secondary: Color(0xFFF472B6), // Light Pink
+          onSecondary: Colors.white,
+          error: Color(0xFFEF4444),
+          onError: Colors.white,
+          surface: Color(0xFFFFF5F7), // Pale Pink-White
+          onSurface: Color(0xFF4C0519), // Deep Maroon Text
+          onSurfaceVariant: Color(0xFF9D174D),
+        );
+        cardColor = Colors.white;
+        inputColor = const Color(0xFFFCE7F3);
+        break;
+
+      case AppThemeType.nebula:
+        brightness = Brightness.dark;
+        colorScheme = const ColorScheme(
+          brightness: Brightness.dark,
+          primary: Color(0xFFA855F7), // Nebula Purple
+          onPrimary: Colors.white,
+          secondary: Color(0xFFEC4899), // Orchid Pink
+          onSecondary: Colors.white,
+          error: Color(0xFFEF4444),
+          onError: Colors.white,
+          surface: Color(0xFF120E2E), // Space Purple
+          onSurface: Color(0xFFF3E8FF), // Lavender Text
+          onSurfaceVariant: Color(0xFFC084FC),
+        );
+        cardColor = const Color(0xFF1E1642);
+        inputColor = const Color(0xFF1E1642);
         break;
     }
 
