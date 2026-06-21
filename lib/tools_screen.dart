@@ -23,6 +23,7 @@ import 'islamic_life_screen.dart';
 import 'theme_manager.dart';
 import 'dashboard_screen.dart';
 import 'study_analytics_screen.dart';
+import 'task_history_screen.dart';
 import 'gamification_service.dart';
 import 'language_manager.dart';
 
@@ -45,6 +46,7 @@ class ToolsScreen extends StatelessWidget {
           {'title': '1-4-7 Revision', 'icon': Icons.published_with_changes_rounded, 'color': Colors.indigo, 'action': 'revision_147'},
           {'title': 'PDF Reader', 'icon': Icons.picture_as_pdf_rounded, 'color': Colors.redAccent, 'action': 'pdf_reader'},
           {'title': 'Flashcards', 'icon': Icons.style_rounded, 'color': Colors.purpleAccent, 'action': 'flash'},
+          {'title': 'Task History', 'icon': Icons.history_rounded, 'color': Colors.blueGrey, 'action': 'task_history'},
         ]
       },
       {
@@ -173,6 +175,8 @@ class ToolsScreen extends StatelessWidget {
                                   Navigator.push(context, MaterialPageRoute(builder: (_) => const DictionaryScreen()));
                                 } else if (tool['action'] == 'revision_147') {
                                   Navigator.push(context, MaterialPageRoute(builder: (_) => const Revision147Screen()));
+                                } else if (tool['action'] == 'task_history') {
+                                  Navigator.push(context, MaterialPageRoute(builder: (_) => const TaskHistoryScreen()));
                                 } else if (tool['action'] == 'islamic') {
                                   Navigator.push(context, MaterialPageRoute(builder: (_) => const IslamicLifeScreen()));
                                 } else if (tool['action'] == 'theme') {
