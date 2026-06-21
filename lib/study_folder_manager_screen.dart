@@ -202,7 +202,7 @@ class _StudyFolderManagerScreenState extends State<StudyFolderManagerScreen> {
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
-        title: Text('Study Folders'.tr(), style: const TextStyle(fontWeight: FontWeight.bold)),
+        title: Text('Special Hub'.tr(), style: const TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
         elevation: 0,
         backgroundColor: Colors.transparent,

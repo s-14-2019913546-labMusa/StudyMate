@@ -103,8 +103,50 @@ class _StudyFolderDetailsScreenState extends State<StudyFolderDetailsScreen> wit
       final updated = List.from(currentSubjects);
       updated.add({
         'name': name,
+        'targetNote': '',
         'topics': [],
       });
+      await _updateSubjectsInFirestore(updated);
+    }
+  }
+
+  Future<void> _editTargetNote(List<dynamic> currentSubjects, String subjectName, String currentNote) async {
+    final controller = TextEditingController(text: currentNote);
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text('Edit Target'.tr(), style: const TextStyle(fontWeight: FontWeight.bold)),
+        content: TextField(
+          controller: controller,
+          maxLines: 3,
+          decoration: InputDecoration(
+            hintText: 'Enter subject target or timeline...'.tr(),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text('Cancel'.tr())),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('Save'.tr()),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      final updated = currentSubjects.map((s) {
+        if (s['name'] == subjectName) {
+          return {
+            'name': s['name'],
+            'targetNote': controller.text.trim(),
+            'topics': s['topics'],
+          };
+        }
+        return s;
+      }).toList();
       await _updateSubjectsInFirestore(updated);
     }
   }
@@ -440,6 +482,52 @@ class _StudyFolderDetailsScreenState extends State<StudyFolderDetailsScreen> wit
                             ),
                             children: [
                               const Divider(height: 1),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                                child: Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: _folderColor.withValues(alpha: 0.05),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: _folderColor.withValues(alpha: 0.15)),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            'Subject Target'.tr(),
+                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                          ),
+                                          IconButton(
+                                            icon: Icon(Icons.edit_rounded, size: 16, color: _folderColor),
+                                            onPressed: () {
+                                              final targetNote = subject['targetNote'] as String? ?? '';
+                                              _editTargetNote(subjects, subName, targetNote);
+                                            },
+                                            padding: EdgeInsets.zero,
+                                            constraints: const BoxConstraints(),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        (subject['targetNote'] as String? ?? '').isEmpty
+                                            ? 'Set a study target for this subject...'.tr()
+                                            : subject['targetNote'] as String,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: (subject['targetNote'] as String? ?? '').isEmpty ? Colors.grey : null,
+                                          fontStyle: (subject['targetNote'] as String? ?? '').isEmpty ? FontStyle.italic : null,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
                               if (topics.isEmpty)
                                 Padding(
                                   padding: const EdgeInsets.all(16.0),

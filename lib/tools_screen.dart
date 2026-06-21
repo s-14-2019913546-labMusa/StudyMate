@@ -48,7 +48,7 @@ class ToolsScreen extends StatelessWidget {
           {'title': 'PDF Reader', 'icon': Icons.picture_as_pdf_rounded, 'color': Colors.redAccent, 'action': 'pdf_reader'},
           {'title': 'Flashcards', 'icon': Icons.style_rounded, 'color': Colors.purpleAccent, 'action': 'flash'},
           {'title': 'Task History', 'icon': Icons.history_rounded, 'color': Colors.blueGrey, 'action': 'task_history'},
-          {'title': 'Study Folders', 'icon': Icons.folder_copy_rounded, 'color': Colors.teal, 'action': 'study_folders'},
+          {'title': 'Special Hub', 'icon': Icons.folder_copy_rounded, 'color': Colors.teal, 'action': 'study_folders'},
         ]
       },
       {

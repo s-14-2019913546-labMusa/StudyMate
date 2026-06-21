@@ -230,7 +230,7 @@ class LanguageManager extends ChangeNotifier {
     'Subject:': 'বিষয়:',
     'BCS': 'বিসিএস',
     'Bank': 'ব্যাংক',
-    'Study Folders': 'স্টাডি ফোল্ডার',
+    'Special Hub': 'স্পেশাল হাব',
     'Create Folder': 'ফোল্ডার তৈরি করুন',
     'Folder Name': 'ফোল্ডারের নাম',
     'Syllabus': 'সিলেবাস',
@@ -258,6 +258,11 @@ class LanguageManager extends ChangeNotifier {
     'Select Subject from Syllabus': 'সিলেবাস থেকে বিষয় নির্বাচন করুন',
     'Select Topic from Syllabus': 'সিলেবাস থেকে টপিক নির্বাচন করুন',
     'No topics in this subject': 'এই বিষয়ে কোনো টপিক নেই',
+    'Subject Target': 'বিষয়ের লক্ষ্য',
+    'Edit Target': 'লক্ষ্য সংশোধন করুন',
+    'Save': 'সংরক্ষণ করুন',
+    'Enter subject target or timeline...': 'বিষয়ের লক্ষ্য বা সময়সীমা লিখুন...',
+    'Set a study target for this subject...': 'এই বিষয়ের জন্য একটি লক্ষ্য নির্ধারণ করুন...',
   };
 
   static const Map<String, String> _bnToEn = {
