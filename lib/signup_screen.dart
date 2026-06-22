@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'focus_mode_screen.dart';
 import 'language_manager.dart';
 
@@ -50,6 +51,16 @@ class _SignUpScreenState extends State<SignUpScreen> {
         password: _passwordController.text.trim(),
       );
       await userCredential.user?.updateDisplayName(_nameController.text.trim());
+      
+      // Create user document in Firestore
+      await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).set({
+        'uid': userCredential.user!.uid,
+        'displayName': _nameController.text.trim(),
+        'email': _emailController.text.trim(),
+        'streak': 0,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
       if (mounted) {
         Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const FocusModeScreen()), (route) => false);
       }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
+import 'firebase_options.dart';
 import 'splash_screen.dart'; // Corrected import path (Assuming file is now in lib folder)
 import 'theme_manager.dart';
 import 'language_manager.dart';
@@ -11,7 +12,9 @@ void main() async {
   // Ensure that Flutter binding is initialized
   WidgetsFlutterBinding.ensureInitialized();
   // Initialize Firebase
-  await Firebase.initializeApp();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   // Initialize date formatting locales
   await initializeDateFormatting();
 

@@ -27,6 +27,34 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
+    _ensureUserExistsInFirestore();
+  }
+
+  Future<void> _ensureUserExistsInFirestore() async {
+    if (currentUser == null) return;
+    try {
+      final docRef = FirebaseFirestore.instance.collection('users').doc(currentUser!.uid);
+      final doc = await docRef.get();
+      if (!doc.exists) {
+        await docRef.set({
+          'uid': currentUser!.uid,
+          'displayName': currentUser!.displayName ?? 'Study Buddy',
+          'email': currentUser!.email ?? '',
+          'streak': 0,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      } else {
+        final data = doc.data() as Map<String, dynamic>;
+        if (data['displayName'] == null || data['email'] == null) {
+          await docRef.update({
+            'displayName': data['displayName'] ?? currentUser!.displayName ?? 'Study Buddy',
+            'email': data['email'] ?? currentUser!.email ?? '',
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint("Error ensuring user exists: $e");
+    }
   }
 
   @override
@@ -425,22 +453,92 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
 }
 
 // ==========================================
-// Friend's Profile & Today's Tasks Screen
+// Friend's Profile & Tasks Screen
 // ==========================================
-class FriendProfileScreen extends StatelessWidget {
+class FriendProfileScreen extends StatefulWidget {
   final String friendId;
   final String friendName;
 
   const FriendProfileScreen({super.key, required this.friendId, required this.friendName});
 
   @override
+  State<FriendProfileScreen> createState() => _FriendProfileScreenState();
+}
+
+class _FriendProfileScreenState extends State<FriendProfileScreen> {
+  DateTime _selectedDate = DateTime.now();
+
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2025),
+      lastDate: DateTime(2100),
+    );
+    if (picked != null && picked != _selectedDate) {
+      setState(() {
+        _selectedDate = picked;
+      });
+    }
+  }
+
+  void _adjustDate(int days) {
+    setState(() {
+      _selectedDate = _selectedDate.add(Duration(days: days));
+    });
+  }
+
+  Future<void> _showUnfriendConfirmation(BuildContext context) async {
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext ctx) {
+        return AlertDialog(
+          title: Text('Unfriend ${widget.friendName}?'),
+          content: Text('Are you sure you want to remove ${widget.friendName} from your friends list?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error),
+              child: const Text('Unfriend', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirm == true && mounted) {
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) return;
+      
+      try {
+        await FirebaseFirestore.instance.collection('users').doc(currentUser.uid).collection('friends').doc(widget.friendId).delete();
+        await FirebaseFirestore.instance.collection('users').doc(widget.friendId).collection('friends').doc(currentUser.uid).delete();
+        
+        if (mounted) {
+          Navigator.of(context).pop(); // Go back from profile screen
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Removed ${widget.friendName} from friends.')),
+          );
+        }
+      } catch (e) {
+        debugPrint("Error unfriending: $e");
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final String todayDocId = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final String dateDocId = DateFormat('yyyy-MM-dd').format(_selectedDate);
+    final String formattedDate = DateFormat('yyyy-MM-dd (EEEE)').format(_selectedDate);
 
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        title: Text('$friendName\'s Profile'),
+        title: Text('${widget.friendName}\'s Profile'),
         backgroundColor: Theme.of(context).colorScheme.surface,
         elevation: 0,
       ),
@@ -453,39 +551,91 @@ class FriendProfileScreen extends StatelessWidget {
             padding: const EdgeInsets.all(24),
             child: Column(
               children: [
-                 const CircleAvatar(radius: 40, child: Icon(Icons.person, size: 40)),
+                const CircleAvatar(radius: 40, child: Icon(Icons.person, size: 40)),
                 const SizedBox(height: 12),
-                Text(friendName, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                Text(widget.friendName, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
                 const Text('Study Buddy', style: TextStyle(color: Colors.grey)),
                 const SizedBox(height: 12),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(
-                      friendId: friendId,
-                      friendName: friendName,
-                    )));
-                  },
-                  icon: const Icon(Icons.message_rounded),
-                  label: const Text('Send Message'),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(
+                          friendId: widget.friendId,
+                          friendName: widget.friendName,
+                        )));
+                      },
+                      icon: const Icon(Icons.message_rounded),
+                      label: const Text('Send Message'),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton.icon(
+                      onPressed: () => _showUnfriendConfirmation(context),
+                      icon: const Icon(Icons.person_remove_rounded),
+                      label: const Text('Unfriend'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Theme.of(context).colorScheme.error.withValues(alpha: 0.1),
+                        foregroundColor: Theme.of(context).colorScheme.error,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        elevation: 0,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
-          const Padding(
-            padding: EdgeInsets.all(20.0),
-            child: Text("Today's Tasks", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text("Tasks List", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.chevron_left_rounded),
+                      onPressed: () => _adjustDate(-1),
+                    ),
+                    TextButton.icon(
+                      onPressed: () => _selectDate(context),
+                      icon: const Icon(Icons.calendar_month_rounded, size: 18),
+                      label: Text(
+                        DateFormat('MMM dd').format(_selectedDate),
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.chevron_right_rounded),
+                      onPressed: () => _adjustDate(1),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-          // Friend's Tasks for Today
+          
+          // Friend's Tasks for the selected day
           Expanded(
             child: StreamBuilder<DocumentSnapshot>(
-              stream: FirebaseFirestore.instance.collection('users').doc(friendId).collection('dailyRoutines').doc(todayDocId).snapshots(),
+              stream: FirebaseFirestore.instance.collection('users').doc(widget.friendId).collection('dailyRoutines').doc(dateDocId).snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
                 if (!snapshot.hasData || !snapshot.data!.exists) {
-                  return Center(child: Text('$friendName hasn\'t set any tasks for today yet.'));
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(20.0),
+                      child: Text(
+                        'No tasks set for $formattedDate.',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: Colors.grey),
+                      ),
+                    ),
+                  );
                 }
 
                 DailyRoutine routine = DailyRoutine.fromMap(snapshot.data!.data() as Map<String, dynamic>, snapshot.data!.id);
@@ -499,7 +649,6 @@ class FriendProfileScreen extends StatelessWidget {
                   itemCount: routine.tasks.length,
                   itemBuilder: (context, index) {
                     final task = routine.tasks[index];
-                    // যদি টাস্ক প্রাইভেট হয়, তবে নাম হাইড করা হবে
                     String displayTitle = task.isPrivate ? '🔒 Private Task' : task.title;
                     return Card(
                       margin: const EdgeInsets.only(bottom: 12),
@@ -524,3 +673,4 @@ class FriendProfileScreen extends StatelessWidget {
     );
   }
 }
+
