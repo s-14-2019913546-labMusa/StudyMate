@@ -12,6 +12,8 @@ import 'tools_screen.dart'; // Tools স্ক্রিন ইমপোর্ট
 import 'profile_screen.dart'; // Profile স্ক্রিন ইমপোর্ট
 import 'chat_screen.dart';
 import 'shared_task_form.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/services.dart';
 
 // ==========================================
 // 4. Dashboard Screen (ড্যাশবোর্ড স্ক্রিন)
@@ -30,6 +32,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Stream<DailyRoutine?>? _todaysRoutineStream;
   int _bottomNavIndex = 0; // বটম নেভিগেশন বারের ইনডেক্স
   int _currentStreak = 0;
+  Timer? _breathingTimer;
+  Timer? _missedTasksSnoozeTimer;
 
   @override
   void initState() {
@@ -37,7 +41,202 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (user != null) {
       _todaysRoutineStream = _fetchTodaysRoutine();
       _loadStreak();
+      _checkMissedTasksFromYesterday();
+      _checkAndScheduleBreathingPopup();
     }
+  }
+
+  @override
+  void dispose() {
+    _breathingTimer?.cancel();
+    _missedTasksSnoozeTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _checkMissedTasksFromYesterday() async {
+    final prefs = await SharedPreferences.getInstance();
+    final now = DateTime.now();
+    final todayStr = DateFormat('yyyy-MM-dd').format(now);
+    final shownKey = 'shown_missed_tasks_v2_$todayStr';
+    final snoozeKey = 'snooze_yesterday_missed_$todayStr';
+    
+    if (prefs.getBool(shownKey) == true) return;
+    
+    // Check base time (11:10 AM)
+    final targetTime = DateTime(now.year, now.month, now.day, 11, 10);
+    if (now.isBefore(targetTime)) {
+      _missedTasksSnoozeTimer?.cancel();
+      _missedTasksSnoozeTimer = Timer(targetTime.difference(now), _checkMissedTasksFromYesterday);
+      return;
+    }
+
+    // Check if snoozed
+    final snoozeTimeStr = prefs.getString(snoozeKey);
+    if (snoozeTimeStr != null) {
+      final snoozeTime = DateTime.parse(snoozeTimeStr);
+      if (now.isBefore(snoozeTime)) {
+        _missedTasksSnoozeTimer?.cancel();
+        _missedTasksSnoozeTimer = Timer(snoozeTime.difference(now), _checkMissedTasksFromYesterday);
+        return;
+      }
+    }
+    
+    if (user == null) return;
+
+    final yesterday = now.subtract(const Duration(days: 1));
+    final yesterdayDocId = DateFormat('yyyy-MM-dd').format(yesterday);
+    
+    try {
+      final docSnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user!.uid)
+          .collection('dailyRoutines')
+          .doc(yesterdayDocId)
+          .get();
+          
+      if (!docSnapshot.exists || docSnapshot.data() == null) return;
+      
+      final routine = DailyRoutine.fromMap(docSnapshot.data()!, docSnapshot.id);
+      final missedTasks = routine.tasks.where((t) => !t.isCompleted && t.status != 'completed').toList();
+      
+      if (missedTasks.isNotEmpty && mounted) {
+        await prefs.setBool(shownKey, true);
+        
+        Future.delayed(const Duration(seconds: 2), () {
+          if (!mounted) return;
+          showDialog(
+            context: context,
+            builder: (context) {
+              return AlertDialog(
+                title: const Text('গতকালের মিসড টাস্ক'),
+                content: SizedBox(
+                  width: double.maxFinite,
+                  height: 250,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('আপনার গতকালের কিছু টাস্ক বাকি আছে:', style: TextStyle(fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 10),
+                      Expanded(
+                        child: ListView.builder(
+                          itemCount: missedTasks.length,
+                          itemBuilder: (ctx, i) {
+                            return ListTile(
+                              leading: const Icon(Icons.circle, size: 10, color: Colors.red),
+                              title: Text(missedTasks[i].title),
+                              subtitle: Text('${missedTasks[i].startTime != null ? DateFormat.jm().format(missedTasks[i].startTime!) : "N/A"} - ${missedTasks[i].endTime != null ? DateFormat.jm().format(missedTasks[i].endTime!) : "N/A"}'),
+                              contentPadding: EdgeInsets.zero,
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () async {
+                      Navigator.of(context).pop();
+                      final TimeOfDay? picked = await showTimePicker(
+                        context: context,
+                        initialTime: TimeOfDay.now(),
+                      );
+                      if (picked != null) {
+                        final snoozeTime = DateTime(now.year, now.month, now.day, picked.hour, picked.minute);
+                        if (snoozeTime.isAfter(DateTime.now())) {
+                          await prefs.setString(snoozeKey, snoozeTime.toIso8601String());
+                          await prefs.remove(shownKey);
+                          _checkMissedTasksFromYesterday();
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('রিমাইন্ডার সেট করা হয়েছে ${picked.format(context)} এ')),
+                            );
+                          }
+                        }
+                      } else {
+                        // User cancelled time picker, so mark as shown anyway or maybe ask again
+                        await prefs.setBool(shownKey, true);
+                      }
+                    },
+                    child: const Text('পরে মনে করান'),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      prefs.setBool(shownKey, true);
+                      Navigator.of(context).pop();
+                    },
+                    child: const Text('ঠিক আছে'),
+                  ),
+                ],
+              );
+            }
+          );
+        });
+      }
+    } catch (e) {
+      debugPrint("Error fetching yesterday's missed tasks: $e");
+    }
+  }
+
+  Future<void> _checkAndScheduleBreathingPopup() async {
+    final prefs = await SharedPreferences.getInstance();
+    final lastTimeStr = prefs.getString('last_breathing_time');
+    DateTime? lastTime;
+    if (lastTimeStr != null) {
+      lastTime = DateTime.tryParse(lastTimeStr);
+    }
+    
+    final now = DateTime.now();
+    
+    // Check if 4 hours have passed since the last popup
+    if (lastTime == null || now.difference(lastTime).inHours >= 4) {
+      Future.delayed(const Duration(seconds: 3), () {
+        _showBreathingPopup();
+      });
+    } else {
+      final remaining = const Duration(hours: 4) - now.difference(lastTime);
+      _breathingTimer = Timer(remaining, _showBreathingPopup);
+    }
+  }
+
+  void _showBreathingPopup() async {
+    if (!mounted) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('last_breathing_time', DateTime.now().toIso8601String());
+    
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('একটু বিরতি নিন'),
+          content: const Text('আপনি প্রায় চারঘণ্টা একাধারে কাজ করে যাচ্ছেন, একটু ব্রিথিং এক্সারসাইজ আপনার মনোযোগ বাড়াতে সাহায্য করবে।'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('এখন না'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const BreathingPlayerScreen(
+                  title: 'Box Breathing',
+                  phases: [4, 4, 4, 4],
+                )));
+              },
+              child: const Text('এক্সারসাইজ করুন'),
+            ),
+          ],
+        );
+      }
+    );
+    
+    _breathingTimer?.cancel();
+    _breathingTimer = Timer.periodic(const Duration(hours: 4), (timer) {
+      _showBreathingPopup();
+    });
   }
 
   Future<void> _loadStreak() async {
@@ -195,31 +394,59 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      appBar: _bottomNavIndex == 0
-          ? AppBar(
-              backgroundColor: Theme.of(context).colorScheme.surface,
-              elevation: 0,
-              scrolledUnderElevation: 0, // স্ক্রল করার সময় ডিফল্ট শ্যাডো অফ রাখার জন্য
-              titleSpacing: 20, // নিচের বডির প্যাডিংয়ের সাথে লোগোকে সমান্তরাল রাখার জন্য
-              title: Row(
-                children: [
-                  Icon(Icons.school_rounded, color: Theme.of(context).colorScheme.primary, size: 28),
-                  const SizedBox(width: 8),
-                  Text(
-                    'StudyMate',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w800,
-                          color: Theme.of(context).colorScheme.primary,
-                          letterSpacing: 0.5,
-                        ),
-                  ),
-                ],
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) async {
+        if (didPop) return;
+        
+        final shouldExit = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('নিশ্চিত করুন'),
+            content: const Text('আপনি কি সত্যিই অ্যাপ থেকে বের হতে চান?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('না'),
               ),
-            )
-          : null,
-      body: _buildBodyContent(),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                child: const Text('হ্যাঁ', style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          ),
+        );
+        
+        if (shouldExit == true) {
+          SystemNavigator.pop();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        appBar: _bottomNavIndex == 0
+            ? AppBar(
+                backgroundColor: Theme.of(context).colorScheme.surface,
+                elevation: 0,
+                scrolledUnderElevation: 0, // স্ক্রল করার সময় ডিফল্ট শ্যাডো অফ রাখার জন্য
+                titleSpacing: 20, // নিচের বডির প্যাডিংয়ের সাথে লোগোকে সমান্তরাল রাখার জন্য
+                title: Row(
+                  children: [
+                    Icon(Icons.school_rounded, color: Theme.of(context).colorScheme.primary, size: 28),
+                    const SizedBox(width: 8),
+                    Text(
+                      'StudyMate',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w800,
+                            color: Theme.of(context).colorScheme.primary,
+                            letterSpacing: 0.5,
+                          ),
+                    ),
+                  ],
+                ),
+              )
+            : null,
+        body: _buildBodyContent(),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _bottomNavIndex,
         onDestinationSelected: (index) {
@@ -244,6 +471,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
                   ),
                   builder: (context) => AddTaskBottomSheet(
+                    title: 'নতুন টাস্ক যুক্ত করুন (Add New Task)',
+                    submitButtonText: 'সেভ নিউ টাস্ক',
                     onTaskAdded: (newTask) {
                       _addTaskToFirestore(newTask);
                     },
@@ -253,18 +482,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
               label: Text(
                 'New Task'.tr(),
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Colors.white,
+                      color: Theme.of(context).colorScheme.onPrimary,
                       fontWeight: FontWeight.bold,
                     ),
               ),
-              icon: const Icon(Icons.add),
+              icon: Icon(Icons.add, color: Theme.of(context).colorScheme.onPrimary),
               backgroundColor: Theme.of(context).colorScheme.primary,
-              foregroundColor: Colors.white,
+              foregroundColor: Theme.of(context).colorScheme.onPrimary,
               elevation: 8,
             )
           : null,
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-    );
+    ));
   }
 
   Widget _buildBodyContent() {
@@ -694,7 +923,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
 // ==========================================
 class AddTaskBottomSheet extends StatefulWidget {
   final Function(Task) onTaskAdded;
-  const AddTaskBottomSheet({super.key, required this.onTaskAdded});
+  final String title;
+  final String submitButtonText;
+
+  const AddTaskBottomSheet({
+    super.key, 
+    required this.onTaskAdded,
+    this.title = 'টাস্ক যুক্ত করুন (Add Task)',
+    this.submitButtonText = 'Save',
+  });
 
   @override
   State<AddTaskBottomSheet> createState() => _AddTaskBottomSheetState();
@@ -791,12 +1028,41 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding: EdgeInsets.only(left: 24.0, right: 24.0, top: 24.0, bottom: bottomInset + 24.0),
-      child: SharedTaskForm(
-        categories: _categories,
-        onSubmit: (Task newTask) {
-          widget.onTaskAdded(newTask);
-          Navigator.pop(context);
-        },
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                widget.title,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: onSurfaceColor,
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => Navigator.of(context).pop(),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Flexible(
+            child: SharedTaskForm(
+              categories: _categories,
+              submitButtonText: widget.submitButtonText,
+              onSubmit: (Task newTask) {
+                widget.onTaskAdded(newTask);
+                Navigator.pop(context);
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -831,6 +1097,7 @@ class _EditTaskBottomSheetState extends State<EditTaskBottomSheet> {
   TimeOfDay? _endTime;
   late bool _isPrivate;
   late String _selectedCategory;
+  String _selectedSubCategory = 'None';
 
   final List<String> _categories = ['Study', 'Work', 'Sports', 'Other'];
   final List<Map<String, dynamic>> _customFolders = [];
@@ -870,11 +1137,14 @@ class _EditTaskBottomSheetState extends State<EditTaskBottomSheet> {
       if (mounted) {
         setState(() {
           _customFolders.addAll(folders);
-          for (var f in folders) {
-            final name = f['name'] as String;
-            if (!_categories.contains(name)) {
-              _categories.add(name);
-            }
+          final folderNames = folders.map((f) => f['name'] as String).toList();
+          
+          // Map initial category if it's a folder
+          if (folderNames.contains(widget.task.category)) {
+            _selectedCategory = 'Study';
+            _selectedSubCategory = widget.task.category!;
+          } else {
+            _selectedCategory = widget.task.category ?? 'Study';
           }
         });
       }
@@ -965,7 +1235,7 @@ class _EditTaskBottomSheetState extends State<EditTaskBottomSheet> {
         startTime: start,
         endTime: end,
         isPrivate: _isPrivate,
-        category: _selectedCategory,
+        category: (_selectedCategory == 'Study' && _selectedSubCategory != 'None') ? _selectedSubCategory : _selectedCategory,
         totalDurationMinutes: durationMinutes,
         hasBeenEdited: true, // Mark as edited
         comments: updatedComments,
@@ -999,13 +1269,23 @@ class _EditTaskBottomSheetState extends State<EditTaskBottomSheet> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
-                'Edit Task (Once)',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: onSurfaceColor,
-                    ),
-                textAlign: TextAlign.center,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Edit Task (Once)',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: onSurfaceColor,
+                        ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.of(context).pop(),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
               ),
               const SizedBox(height: 20),
 
@@ -1183,6 +1463,9 @@ class _EditTaskBottomSheetState extends State<EditTaskBottomSheet> {
                       if (selected) {
                         setState(() {
                           _selectedCategory = cat;
+                          if (cat != 'Study') {
+                            _selectedSubCategory = 'None';
+                          }
                           _selectedFolderSubject = null;
                           _selectedFolderTopic = null;
                         });
@@ -1191,11 +1474,36 @@ class _EditTaskBottomSheetState extends State<EditTaskBottomSheet> {
                   );
                 }).toList(),
               ),
+              
+              // Sub-category (Folder) Selection
+              if (_selectedCategory == 'Study') ...[
+                const SizedBox(height: 16),
+                Text(
+                  'Sub-category (Folder)',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(color: onSurfaceColor),
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  value: _selectedSubCategory,
+                  items: ['None', ..._customFolders.map((f) => f['name'] as String)].toSet().map((c) => DropdownMenuItem(value: c, child: Text(c, style: TextStyle(color: onSurfaceColor)))).toList(),
+                  onChanged: (v) {
+                    setState(() {
+                      _selectedSubCategory = v ?? 'None';
+                      _selectedFolderSubject = null;
+                      _selectedFolderTopic = null;
+                    });
+                  },
+                  decoration: InputDecoration(
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
+                ),
+              ],
               // Syllabus Integration for custom folders
               Builder(
                 builder: (context) {
                   final matchingFolder = _customFolders.firstWhere(
-                    (f) => f['name'] == _selectedCategory,
+                    (f) => f['name'] == _selectedSubCategory,
                     orElse: () => {},
                   );
                   final subjects = matchingFolder['subjects'] as List<dynamic>? ?? [];
@@ -1605,158 +1913,210 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
     }
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 10),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 12.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // শিরোনাম এবং ডেট/টাইম
+            // Row 1: Title and Actions
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        widget.task.subject ?? widget.task.title,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                      ),
-                      const SizedBox(height: 4),
-                      if (widget.task.category != null && widget.task.category!.isNotEmpty) ...[
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: _getCategoryColor(widget.task.category!).withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: _getCategoryColor(widget.task.category!).withValues(alpha: 0.2),
-                              width: 1,
-                            ),
-                          ),
-                          child: Text(
-                            widget.task.category!.tr(),
-                            style: TextStyle(
-                              color: _getCategoryColor(widget.task.category!),
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                      ],
-                      Text(
-                        dateText,
-                        style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
-                      ),
-                    ],
+                  child: Text(
+                    widget.task.subject ?? widget.task.title,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                // স্টপওয়াচ টাইমার
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Text(
-                      timeText,
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 20,
-                        color: isOverdue ? Colors.red : Theme.of(context).colorScheme.primary,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      icon: const Icon(Icons.open_in_new_rounded, size: 22),
-                      color: Theme.of(context).colorScheme.secondary,
-                      tooltip: 'টাস্ক দেখুন (View Task)',
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(), // আইকনের ডিফল্ট প্যাডিং কমানোর জন্য
-                      onPressed: () {
-                        Navigator.push(
-                          context, 
-                          MaterialPageRoute(builder: (_) => TaskDetailsScreen(
-                            task: widget.task,
-                            onUpdate: widget.onUpdate, // ডাটাবেস আপডেটের ফাংশনটি পাস করা হলো
-                          )),
-                        );
-                      },
-                    ),
-                  ],
+                const SizedBox(width: 8),
+                // Bell icon (Notification)
+                GestureDetector(
+                  onTap: () {
+                     // Toggle alarmEnabled
+                     widget.onUpdate(widget.task.copyWith(alarmEnabled: !widget.task.alarmEnabled));
+                  },
+                  child: Icon(
+                    widget.task.alarmEnabled ? Icons.notifications_active_rounded : Icons.notifications_off_rounded, 
+                    size: 18,
+                    color: widget.task.alarmEnabled ? Theme.of(context).colorScheme.primary : Colors.grey,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                // Open in full view icon
+                GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context, 
+                      MaterialPageRoute(builder: (_) => TaskDetailsScreen(
+                        task: widget.task,
+                        onUpdate: widget.onUpdate,
+                      )),
+                    );
+                  },
+                  child: Icon(Icons.open_in_new_rounded, size: 18, color: Theme.of(context).colorScheme.secondary),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 6),
+            // Row 2: Tags and Date
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Tags
+                Expanded(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        if (widget.task.category != null && widget.task.category!.isNotEmpty)
+                          Container(
+                            margin: const EdgeInsets.only(right: 6),
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: _getCategoryColor(widget.task.category!).withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: _getCategoryColor(widget.task.category!).withValues(alpha: 0.2),
+                                width: 1,
+                              ),
+                            ),
+                            child: Text(
+                              widget.task.category!.tr(),
+                              style: TextStyle(
+                                color: _getCategoryColor(widget.task.category!),
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        if (widget.task.topic != null && widget.task.topic!.isNotEmpty)
+                          Container(
+                            margin: const EdgeInsets.only(right: 6),
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.blueGrey.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: Colors.blueGrey.withValues(alpha: 0.2), width: 1),
+                            ),
+                            child: Text(
+                              widget.task.topic!,
+                              style: const TextStyle(color: Colors.blueGrey, fontSize: 10, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Date
+                Text(
+                  dateText,
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 10),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
             
-            // প্রোগ্রেসবার
+            // Row 3: Duration info right above progress bar
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                // Duration text (Slightly larger than progress percentage)
+                Text(
+                  '${widget.task.totalDurationMinutes} min',
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                ),
+                // Stopwatch timer text
+                Text(
+                  timeText,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: isOverdue ? Colors.red : Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 2),
+            
+            // Row 4: Progress Bar
             Row(
               children: [
-                Text('${(progress * 100).toStringAsFixed(0)}%', style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text('${(progress * 100).toStringAsFixed(0)}%', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
                 const SizedBox(width: 8),
                 Expanded(
                   child: LinearProgressIndicator(
                     value: progress,
                     backgroundColor: Colors.grey.shade300,
                     color: Theme.of(context).colorScheme.primary,
-                    minHeight: 8,
-                    borderRadius: BorderRadius.circular(4),
+                    minHeight: 6,
+                    borderRadius: BorderRadius.circular(3),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             
-            // কন্ট্রোল বাটনগুলো (Start, Done, Edit)
+            // Row 5: Control Buttons
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
                 if (_status == 'pending' || _status == 'paused')
                   ElevatedButton.icon(
-                    icon: Icon(_status == 'paused' ? Icons.play_arrow_rounded : Icons.play_circle_fill_rounded),
-                    label: Text(_status == 'paused' ? 'Resume' : 'Start'),
+                    icon: Icon(_status == 'paused' ? Icons.play_arrow_rounded : Icons.play_circle_fill_rounded, size: 18),
+                    label: Text(_status == 'paused' ? 'Resume' : 'Start', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                     onPressed: () => _startTimer(saveToDb: true),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                       foregroundColor: Theme.of(context).colorScheme.primary,
                       elevation: 0,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      minimumSize: const Size(0, 38),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
                     ),
                   )
                 else if (_status == 'running')
                   ElevatedButton.icon(
-                    icon: const Icon(Icons.pause_rounded),
-                    label: const Text('Pause'),
+                    icon: const Icon(Icons.pause_rounded, size: 18),
+                    label: const Text('Pause', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                     onPressed: _pauseTimer,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFFFEF3C7), // Light Amber
                       foregroundColor: const Color(0xFFD97706), // Amber 600
                       elevation: 0,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      minimumSize: const Size(0, 38),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
                     ),
                   ),
                 
                 ElevatedButton.icon(
-                  icon: const Icon(Icons.check_circle_outline_rounded),
-                  label: const Text('Done'),
+                  icon: const Icon(Icons.check_circle_outline_rounded, size: 18),
+                  label: const Text('Done', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                   onPressed: _showDoneDialog,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFDCFCE7), // Light Green
                     foregroundColor: const Color(0xFF16A34A), // Green 600
                     elevation: 0,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    minimumSize: const Size(0, 38),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
                   ),
                 ),
 
                 ElevatedButton.icon(
                   icon: const Icon(Icons.edit_rounded, size: 16),
-                  label: const Text('Edit'),
+                  label: const Text('Edit', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                   onPressed: widget.task.hasBeenEdited ? null : _editTask,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: widget.task.hasBeenEdited ? Colors.grey.shade200 : Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                     foregroundColor: widget.task.hasBeenEdited ? Colors.grey : Theme.of(context).colorScheme.primary,
                     elevation: 0,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    minimumSize: const Size(0, 38),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
                   ),
                 ),
               ],

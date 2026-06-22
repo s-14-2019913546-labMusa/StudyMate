@@ -156,9 +156,9 @@ class ThemeManager extends ChangeNotifier {
         colorScheme = const ColorScheme(
           brightness: Brightness.dark,
           primary: Color(0xFF818CF8), // Lighter Indigo
-          onPrimary: Colors.white,
+          onPrimary: Colors.black,
           secondary: Color(0xFF38BDF8), // Lighter Sky Blue
-          onSecondary: Colors.white,
+          onSecondary: Colors.black,
           error: Color(0xFFF87171),
           onError: Colors.black,
           surface: Color(0xFF0F172A), // Slate 900
@@ -174,7 +174,7 @@ class ThemeManager extends ChangeNotifier {
         colorScheme = const ColorScheme(
           brightness: Brightness.dark,
           primary: Color(0xFF10B981), // Mint Green
-          onPrimary: Colors.white,
+          onPrimary: Colors.black,
           secondary: Color(0xFF34D399), // Emerald
           onSecondary: Colors.black,
           error: Color(0xFFF87171),
@@ -192,7 +192,7 @@ class ThemeManager extends ChangeNotifier {
         colorScheme = const ColorScheme(
           brightness: Brightness.dark,
           primary: Color(0xFF38BDF8), // Light Blue
-          onPrimary: Colors.white,
+          onPrimary: Colors.black,
           secondary: Color(0xFF60A5FA), // Soft Blue
           onSecondary: Colors.black,
           error: Color(0xFFF87171),
@@ -248,7 +248,7 @@ class ThemeManager extends ChangeNotifier {
           primary: Color(0xFFEC4899), // Sakura Pink
           onPrimary: Colors.white,
           secondary: Color(0xFFF472B6), // Light Pink
-          onSecondary: Colors.white,
+          onSecondary: Color(0xFF4C0519), // Deep Maroon
           error: Color(0xFFEF4444),
           onError: Colors.white,
           surface: Color(0xFFFFF5F7), // Pale Pink-White
@@ -422,7 +422,7 @@ class ThemeManager extends ChangeNotifier {
         elevatedButtonTheme = ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
             backgroundColor: colorScheme.primary,
-            foregroundColor: Colors.white,
+            foregroundColor: colorScheme.onPrimary,
             padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
             elevation: 10,
             shadowColor: colorScheme.primary.withValues(alpha: 0.7),

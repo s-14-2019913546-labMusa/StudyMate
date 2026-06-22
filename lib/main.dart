@@ -5,6 +5,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'splash_screen.dart'; // Corrected import path (Assuming file is now in lib folder)
 import 'theme_manager.dart';
 import 'language_manager.dart';
+import 'local_notification_service.dart';
 
 void main() async {
   // Ensure that Flutter binding is initialized
@@ -18,6 +19,9 @@ void main() async {
   await ThemeManager().loadTheme();
   // Initialize Language Manager
   await LanguageManager().init();
+  
+  // Initialize Local Notifications
+  await LocalNotificationService.init();
 
   runApp(const StudyMateApp());
 }

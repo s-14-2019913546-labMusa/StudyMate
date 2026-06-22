@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -130,7 +131,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     radius: 50,
                     backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                     backgroundImage: _photoUrl != null && _photoUrl!.isNotEmpty
-                        ? NetworkImage(_photoUrl!)
+                        ? (_photoUrl!.startsWith('http') ? NetworkImage(_photoUrl!) : FileImage(File(_photoUrl!)) as ImageProvider)
                         : null,
                     child: (_photoUrl == null || _photoUrl!.isEmpty)
                         ? Text(

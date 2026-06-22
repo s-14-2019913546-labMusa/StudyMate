@@ -232,11 +232,16 @@ class _DictionaryScreenState extends State<DictionaryScreen> with SingleTickerPr
               Expanded(
                 child: TextField(
                   controller: _searchCtrl,
-                  decoration: const InputDecoration(
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+                  decoration: InputDecoration(
                     hintText: 'Enter English word...',
-                    prefixIcon: Icon(Icons.search_rounded),
-                    fillColor: Colors.white,
+                    prefixIcon: const Icon(Icons.search_rounded),
+                    fillColor: Theme.of(context).colorScheme.surfaceContainerHighest ?? Theme.of(context).cardColor,
                     filled: true,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide.none,
+                    ),
                   ),
                   onSubmitted: _searchWord,
                 ),
@@ -460,9 +465,9 @@ class _DictionaryScreenState extends State<DictionaryScreen> with SingleTickerPr
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'উদাহরণ বাক্য (Example):',
-                      style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black54),
+                      style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurfaceVariant),
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -472,16 +477,16 @@ class _DictionaryScreenState extends State<DictionaryScreen> with SingleTickerPr
                     if (exampleBengali.isNotEmpty)
                       Text(
                         exampleBengali,
-                        style: TextStyle(fontSize: 15, color: Colors.grey.shade600),
+                        style: TextStyle(fontSize: 15, color: Theme.of(context).colorScheme.onSurfaceVariant),
                       ),
                   ],
                 ),
 
                 if (synonyms.isNotEmpty) ...[
                   const SizedBox(height: 20),
-                  const Text(
+                  Text(
                     'সমার্থক শব্দ (Synonyms):',
-                    style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black54),
+                    style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurfaceVariant),
                   ),
                   const SizedBox(height: 8),
                   Wrap(
@@ -511,7 +516,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> with SingleTickerPr
       children: [
         Text(
           label,
-          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black54),
+          style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurfaceVariant),
         ),
         const SizedBox(height: 4),
         Text(
@@ -519,7 +524,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> with SingleTickerPr
           style: TextStyle(
             fontSize: isHighlighted ? 20 : 16,
             fontWeight: isHighlighted ? FontWeight.bold : FontWeight.normal,
-            color: isHighlighted ? Colors.indigo.shade800 : Colors.black87,
+            color: isHighlighted ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurface,
           ),
         ),
       ],

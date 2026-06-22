@@ -2,14 +2,18 @@
 import 'package:flutter/material.dart';
 import 'daily_routine.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class SharedTaskForm extends StatefulWidget {
   final Function(Task) onSubmit;
   final List<String> categories;
+  final String submitButtonText;
   const SharedTaskForm({
     Key? key,
     required this.onSubmit,
     required this.categories,
+    this.submitButtonText = 'Save',
   }) : super(key: key);
 
   @override
@@ -27,7 +31,35 @@ class _SharedTaskFormState extends State<SharedTaskForm> {
   TimeOfDay? _endTime;
   bool _isPrivate = false;
   String _selectedCategory = 'Study';
+  String _selectedSubCategory = 'None';
   String? _timeError;
+  List<String> _studyFolders = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCustomFolders();
+  }
+
+  Future<void> _loadCustomFolders() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('studyFolders')
+          .get();
+      final folderNames = snapshot.docs.map((doc) => doc.data()['name'] as String).toList();
+      if (mounted && folderNames.isNotEmpty) {
+        setState(() {
+          _studyFolders = folderNames;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error loading study folders: $e");
+    }
+  }
 
   Future<void> _pickTime(bool isStart) async {
     final TimeOfDay? picked = await showTimePicker(
@@ -76,7 +108,7 @@ class _SharedTaskFormState extends State<SharedTaskForm> {
       startTime: start,
       endTime: end,
       isPrivate: _isPrivate,
-      category: _selectedCategory,
+      category: (_selectedCategory == 'Study' && _selectedSubCategory != 'None') ? _selectedSubCategory : _selectedCategory,
       totalDurationMinutes: durationMinutes,
     );
     widget.onSubmit(newTask);
@@ -167,13 +199,19 @@ class _SharedTaskFormState extends State<SharedTaskForm> {
               ),
             ),
             const SizedBox(height: 16),
-            // Category dropdown
             Text('Category', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: onSurfaceColor)),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
               value: _selectedCategory,
               items: widget.categories.map((c) => DropdownMenuItem(value: c, child: Text(c, style: TextStyle(color: onSurfaceColor)))).toList(),
-              onChanged: (v) => setState(() => _selectedCategory = v ?? _selectedCategory),
+              onChanged: (v) {
+                setState(() {
+                  _selectedCategory = v ?? _selectedCategory;
+                  if (_selectedCategory != 'Study') {
+                    _selectedSubCategory = 'None';
+                  }
+                });
+              },
               decoration: InputDecoration(
                 border: const OutlineInputBorder(),
                 enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: onSurfaceColor.withOpacity(0.3))),
@@ -182,6 +220,24 @@ class _SharedTaskFormState extends State<SharedTaskForm> {
               ),
             ),
             const SizedBox(height: 16),
+            
+            // Sub-category for Study
+            if (_selectedCategory == 'Study') ...[
+              Text('Sub-category (Folder)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: onSurfaceColor)),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                value: _selectedSubCategory,
+                items: ['None', ..._studyFolders].toSet().map((c) => DropdownMenuItem(value: c, child: Text(c, style: TextStyle(color: onSurfaceColor)))).toList(),
+                onChanged: (v) => setState(() => _selectedSubCategory = v ?? 'None'),
+                decoration: InputDecoration(
+                  border: const OutlineInputBorder(),
+                  enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: onSurfaceColor.withOpacity(0.3))),
+                  focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: colorScheme.primary)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
             // Private toggle
             Row(
               children: [
@@ -264,7 +320,10 @@ class _SharedTaskFormState extends State<SharedTaskForm> {
             // Save button
             ElevatedButton(
               onPressed: _handleSubmit,
-              child: Text('Save'.tr()),
+              style: ElevatedButton.styleFrom(
+                minimumSize: const Size.fromHeight(48),
+              ),
+              child: Text(widget.submitButtonText.tr()),
             ),
           ],
         ),

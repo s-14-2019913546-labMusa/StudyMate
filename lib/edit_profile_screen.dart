@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 import 'language_manager.dart';
 
 class EditProfileScreen extends StatefulWidget {
@@ -140,49 +141,46 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         setState(() {
           _localImageFile = File(picked.path);
         });
-        _uploadImage();
+        _saveImageLocally();
       }
     } catch (e) {
       debugPrint("Error picking image: $e");
     }
   }
 
-  Future<void> _uploadImage() async {
+  Future<void> _saveImageLocally() async {
     if (_localImageFile == null || _currentUser == null) return;
     setState(() => _isUploadingImage = true);
 
     try {
-      final ref = FirebaseStorage.instance
-          .ref()
-          .child('user_profiles')
-          .child('${_currentUser.uid}.jpg');
-
-      // Upload local file to Storage
-      await ref.putFile(_localImageFile!);
-      final downloadUrl = await ref.getDownloadURL();
+      final directory = await getApplicationDocumentsDirectory();
+      final localPath = '${directory.path}/profile_${_currentUser.uid}.jpg';
+      
+      // Copy selected file to app documents directory
+      final savedFile = await _localImageFile!.copy(localPath);
 
       // Update Local photoURL
       setState(() {
-        _photoUrl = downloadUrl;
+        _photoUrl = savedFile.path;
       });
 
       // Update Auth instance instantly
-      await _currentUser.updatePhotoURL(downloadUrl);
+      await _currentUser.updatePhotoURL(savedFile.path);
 
       // Save to Firestore directly so that it persists instantly
       await FirebaseFirestore.instance.collection('users').doc(_currentUser.uid).set({
-        'photoUrl': downloadUrl,
+        'photoUrl': savedFile.path,
       }, SetOptions(merge: true));
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Profile picture uploaded successfully!'.tr()), backgroundColor: Colors.teal),
+          SnackBar(content: Text('Profile picture updated locally!'.tr()), backgroundColor: Colors.teal),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${'Error uploading profile picture: '.tr()}$e'), backgroundColor: Colors.redAccent),
+          SnackBar(content: Text('${'Error saving profile picture locally: '.tr()}$e'), backgroundColor: Colors.redAccent),
         );
       }
     } finally {
@@ -243,7 +241,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     if (_localImageFile != null) {
       avatarImage = FileImage(_localImageFile!);
     } else if (_photoUrl != null && _photoUrl!.isNotEmpty) {
-      avatarImage = NetworkImage(_photoUrl!);
+      avatarImage = _photoUrl!.startsWith('http')
+          ? NetworkImage(_photoUrl!)
+          : FileImage(File(_photoUrl!)) as ImageProvider;
     }
 
     return Scaffold(

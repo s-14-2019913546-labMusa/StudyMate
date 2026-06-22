@@ -28,7 +28,9 @@ import 'task_history_screen.dart';
 import 'gamification_service.dart';
 import 'language_manager.dart';
 import 'study_folder_manager_screen.dart';
-
+import 'special_day_countdown_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'local_notification_service.dart';
 class ToolsScreen extends StatelessWidget {
   final Function(List<Task>) onTasksGenerated;
   const ToolsScreen({super.key, required this.onTasksGenerated});
@@ -50,6 +52,7 @@ class ToolsScreen extends StatelessWidget {
           {'title': 'Flashcards', 'icon': Icons.style_rounded, 'color': Colors.purpleAccent, 'action': 'flash'},
           {'title': 'Task History', 'icon': Icons.history_rounded, 'color': Colors.blueGrey, 'action': 'task_history'},
           {'title': 'Special Hub', 'icon': Icons.folder_copy_rounded, 'color': Colors.teal, 'action': 'study_folders'},
+          {'title': 'Countdown', 'icon': Icons.event_note_rounded, 'color': const Color(0xFF6366F1), 'action': 'countdown'},
         ]
       },
       {
@@ -182,6 +185,8 @@ class ToolsScreen extends StatelessWidget {
                                   Navigator.push(context, MaterialPageRoute(builder: (_) => const TaskHistoryScreen()));
                                 } else if (tool['action'] == 'study_folders') {
                                   Navigator.push(context, MaterialPageRoute(builder: (_) => const StudyFolderManagerScreen()));
+                                } else if (tool['action'] == 'countdown') {
+                                  Navigator.push(context, MaterialPageRoute(builder: (_) => const SpecialDayCountdownScreen()));
                                 } else if (tool['action'] == 'islamic') {
                                   Navigator.push(context, MaterialPageRoute(builder: (_) => const IslamicLifeScreen()));
                                 } else if (tool['action'] == 'theme') {
@@ -308,6 +313,8 @@ class ToolsScreen extends StatelessWidget {
           useSafeArea: true,
           backgroundColor: Colors.transparent,
           builder: (context) => AddTaskBottomSheet(
+            title: 'নেক্সট ডে রুটিনে যুক্ত করুন',
+            submitButtonText: 'সেভ নেক্সট ডে রুটিন',
             onTaskAdded: (newTask) async {
               await FirebaseFirestore.instance
                   .collection('users')
@@ -447,6 +454,7 @@ class AddWeeklyRoutineTaskBottomSheet extends StatefulWidget {
 class _AddWeeklyRoutineTaskBottomSheetState extends State<AddWeeklyRoutineTaskBottomSheet> {
   String _selectedDay = 'Saturday';
   String _selectedCategory = 'Study';
+  String _selectedSubCategory = 'None';
   bool _isPrivate = false;
   TimeOfDay? _startTime;
   TimeOfDay? _endTime;
@@ -458,6 +466,7 @@ class _AddWeeklyRoutineTaskBottomSheetState extends State<AddWeeklyRoutineTaskBo
   final _notesController = TextEditingController();
 
   final List<String> _categories = ['Study', 'Work', 'Sports', 'Other'];
+  List<String> _studyFolders = [];
   final List<String> _days = ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
   @override
@@ -487,7 +496,7 @@ class _AddWeeklyRoutineTaskBottomSheetState extends State<AddWeeklyRoutineTaskBo
       final folderNames = snapshot.docs.map((doc) => doc.data()['name'] as String).toList();
       if (mounted && folderNames.isNotEmpty) {
         setState(() {
-          _categories.addAll(folderNames);
+          _studyFolders = folderNames;
         });
       }
     } catch (e) {
@@ -569,7 +578,7 @@ class _AddWeeklyRoutineTaskBottomSheetState extends State<AddWeeklyRoutineTaskBo
       notes: _notesController.text.trim(),
       startTime: startDateTime,
       endTime: endDateTime,
-      category: _selectedCategory,
+      category: (_selectedCategory == 'Study' && _selectedSubCategory != 'None') ? _selectedSubCategory : _selectedCategory,
       isPrivate: _isPrivate,
     );
 
@@ -853,12 +862,42 @@ class _AddWeeklyRoutineTaskBottomSheetState extends State<AddWeeklyRoutineTaskBo
                     selectedColor: colorScheme.primary,
                     backgroundColor: colorScheme.surface,
                     onSelected: (selected) {
-                      if (selected) setState(() => _selectedCategory = cat);
+                      if (selected) {
+                        setState(() {
+                          _selectedCategory = cat;
+                          if (cat != 'Study') {
+                            _selectedSubCategory = 'None';
+                          }
+                        });
+                      }
                     },
                   );
                 }).toList(),
               ),
               const SizedBox(height: 16),
+              
+              // Sub-category (Folder) Selection
+              if (_selectedCategory == 'Study') ...[
+                Text(
+                  'Sub-category (Folder)',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(color: onSurfaceColor),
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  value: _selectedSubCategory,
+                  items: ['None', ..._studyFolders].toSet().map((c) => DropdownMenuItem(value: c, child: Text(c, style: TextStyle(color: onSurfaceColor)))).toList(),
+                  onChanged: (v) {
+                    setState(() {
+                      _selectedSubCategory = v ?? 'None';
+                    });
+                  },
+                  decoration: InputDecoration(
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
 
               // Private toggle
               SwitchListTile(
@@ -914,54 +953,112 @@ class SleepTrackerScreen extends StatefulWidget {
 class _SleepTrackerScreenState extends State<SleepTrackerScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final User? currentUser = FirebaseAuth.instance.currentUser;
+  Stream<QuerySnapshot>? _sleepHistoryStream;
 
-  TimeOfDay _bedTime = const TimeOfDay(hour: 22, minute: 0);
+  TimeOfDay _bedTime = const TimeOfDay(hour: 23, minute: 45);
   TimeOfDay _morningTime = const TimeOfDay(hour: 6, minute: 0);
   
   bool _isSleeping = false;
   DateTime? _sleepStartTime;
-  Timer? _tickTimer;
+  Timer? _uiUpdateTimer;
   Timer? _alarmRingingTimer;
   bool _alarmTriggered = false;
+  bool _bedTimeTriggered = false;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _startUIUpdateTimer(); // Start timer immediately to watch for bedtime
+    _loadSleepState();
+    if (currentUser != null) {
+      _sleepHistoryStream = FirebaseFirestore.instance
+          .collection('users')
+          .doc(currentUser!.uid)
+          .collection('sleep_history')
+          .orderBy('timestamp', descending: true)
+          .snapshots();
+    }
+  }
+
+  Future<void> _loadSleepState() async {
+    final prefs = await SharedPreferences.getInstance();
+    
+    // Check if there's an ongoing sleep session
+    final expectedStartStr = prefs.getString('expected_sleep_start');
+    if (expectedStartStr != null) {
+      final expectedStart = DateTime.parse(expectedStartStr);
+      // If expected sleep start is in the past, user is considered sleeping
+      if (expectedStart.isBefore(DateTime.now())) {
+        setState(() {
+          _isSleeping = true;
+          _sleepStartTime = expectedStart;
+        });
+        _startUIUpdateTimer();
+      }
+    }
+
+    // Check if alarm was turned off in background and we need to save history
+    final needsSave = prefs.getBool('needs_to_save_sleep_history') ?? false;
+    if (needsSave && _sleepStartTime != null) {
+      await _saveSleepHistoryToFirebase();
+    }
   }
 
   @override
   void dispose() {
     _tabController.dispose();
-    _tickTimer?.cancel();
+    _uiUpdateTimer?.cancel();
     _alarmRingingTimer?.cancel();
     super.dispose();
   }
 
-  void _startSleep() {
-    setState(() {
-      _isSleeping = true;
-      _sleepStartTime = DateTime.now();
-      _alarmTriggered = false;
-    });
-
-    // লাইভ টাইমার এবং অ্যালার্ম চেকার
-    _tickTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+  void _startUIUpdateTimer() {
+    _uiUpdateTimer?.cancel();
+    _uiUpdateTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) return;
-      setState(() {}); // UI আপডেট (টাইমার চলতে থাকবে)
-
+      setState(() {});
+      
       final now = DateTime.now();
-      // চেক করবো মর্নিং টাইম হয়েছে কিনা (এবং একবারই বাজবে)
-      if (!_alarmTriggered && now.hour == _morningTime.hour && now.minute == _morningTime.minute) {
+      
+      // Check for BedTime
+      if (!_bedTimeTriggered && now.hour == _bedTime.hour && now.minute == _bedTime.minute) {
+        _bedTimeTriggered = true;
+        _showBedTimePopup();
+      }
+      if (now.minute != _bedTime.minute) {
+        _bedTimeTriggered = false;
+      }
+
+      // Check for WakeTime
+      if (!_alarmTriggered && now.hour == _morningTime.hour && now.minute == _morningTime.minute && _isSleeping) {
         _alarmTriggered = true;
         _triggerAlarm();
       }
-      
-      // অন্য মিনিট হলে ট্রিগার রিসেট হবে (যাতে পরের দিন বা স্নুজে আবার বাজতে পারে)
       if (now.minute != _morningTime.minute) {
         _alarmTriggered = false;
       }
     });
+  }
+
+  void _showBedTimePopup() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('🌙 Bed Time!', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold)),
+        content: const Text('Your sleep session has started. Please put your phone away.', textAlign: TextAlign.center),
+        actions: [
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              if (!_isSleeping) _startSleep();
+            },
+            child: const Text('Go to Sleep'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _triggerAlarm() {
@@ -1002,30 +1099,51 @@ class _SleepTrackerScreenState extends State<SleepTrackerScreen> with SingleTick
     );
   }
 
-  void _snoozeAlarm() {
+  void _snoozeAlarm() async {
     final snoozeTime = DateTime.now().add(const Duration(minutes: 5));
     setState(() {
       _morningTime = TimeOfDay.fromDateTime(snoozeTime);
-      _alarmTriggered = false; // স্নুজের জন্য আবার ট্রিগার রেডি করা হলো
+      _alarmTriggered = false; // Reset trigger for snooze
     });
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Alarm snoozed. Will ring again in 5 minutes.')));
+    // Reschedule background alarm
+    await LocalNotificationService.scheduleMorningAlarm(snoozeTime);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Alarm snoozed. Will ring again in 5 minutes.')));
+    }
   }
 
-  Future<void> _stopSleepAndSave() async {
-    _tickTimer?.cancel();
-    _alarmRingingTimer?.cancel();
+  Future<void> _startSleep() async {
+    final prefs = await SharedPreferences.getInstance();
+    
+    setState(() {
+      _isSleeping = true;
+      _sleepStartTime = DateTime.now();
+    });
+    
+    await prefs.setString('expected_sleep_start', _sleepStartTime!.toIso8601String());
+    
+    // Schedule all notifications via background service
+    final now = DateTime.now();
+    DateTime actualBedTime = DateTime(now.year, now.month, now.day, _bedTime.hour, _bedTime.minute);
+    if (actualBedTime.isBefore(now)) actualBedTime = actualBedTime.add(const Duration(days: 1));
+    
+    DateTime actualWakeTime = DateTime(now.year, now.month, now.day, _morningTime.hour, _morningTime.minute);
+    if (actualWakeTime.isBefore(now)) actualWakeTime = actualWakeTime.add(const Duration(days: 1));
 
-    if (_sleepStartTime == null || currentUser == null) {
-      setState(() => _isSleeping = false);
-      return;
+    await LocalNotificationService.scheduleAllSleepNotifications(actualBedTime, actualWakeTime);
+    _startUIUpdateTimer();
+    
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sleep tracked & Alarms set for background!')));
     }
+  }
 
+  Future<void> _saveSleepHistoryToFirebase() async {
+    if (_sleepStartTime == null || currentUser == null) return;
+    
     final now = DateTime.now();
     final duration = now.difference(_sleepStartTime!);
 
-    setState(() => _isSleeping = false);
-
-    // ফায়ারবেসে স্লিপ হিস্ট্রি সেভ করা
     await FirebaseFirestore.instance.collection('users').doc(currentUser!.uid).collection('sleep_history').add({
       'bedTime': Timestamp.fromDate(_sleepStartTime!),
       'wakeTime': Timestamp.fromDate(now),
@@ -1033,15 +1151,36 @@ class _SleepTrackerScreenState extends State<SleepTrackerScreen> with SingleTick
       'timestamp': FieldValue.serverTimestamp(),
     });
 
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('expected_sleep_start');
+    await prefs.setBool('needs_to_save_sleep_history', false);
+
+    setState(() {
+      _isSleeping = false;
+      _sleepStartTime = null;
+    });
+    _uiUpdateTimer?.cancel();
+  }
+
+  Future<void> _stopSleepAndSave() async {
+    _alarmRingingTimer?.cancel();
+    await LocalNotificationService.cancelAllNotifications();
+    await _saveSleepHistoryToFirebase();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sleep session saved to history!')));
     }
   }
 
-  void _pickTime(bool isBedTime) async {
+  Future<void> _pickTime(bool isBedTime) async {
     final picked = await showTimePicker(
       context: context,
       initialTime: isBedTime ? _bedTime : _morningTime,
+      builder: (context, child) {
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: false),
+          child: child!,
+        );
+      },
     );
     if (picked != null) {
       setState(() {
@@ -1051,6 +1190,20 @@ class _SleepTrackerScreenState extends State<SleepTrackerScreen> with SingleTick
           _morningTime = picked;
         }
       });
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(isBedTime ? 'bed_time' : 'morning_time', picked.toString());
+      
+      // Reschedule if they are not sleeping yet
+      if (!_isSleeping) {
+        final now = DateTime.now();
+        DateTime actualBedTime = DateTime(now.year, now.month, now.day, _bedTime.hour, _bedTime.minute);
+        if (actualBedTime.isBefore(now)) actualBedTime = actualBedTime.add(const Duration(days: 1));
+        
+        DateTime actualWakeTime = DateTime(now.year, now.month, now.day, _morningTime.hour, _morningTime.minute);
+        if (actualWakeTime.isBefore(now)) actualWakeTime = actualWakeTime.add(const Duration(days: 1));
+        
+        await LocalNotificationService.scheduleAllSleepNotifications(actualBedTime, actualWakeTime);
+      }
     }
   }
 
@@ -1060,6 +1213,55 @@ class _SleepTrackerScreenState extends State<SleepTrackerScreen> with SingleTick
     String m = twoDigits(d.inMinutes.remainder(60));
     String s = twoDigits(d.inSeconds.remainder(60));
     return "$h:$m:$s";
+  }
+
+  Future<void> _deleteSleepRecord(String docId) async {
+    if (currentUser == null) return;
+
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('Delete Sleep Record'.tr(), style: const TextStyle(fontWeight: FontWeight.bold)),
+        content: Text('Are you sure you want to delete this sleep record?'.tr()),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Cancel'.tr()),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+            ),
+            child: Text('Delete'.tr()),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(currentUser!.uid)
+            .collection('sleep_history')
+            .doc(docId)
+            .delete();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Sleep record deleted successfully!'.tr())),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to delete sleep record!'.tr())),
+          );
+        }
+      }
+    }
   }
 
   @override
@@ -1180,15 +1382,10 @@ class _SleepTrackerScreenState extends State<SleepTrackerScreen> with SingleTick
   }
 
   Widget _buildHistoryTab() {
-    if (currentUser == null) return const Center(child: Text("Please log in to view sleep history."));
+    if (currentUser == null || _sleepHistoryStream == null) return const Center(child: Text("Please log in to view sleep history."));
 
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('users')
-          .doc(currentUser!.uid)
-          .collection('sleep_history')
-          .orderBy('timestamp', descending: true)
-          .snapshots(),
+      stream: _sleepHistoryStream,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) return const Center(child: Text("No sleep records found.", style: TextStyle(color: Colors.grey)));
@@ -1197,7 +1394,8 @@ class _SleepTrackerScreenState extends State<SleepTrackerScreen> with SingleTick
           padding: const EdgeInsets.all(16),
           itemCount: snapshot.data!.docs.length,
           itemBuilder: (context, index) {
-            final data = snapshot.data!.docs[index].data() as Map<String, dynamic>;
+            final doc = snapshot.data!.docs[index];
+            final data = doc.data() as Map<String, dynamic>;
             final wakeTime = (data['wakeTime'] as Timestamp).toDate();
             final bedTime = (data['bedTime'] as Timestamp).toDate();
             final durationMins = data['durationMinutes'] ?? 0;
@@ -1220,12 +1418,22 @@ class _SleepTrackerScreenState extends State<SleepTrackerScreen> with SingleTick
                 ),
                 title: Text(dateStr, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 subtitle: Text('Bed: $bedStr  •  Wake: $wakeStr'),
-                trailing: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.end,
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text('Total Sleep', style: TextStyle(fontSize: 10, color: Colors.grey)),
-                    Text('${hours}h ${mins}m', style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary, fontSize: 16)),
+                    Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        const Text('Total Sleep', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                        Text('${hours}h ${mins}m', style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary, fontSize: 16)),
+                      ],
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
+                      onPressed: () => _deleteSleepRecord(doc.id),
+                    ),
                   ],
                 ),
               ),
@@ -1235,6 +1443,7 @@ class _SleepTrackerScreenState extends State<SleepTrackerScreen> with SingleTick
       },
     );
   }
+
 }
 
 // ==========================================
@@ -1512,8 +1721,9 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
       try {
         final File audioFile = File(_audioFilePath!);
         // ফায়ারবেস ক্লাউড স্টোরেজে আপলোড
-        final storageRef = FirebaseStorage.instance.ref().child('notes_audio/${currentUser!.uid}_${DateTime.now().millisecondsSinceEpoch}.m4a');
-        final uploadTask = await storageRef.putFile(audioFile);
+        final storageRef = FirebaseStorage.instanceFor(bucket: 'gs://studymate-5ab8c.appspot.com').ref().child('notes_audio/${currentUser!.uid}_${DateTime.now().millisecondsSinceEpoch}.m4a');
+        final bytes = await audioFile.readAsBytes();
+        final uploadTask = await storageRef.putData(bytes);
         audioUrl = await uploadTask.ref.getDownloadURL();
       } catch (e) {
         debugPrint("Audio Upload Error: $e");
@@ -1524,8 +1734,9 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
     if (_imageFilePath != null) {
       try {
         final File imageFile = File(_imageFilePath!);
-        final storageRef = FirebaseStorage.instance.ref().child('notes_images/${currentUser!.uid}_${DateTime.now().millisecondsSinceEpoch}.jpg');
-        final uploadTask = await storageRef.putFile(imageFile);
+        final storageRef = FirebaseStorage.instanceFor(bucket: 'gs://studymate-5ab8c.appspot.com').ref().child('notes_images/${currentUser!.uid}_${DateTime.now().millisecondsSinceEpoch}.jpg');
+        final bytes = await imageFile.readAsBytes();
+        final uploadTask = await storageRef.putData(bytes);
         imageUrl = await uploadTask.ref.getDownloadURL();
       } catch (e) {
         debugPrint("Image Upload Error: $e");
@@ -1563,7 +1774,7 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
           children: [
             const Icon(Icons.restore_rounded, color: Colors.blue),
             const SizedBox(width: 8),
-            Text('Version History', style: TextStyle(color: _isNoteDarkMode ? Colors.white : Colors.black87)),
+            Text('Version History', style: TextStyle(color: _isNoteDarkMode ? Colors.white : Theme.of(context).colorScheme.onSurface)),
           ],
         ),
         content: Column(
@@ -1573,13 +1784,13 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
             const SizedBox(height: 16),
             ListTile(
               contentPadding: EdgeInsets.zero,
-              title: Text('Today, 10:30 AM', style: TextStyle(color: _isNoteDarkMode ? Colors.white : Colors.black)),
+              title: Text('Today, 10:30 AM', style: TextStyle(color: _isNoteDarkMode ? Colors.white : Theme.of(context).colorScheme.onSurface)),
               subtitle: Text('Auto-saved', style: TextStyle(color: Colors.grey.shade500)),
               trailing: TextButton(onPressed: () { Navigator.pop(ctx); _simulateAction('Restored to 10:30 AM version'); }, child: const Text('Restore')),
             ),
             ListTile(
               contentPadding: EdgeInsets.zero,
-              title: Text('Yesterday, 5:15 PM', style: TextStyle(color: _isNoteDarkMode ? Colors.white : Colors.black)),
+              title: Text('Yesterday, 5:15 PM', style: TextStyle(color: _isNoteDarkMode ? Colors.white : Theme.of(context).colorScheme.onSurface)),
               subtitle: Text('Manual save', style: TextStyle(color: Colors.grey.shade500)),
               trailing: TextButton(onPressed: () { Navigator.pop(ctx); _simulateAction('Restored to Yesterday version'); }, child: const Text('Restore')),
             ),
@@ -1613,8 +1824,8 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Previous Notes', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87)),
-                  IconButton(icon: Icon(Icons.close, color: isDark ? Colors.white : Colors.black), onPressed: () => Navigator.pop(context)),
+                  Text('Previous Notes', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Theme.of(context).colorScheme.onSurface)),
+                  IconButton(icon: Icon(Icons.close, color: isDark ? Colors.white : Theme.of(context).colorScheme.onSurface), onPressed: () => Navigator.pop(context)),
                 ],
               ),
               Divider(color: isDark ? Colors.grey.shade800 : Colors.grey.shade300),
@@ -1665,7 +1876,7 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
                                       Row(
                                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                         children: [
-                                          Expanded(child: Text(title, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: isDark ? Colors.white : Colors.black87), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                                          Expanded(child: Text(title, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: isDark ? Colors.white : Theme.of(context).colorScheme.onSurface), maxLines: 1, overflow: TextOverflow.ellipsis)),
                                           if (audioUrl != null)
                                             Icon(Icons.mic_rounded, color: isDark ? Colors.grey.shade400 : Colors.grey, size: 20),
                                           if (imageUrl != null)
@@ -1709,7 +1920,7 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
   @override
   Widget build(BuildContext context) {
     Color bgColor = _isNoteDarkMode ? const Color(0xFF1E1E1E) : Theme.of(context).colorScheme.surface;
-    Color textColor = _isNoteDarkMode ? Colors.white : Colors.black87;
+    Color textColor = _isNoteDarkMode ? Colors.white : Theme.of(context).colorScheme.onSurface;
     Color cardColor = _isNoteDarkMode ? const Color(0xFF2D2D2D) : Theme.of(context).cardColor;
 
     return Scaffold(
@@ -2046,7 +2257,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
   @override
   Widget build(BuildContext context) {
     Color bgColor = _isNoteDarkMode ? const Color(0xFF1E1E1E) : Theme.of(context).colorScheme.surface;
-    Color textColor = _isNoteDarkMode ? Colors.white : Colors.black87;
+    Color textColor = _isNoteDarkMode ? Colors.white : Theme.of(context).colorScheme.onSurface;
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -2896,6 +3107,14 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
 // ==========================================
 // 6. Stopwatch & Timer Screen (স্টপওয়াচ ও টাইমার)
 // ==========================================
+class _LapRecord {
+  final int durationMillis;
+  final String formattedLapDuration;
+  final String formattedTotalElapsed;
+
+  _LapRecord(this.durationMillis, this.formattedLapDuration, this.formattedTotalElapsed);
+}
+
 class StopwatchScreen extends StatefulWidget {
   const StopwatchScreen({super.key});
 
@@ -2903,13 +3122,18 @@ class StopwatchScreen extends StatefulWidget {
   State<StopwatchScreen> createState() => _StopwatchScreenState();
 }
 
-class _StopwatchScreenState extends State<StopwatchScreen> with SingleTickerProviderStateMixin {
+class _StopwatchScreenState extends State<StopwatchScreen> with TickerProviderStateMixin {
   late TabController _tabController;
 
   // Stopwatch Variables
   final Stopwatch _stopwatch = Stopwatch();
   Timer? _stopwatchTimer;
-  final List<String> _laps = [];
+  final List<_LapRecord> _laps = [];
+  int _lastLapMillis = 0;
+
+  // Animation Variables for Neon
+  late AnimationController _neonRingController;
+  late AnimationController _pulseController;
 
   // Timer (Countdown) Variables
   int _selectedTimerSeconds = 0;
@@ -2921,6 +3145,9 @@ class _StopwatchScreenState extends State<StopwatchScreen> with SingleTickerProv
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    
+    _neonRingController = AnimationController(vsync: this, duration: const Duration(seconds: 4))..repeat();
+    _pulseController = AnimationController(vsync: this, duration: const Duration(seconds: 1))..repeat(reverse: true);
   }
 
   @override
@@ -2928,6 +3155,8 @@ class _StopwatchScreenState extends State<StopwatchScreen> with SingleTickerProv
     _stopwatchTimer?.cancel();
     _countdownTimer?.cancel();
     _tabController.dispose();
+    _neonRingController.dispose();
+    _pulseController.dispose();
     super.dispose();
   }
 
@@ -2948,14 +3177,19 @@ class _StopwatchScreenState extends State<StopwatchScreen> with SingleTickerProv
   void _stopwatchAction() {
     if (_stopwatch.isRunning) {
       // Lap
+      final currentTotal = _stopwatch.elapsedMilliseconds;
+      final lapDuration = currentTotal - _lastLapMillis;
+      _lastLapMillis = currentTotal;
+
       setState(() {
-        _laps.insert(0, _formatStopwatchTime(_stopwatch.elapsedMilliseconds));
+        _laps.insert(0, _LapRecord(lapDuration, _formatStopwatchTime(lapDuration), _formatStopwatchTime(currentTotal)));
       });
     } else {
       // Reset
       setState(() {
         _stopwatch.reset();
         _laps.clear();
+        _lastLapMillis = 0;
       });
     }
   }
@@ -3011,8 +3245,291 @@ class _StopwatchScreenState extends State<StopwatchScreen> with SingleTickerProv
     );
   }
 
+  // --- UI Builders ---
+  Widget _buildClassicStopwatch() {
+    return Column(
+      children: [
+        const SizedBox(height: 60),
+        Text(_formatStopwatchTime(_stopwatch.elapsedMilliseconds), style: const TextStyle(fontSize: 60, fontWeight: FontWeight.w300, fontFeatures: [FontFeature.tabularFigures()])),
+        const SizedBox(height: 40),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            FloatingActionButton(
+              heroTag: 'lap_reset_classic',
+              onPressed: _stopwatchAction,
+              backgroundColor: Colors.grey.shade300,
+              elevation: 0,
+              child: Icon(_stopwatch.isRunning ? Icons.flag_rounded : Icons.refresh_rounded, color: Colors.black87),
+            ),
+            const SizedBox(width: 40),
+            FloatingActionButton.large(
+              heroTag: 'start_stop_classic',
+              onPressed: _toggleStopwatch,
+              backgroundColor: _stopwatch.isRunning ? Colors.redAccent : Colors.green.shade600,
+              elevation: 2,
+              child: Icon(_stopwatch.isRunning ? Icons.pause_rounded : Icons.play_arrow_rounded, color: Colors.white, size: 36),
+            ),
+          ],
+        ),
+        const SizedBox(height: 40),
+        Expanded(
+          child: ListView.builder(
+            itemCount: _laps.length,
+            itemBuilder: (ctx, i) => ListTile(
+              leading: Text('Lap ${_laps.length - i}', style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+              trailing: Text(_laps[i].formattedLapDuration, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNeonStopwatch() {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isRunning = _stopwatch.isRunning;
+    final timeStr = _formatStopwatchTime(_stopwatch.elapsedMilliseconds);
+    final timeParts = timeStr.split('.'); // [MM:SS, ms]
+
+    int? fastest = _laps.isNotEmpty ? _laps.map((l) => l.durationMillis).reduce((a, b) => a < b ? a : b) : null;
+    int? slowest = _laps.isNotEmpty ? _laps.map((l) => l.durationMillis).reduce((a, b) => a > b ? a : b) : null;
+
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: AnimatedBuilder(
+            animation: _pulseController,
+            builder: (context, child) {
+              return Container(
+                decoration: BoxDecoration(
+                  gradient: RadialGradient(
+                    colors: [
+                      colorScheme.primary.withValues(alpha: isRunning ? 0.05 + (0.05 * _pulseController.value) : 0.02),
+                      Colors.transparent,
+                    ],
+                    center: Alignment.topCenter,
+                    radius: 1.5,
+                  ),
+                ),
+              );
+            }
+          ),
+        ),
+        Column(
+          children: [
+            const SizedBox(height: 40),
+            // Glowing Circular Ring with Time
+            Center(
+              child: AnimatedBuilder(
+                animation: _pulseController,
+                builder: (context, child) {
+                  return Container(
+                    width: 280,
+                    height: 280,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        if (isRunning)
+                          BoxShadow(
+                            color: colorScheme.primary.withValues(alpha: 0.15 + 0.15 * _pulseController.value),
+                            blurRadius: 40,
+                            spreadRadius: 10,
+                          )
+                      ],
+                    ),
+                    child: child,
+                  );
+                },
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    if (isRunning)
+                      AnimatedBuilder(
+                        animation: _neonRingController,
+                        builder: (context, child) {
+                          return Transform.rotate(
+                            angle: _neonRingController.value * 2 * 3.1415926535,
+                            child: child,
+                          );
+                        },
+                        child: CustomPaint(
+                          size: const Size(280, 280),
+                          painter: _NeonRingPainter(color: colorScheme.primary),
+                        ),
+                      )
+                    else
+                       CustomPaint(
+                          size: const Size(280, 280),
+                          painter: _NeonRingPainter(color: colorScheme.primary.withValues(alpha: 0.3)),
+                        ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        Text(
+                          timeParts[0],
+                          style: TextStyle(
+                            fontSize: 64,
+                            fontWeight: FontWeight.w900,
+                            color: colorScheme.primary,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                            shadows: [Shadow(color: colorScheme.primary, blurRadius: isRunning ? 10 : 0)],
+                          ),
+                        ),
+                        Text(
+                          '.${timeParts[1]}',
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w300,
+                            color: colorScheme.primary.withValues(alpha: 0.7),
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 40),
+            // Buttons
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                GestureDetector(
+                  onTap: _stopwatchAction,
+                  child: Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Theme.of(context).cardColor,
+                      border: Border.all(color: colorScheme.onSurface.withValues(alpha: 0.2), width: 2),
+                    ),
+                    child: Icon(isRunning ? Icons.flag_rounded : Icons.refresh_rounded, color: colorScheme.onSurface, size: 28),
+                  ),
+                ),
+                const SizedBox(width: 40),
+                GestureDetector(
+                  onTap: _toggleStopwatch,
+                  child: Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: isRunning ? Colors.redAccent.withValues(alpha: 0.2) : colorScheme.primary.withValues(alpha: 0.2),
+                      border: Border.all(color: isRunning ? Colors.redAccent : colorScheme.primary, width: 2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: isRunning ? Colors.redAccent.withValues(alpha: 0.4) : colorScheme.primary.withValues(alpha: 0.4),
+                          blurRadius: 20,
+                        )
+                      ],
+                    ),
+                    child: Icon(isRunning ? Icons.pause_rounded : Icons.play_arrow_rounded, color: isRunning ? Colors.redAccent : colorScheme.primary, size: 40),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 30),
+            // Lap List
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                itemCount: _laps.length,
+                itemBuilder: (ctx, i) {
+                  final lap = _laps[i];
+                  final bool isFastest = _laps.length > 1 && lap.durationMillis == fastest;
+                  final bool isSlowest = _laps.length > 1 && lap.durationMillis == slowest;
+
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: isFastest ? Colors.green.withValues(alpha: 0.1) : (isSlowest ? Colors.red.withValues(alpha: 0.1) : colorScheme.surface),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: isFastest ? Colors.green : (isSlowest ? Colors.red : colorScheme.onSurface.withValues(alpha: 0.1))),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Lap ${_laps.length - i}',
+                          style: TextStyle(color: isFastest ? Colors.green : (isSlowest ? Colors.red : colorScheme.onSurface), fontWeight: FontWeight.bold),
+                        ),
+                        Row(
+                          children: [
+                            Text(
+                              '+${lap.formattedLapDuration}',
+                              style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 14),
+                            ),
+                            const SizedBox(width: 16),
+                            Text(
+                              lap.formattedTotalElapsed,
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: isFastest ? Colors.green : (isSlowest ? Colors.red : colorScheme.onSurface)),
+                            ),
+                          ],
+                        )
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCountdownTimer() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        if (!_isTimerRunning && _remainingTimerSeconds == 0)
+          SizedBox(
+            height: 200,
+            child: CupertinoTimerPicker(
+              mode: CupertinoTimerPickerMode.hms,
+              onTimerDurationChanged: (Duration newDuration) {
+                _selectedTimerSeconds = newDuration.inSeconds;
+              },
+            ),
+          )
+        else
+          Text(
+            '${(_remainingTimerSeconds ~/ 3600).toString().padLeft(2, '0')}:${((_remainingTimerSeconds % 3600) ~/ 60).toString().padLeft(2, '0')}:${(_remainingTimerSeconds % 60).toString().padLeft(2, '0')}',
+            style: const TextStyle(fontSize: 60, fontWeight: FontWeight.w300, fontFeatures: [FontFeature.tabularFigures()]),
+          ),
+        const SizedBox(height: 60),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (_remainingTimerSeconds > 0)
+              FloatingActionButton(
+                heroTag: 'timer_cancel',
+                onPressed: _resetCountdown,
+                backgroundColor: Colors.grey.shade300,
+                elevation: 0,
+                child: const Icon(Icons.close_rounded, color: Colors.black87),
+              ),
+            if (_remainingTimerSeconds > 0) const SizedBox(width: 40),
+            FloatingActionButton.large(
+              heroTag: 'timer_start_pause',
+              onPressed: _isTimerRunning ? _stopCountdown : _startCountdown,
+              backgroundColor: _isTimerRunning ? Colors.redAccent : Colors.green.shade600,
+              elevation: 2,
+              child: Icon(_isTimerRunning ? Icons.pause_rounded : Icons.play_arrow_rounded, color: Colors.white, size: 36),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isNeon = ThemeManager().currentLayoutStyle == AppLayoutStyle.neon;
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
@@ -3028,92 +3545,47 @@ class _StopwatchScreenState extends State<StopwatchScreen> with SingleTickerProv
       body: TabBarView(
         controller: _tabController,
         children: [
-          // TAB 1: Stopwatch
-          Column(
-            children: [
-              const SizedBox(height: 60),
-              Text(_formatStopwatchTime(_stopwatch.elapsedMilliseconds), style: const TextStyle(fontSize: 60, fontWeight: FontWeight.w300, fontFeatures: [FontFeature.tabularFigures()])),
-              const SizedBox(height: 40),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  FloatingActionButton(
-                    heroTag: 'lap_reset',
-                    onPressed: _stopwatchAction,
-                    backgroundColor: Colors.grey.shade300,
-                    elevation: 0,
-                    child: Icon(_stopwatch.isRunning ? Icons.flag_rounded : Icons.refresh_rounded, color: Colors.black87),
-                  ),
-                  const SizedBox(width: 40),
-                  FloatingActionButton.large(
-                    heroTag: 'start_stop',
-                    onPressed: _toggleStopwatch,
-                    backgroundColor: _stopwatch.isRunning ? Colors.redAccent : Colors.green.shade600,
-                    elevation: 2,
-                    child: Icon(_stopwatch.isRunning ? Icons.pause_rounded : Icons.play_arrow_rounded, color: Colors.white, size: 36),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 40),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: _laps.length,
-                  itemBuilder: (ctx, i) => ListTile(
-                    leading: Text('Lap ${_laps.length - i}', style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
-                    trailing: Text(_laps[i], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                  ),
-                ),
-              ),
-            ],
-          ),
-
-          // TAB 2: Countdown Timer
-          Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (!_isTimerRunning && _remainingTimerSeconds == 0)
-                SizedBox(
-                  height: 200,
-                  child: CupertinoTimerPicker(
-                    mode: CupertinoTimerPickerMode.hms,
-                    onTimerDurationChanged: (Duration newDuration) {
-                      _selectedTimerSeconds = newDuration.inSeconds;
-                    },
-                  ),
-                )
-              else
-                Text(
-                  '${(_remainingTimerSeconds ~/ 3600).toString().padLeft(2, '0')}:${((_remainingTimerSeconds % 3600) ~/ 60).toString().padLeft(2, '0')}:${(_remainingTimerSeconds % 60).toString().padLeft(2, '0')}',
-                  style: const TextStyle(fontSize: 60, fontWeight: FontWeight.w300, fontFeatures: [FontFeature.tabularFigures()]),
-                ),
-              const SizedBox(height: 60),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (_remainingTimerSeconds > 0)
-                    FloatingActionButton(
-                      heroTag: 'timer_cancel',
-                      onPressed: _resetCountdown,
-                      backgroundColor: Colors.grey.shade300,
-                      elevation: 0,
-                      child: const Icon(Icons.close_rounded, color: Colors.black87),
-                    ),
-                  if (_remainingTimerSeconds > 0) const SizedBox(width: 40),
-                  FloatingActionButton.large(
-                    heroTag: 'timer_start_pause',
-                    onPressed: _isTimerRunning ? _stopCountdown : _startCountdown,
-                    backgroundColor: _isTimerRunning ? Colors.redAccent : Colors.green.shade600,
-                    elevation: 2,
-                    child: Icon(_isTimerRunning ? Icons.pause_rounded : Icons.play_arrow_rounded, color: Colors.white, size: 36),
-                  ),
-                ],
-              ),
-            ],
-          ),
+          isNeon ? _buildNeonStopwatch() : _buildClassicStopwatch(),
+          _buildCountdownTimer(),
         ],
       ),
     );
   }
+}
+
+class _NeonRingPainter extends CustomPainter {
+  final Color color;
+  _NeonRingPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Paint paint = Paint()
+      ..color = color
+      ..strokeWidth = 4
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    final double radius = size.width / 2;
+    final Offset center = Offset(size.width / 2, size.height / 2);
+
+    // Draw dashed circle
+    const int dashCount = 40;
+    const double sweepAngle = (3.1415926535 * 2) / dashCount;
+    for (int i = 0; i < dashCount; i++) {
+      if (i % 2 == 0) {
+        canvas.drawArc(
+          Rect.fromCircle(center: center, radius: radius),
+          i * sweepAngle,
+          sweepAngle * 0.7,
+          false,
+          paint,
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
 
 // ==========================================
