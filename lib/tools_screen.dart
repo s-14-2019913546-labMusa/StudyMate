@@ -2389,201 +2389,877 @@ class _StudyRoomScreenState extends State<StudyRoomScreen> {
   bool _inRoom = false;
   String _roomCode = '';
   final TextEditingController _joinCodeCtrl = TextEditingController();
+  final TextEditingController _roomNameCtrl = TextEditingController();
+  final ImagePicker _imagePicker = ImagePicker();
+  bool _isUploadingProof = false;
 
-  // ডেমো মেম্বার এবং প্রুফ লিস্ট
-  final List<Map<String, dynamic>> _members = [
-    {'name': 'You (Admin)', 'isMe': true, 'isAdmin': true},
-    {'name': 'Sakib', 'isMe': false, 'isAdmin': false},
-    {'name': 'Rakib', 'isMe': false, 'isAdmin': false},
-  ];
-  final List<Map<String, String>> _proofs = [];
-
-  void _createRoom() {
-    setState(() {
-      _roomCode = 'RM-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
-      _inRoom = true;
-    });
+  // Generate 6 character random code
+  String _generateRoomCode() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    final rand = math.Random();
+    return List.generate(6, (index) => chars[rand.nextInt(chars.length)]).join();
   }
 
-  void _joinRoom() {
-    if (_joinCodeCtrl.text.isNotEmpty) {
+  void _enterRoom(String code) {
+    setState(() {
+      _roomCode = code;
+      _inRoom = true;
+    });
+    _cleanupExpiredProofs();
+  }
+
+  Future<void> _cleanupExpiredProofs() async {
+    if (_roomCode.isEmpty) return;
+    final twentyFourHoursAgo = DateTime.now().subtract(const Duration(hours: 24));
+    try {
+      final query = await FirebaseFirestore.instance
+          .collection('study_rooms')
+          .doc(_roomCode)
+          .collection('proofs')
+          .where('timestamp', isLessThan: Timestamp.fromDate(twentyFourHoursAgo))
+          .get();
+      for (var doc in query.docs) {
+        await doc.reference.delete();
+      }
+    } catch (e) {
+      debugPrint("Error cleaning up expired proofs: $e");
+    }
+  }
+
+  Future<void> _createRoom() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please log in first!')));
+      return;
+    }
+
+    String roomName = _roomNameCtrl.text.trim();
+    if (roomName.isEmpty) {
+      roomName = '${user.displayName ?? 'Student'}\'s Study Room';
+    }
+
+    final code = 'RM-${_generateRoomCode()}';
+
+    try {
+      await FirebaseFirestore.instance.collection('study_rooms').doc(code).set({
+        'roomId': code,
+        'name': roomName,
+        'creatorId': user.uid,
+        'creatorName': user.displayName ?? 'Anonymous',
+        'createdAt': FieldValue.serverTimestamp(),
+        'participants': [user.uid],
+        'participantNames': {user.uid: user.displayName ?? 'Anonymous'},
+        'admins': [user.uid],
+      });
+
+      _roomNameCtrl.clear();
+      _enterRoom(code);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Room $code created successfully!')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error creating room: $e')));
+      }
+    }
+  }
+
+  Future<void> _joinRoom() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please log in first!')));
+      return;
+    }
+
+    final code = _joinCodeCtrl.text.trim().toUpperCase();
+    if (code.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter a room code!')));
+      return;
+    }
+
+    try {
+      final doc = await FirebaseFirestore.instance.collection('study_rooms').doc(code).get();
+      if (!doc.exists) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Room not found! Please check the code.')));
+        }
+        return;
+      }
+
+      await FirebaseFirestore.instance.collection('study_rooms').doc(code).update({
+        'participants': FieldValue.arrayUnion([user.uid]),
+        'participantNames.${user.uid}': user.displayName ?? 'Anonymous',
+      });
+
+      _joinCodeCtrl.clear();
+      _enterRoom(code);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Joined Room $code!')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error joining room: $e')));
+      }
+    }
+  }
+
+  Future<void> _leaveRoom() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      await FirebaseFirestore.instance.collection('study_rooms').doc(_roomCode).update({
+        'participants': FieldValue.arrayRemove([user.uid]),
+      });
       setState(() {
-        _roomCode = _joinCodeCtrl.text.trim();
-        _inRoom = true;
+        _inRoom = false;
+        _roomCode = '';
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Left the room.')));
+      }
+    } catch (e) {
+      setState(() {
+        _inRoom = false;
+        _roomCode = '';
       });
     }
   }
 
-  void _requestProof(String targetName) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Study proof requested from $targetName. Waiting for upload...')),
-    );
-    
-    // ডেমো: ৩ সেকেন্ড পর স্বয়ংক্রিয়ভাবে একটি প্রুফ আসবে
-    Future.delayed(const Duration(seconds: 3), () {
+  Future<void> _requestProof(String targetId, String targetName) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('study_rooms')
+          .doc(_roomCode)
+          .collection('proof_requests')
+          .add({
+        'fromId': user.uid,
+        'fromName': user.displayName ?? 'Anonymous',
+        'toId': targetId,
+        'toName': targetName,
+        'timestamp': FieldValue.serverTimestamp(),
+        'status': 'pending',
+      });
+
       if (mounted) {
-        setState(() {
-          _proofs.insert(0, {
-            'sender': targetName,
-            'time': DateFormat('hh:mm a').format(DateTime.now()),
-            'image': 'https://via.placeholder.com/150/4F46E5/FFFFFF/?text=Proof', // ডেমো ছবি
-          });
-        });
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$targetName uploaded a proof!')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Study proof requested from $targetName. Waiting for upload...')),
+        );
       }
-    });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error requesting proof: $e')));
+      }
+    }
+  }
+
+  void _showAddMemberSheet(List<String> currentParticipants) {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    showModalBottomSheet(
+      context: context,
+      useSafeArea: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) {
+        return StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .collection('friends')
+              .where('status', isEqualTo: 'accepted')
+              .snapshots(),
+          builder: (context, friendsSnap) {
+            if (friendsSnap.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            final docs = friendsSnap.data?.docs ?? [];
+            final inviteableFriends = docs.where((d) => !currentParticipants.contains(d.id)).toList();
+
+            if (inviteableFriends.isEmpty) {
+              return Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Center(
+                  child: Text('No inviteable friends found.'.tr(), style: const TextStyle(color: Colors.grey)),
+                ),
+              );
+            }
+
+            return Container(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text('Invite Friends to Room'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18), textAlign: TextAlign.center),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: inviteableFriends.length,
+                      itemBuilder: (context, index) {
+                        final fData = inviteableFriends[index].data() as Map<String, dynamic>;
+                        final fId = inviteableFriends[index].id;
+                        final fName = fData['displayName'] ?? 'Friend';
+
+                        return ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                            child: Icon(Icons.person, color: Theme.of(context).colorScheme.primary),
+                          ),
+                          title: Text(fName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.add_circle_rounded, color: Colors.green),
+                            onPressed: () async {
+                              Navigator.pop(ctx);
+                              await FirebaseFirestore.instance.collection('study_rooms').doc(_roomCode).update({
+                                'participants': FieldValue.arrayUnion([fId]),
+                                'participantNames.$fId': fName,
+                              });
+                            },
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _uploadProofImage(String requestId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      final XFile? pickedFile = await _imagePicker.pickImage(source: ImageSource.camera, imageQuality: 70);
+      if (pickedFile == null) return;
+
+      setState(() => _isUploadingProof = true);
+
+      // Upload to Firebase Storage
+      final storageRef = FirebaseStorage.instanceFor(bucket: 'gs://studymate-5ab8c.appspot.com')
+          .ref()
+          .child('study_proofs/${_roomCode}_${user.uid}_${DateTime.now().millisecondsSinceEpoch}.jpg');
+
+      final bytes = await pickedFile.readAsBytes();
+      final uploadTask = await storageRef.putData(bytes);
+      final imageUrl = await uploadTask.ref.getDownloadURL();
+
+      // Write proof document
+      await FirebaseFirestore.instance
+          .collection('study_rooms')
+          .doc(_roomCode)
+          .collection('proofs')
+          .add({
+        'senderId': user.uid,
+        'senderName': user.displayName ?? 'Anonymous',
+        'imageUrl': imageUrl,
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+
+      // Complete request
+      if (requestId.isNotEmpty) {
+        await FirebaseFirestore.instance
+            .collection('study_rooms')
+            .doc(_roomCode)
+            .collection('proof_requests')
+            .doc(requestId)
+            .update({'status': 'completed'});
+      }
+
+      setState(() => _isUploadingProof = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Study proof uploaded successfully!')));
+      }
+    } catch (e) {
+      setState(() => _isUploadingProof = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Upload failed: $e')));
+      }
+    }
+  }
+
+  Future<void> _uploadProofVoluntarily() async {
+    await _uploadProofImage('');
   }
 
   @override
   Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Study Partner Room')),
+        body: const Center(child: Text('Please log in to access Study Partner Rooms.')),
+      );
+    }
+
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        title: const Text('Study Partner Room'),
+        title: Text(_inRoom ? 'Study Room: $_roomCode' : 'Study Partner Room'),
         backgroundColor: Colors.transparent,
         elevation: 0,
+        actions: _inRoom
+            ? [
+                IconButton(
+                  tooltip: 'Leave Room',
+                  icon: const Icon(Icons.exit_to_app_rounded, color: Colors.redAccent),
+                  onPressed: _leaveRoom,
+                )
+              ]
+            : null,
       ),
-      body: _inRoom ? _buildRoomUI() : _buildJoinCreateUI(),
+      body: _inRoom ? _buildRoomUI(user) : _buildJoinCreateUI(user),
     );
   }
 
-  Widget _buildJoinCreateUI() {
-    return Padding(
+  Widget _buildJoinCreateUI(User user) {
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(24.0),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Icon(Icons.video_camera_front_rounded, size: 100, color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5)),
-          const SizedBox(height: 24),
-          Text('Study Together', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          const Text('Create a room and invite your friends to study together and track progress.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
-          const SizedBox(height: 40),
-          ElevatedButton.icon(
-            onPressed: _createRoom,
-            icon: const Icon(Icons.add_circle_outline_rounded),
-            label: const Text('Create New Room'),
-            style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50)),
-          ),
-          const SizedBox(height: 24),
-          const Text('OR', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
-          const SizedBox(height: 24),
-          TextField(
-            controller: _joinCodeCtrl,
-            decoration: const InputDecoration(labelText: 'Enter Room Code', prefixIcon: Icon(Icons.meeting_room_rounded)),
+          Center(
+            child: Icon(Icons.video_camera_front_rounded, size: 80, color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5)),
           ),
           const SizedBox(height: 16),
-          OutlinedButton(
-            onPressed: _joinRoom,
-            style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 50)),
-            child: const Text('Join Room'),
+          Center(
+            child: Text('Study Together'.tr(), style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+          ),
+          const SizedBox(height: 8),
+          Center(
+            child: Text(
+              'Create a room and invite your friends to study together and track progress.'.tr(),
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.grey),
+            ),
+          ),
+          const SizedBox(height: 32),
+          
+          // Create Room Card
+          Card(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Create a New Room'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _roomNameCtrl,
+                    decoration: InputDecoration(
+                      hintText: 'Enter room name (optional)'.tr(),
+                      prefixIcon: const Icon(Icons.label_outline_rounded),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ElevatedButton.icon(
+                    onPressed: _createRoom,
+                    icon: const Icon(Icons.add_circle_outline_rounded),
+                    label: Text('Create New Room'.tr()),
+                    style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 45)),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
+          const SizedBox(height: 16),
+
+          // Join Room Card
+          Card(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Join Room'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _joinCodeCtrl,
+                    decoration: InputDecoration(
+                      hintText: 'Enter Room Code (e.g. RM-XXXXXX)'.tr(),
+                      prefixIcon: const Icon(Icons.meeting_room_rounded),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  OutlinedButton(
+                    onPressed: _joinRoom,
+                    style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 45)),
+                    child: Text('Join Room'.tr()),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
+          const SizedBox(height: 24),
+
+          // Your Rooms Section
+          Text('Your Rooms (তোমার রুমসমূহ)'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+          const SizedBox(height: 8),
+          StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('study_rooms')
+                .where('participants', arrayContains: user.uid)
+                .snapshots(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              final docs = snapshot.data?.docs ?? [];
+              if (docs.isEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 24.0),
+                  child: Center(
+                    child: Text(
+                      'You are not in any rooms yet.'.tr(),
+                      style: const TextStyle(color: Colors.grey),
+                    ),
+                  ),
+                );
+              }
+
+              return ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: docs.length,
+                itemBuilder: (context, index) {
+                  final roomData = docs[index].data() as Map<String, dynamic>;
+                  final name = roomData['name'] ?? 'Study Room';
+                  final code = roomData['roomId'] ?? '';
+                  final participants = List<String>.from(roomData['participants'] ?? []);
+
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                        child: Icon(Icons.school_rounded, color: Theme.of(context).colorScheme.primary),
+                      ),
+                      title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      subtitle: Text('${'Code:'.tr()} $code • ${participants.length} ${'members'.tr()}'),
+                      trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+                      onTap: () {
+                        setState(() {
+                          _roomCode = code;
+                          _inRoom = true;
+                        });
+                      },
+                    ),
+                  );
+                },
+              );
+            },
           ),
         ],
       ),
     );
   }
 
-  Widget _buildRoomUI() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // Room Header
-        Container(
-          padding: const EdgeInsets.all(20),
-          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildRoomUI(User user) {
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance.collection('study_rooms').doc(_roomCode).snapshots(),
+      builder: (context, roomSnap) {
+        if (roomSnap.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (!roomSnap.hasData || !roomSnap.data!.exists) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text('Room not found or has been deleted.'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () {
+                    setState(() {
+                      _inRoom = false;
+                      _roomCode = '';
+                    });
+                  },
+                  child: Text('Go Back'.tr()),
+                ),
+              ],
+            ),
+          );
+        }
+
+        final roomData = roomSnap.data!.data() as Map<String, dynamic>;
+        final name = roomData['name'] ?? 'Study Room';
+        final code = roomData['roomId'] ?? '';
+        final participants = List<String>.from(roomData['participants'] ?? []);
+        final participantNames = Map<String, dynamic>.from(roomData['participantNames'] ?? {});
+        final creatorId = roomData['creatorId'] ?? '';
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Room Header Summary
+            Container(
+              padding: const EdgeInsets.all(20),
+              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Room Code', style: TextStyle(color: Colors.grey, fontSize: 12)),
-                  Text(_roomCode, style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 2)),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
+                        const SizedBox(height: 4),
+                        Text('${'Room Code:'.tr()} $code', style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                      ],
+                    ),
+                  ),
+                  IconButton.filled(
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: code));
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Room code copied!'.tr())));
+                    },
+                    icon: const Icon(Icons.copy_rounded),
+                  ),
                 ],
               ),
-              IconButton.filled(
-                onPressed: () {
-                  Clipboard.setData(ClipboardData(text: _roomCode));
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Room code copied!')));
-                },
-                icon: const Icon(Icons.copy_rounded),
+            ),
+
+            // Pending Proof Requests for Me (With 30-Second dismiss countdowns)
+            StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('study_rooms')
+                  .doc(_roomCode)
+                  .collection('proof_requests')
+                  .where('toId', isEqualTo: user.uid)
+                  .where('status', isEqualTo: 'pending')
+                  .snapshots(),
+              builder: (context, requestsSnap) {
+                final requests = requestsSnap.data?.docs ?? [];
+                if (requests.isEmpty) return const SizedBox.shrink();
+
+                return Container(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    children: requests.map((reqDoc) {
+                      return ProofRequestBanner(
+                        requestDoc: reqDoc,
+                        onUpload: _uploadProofImage,
+                      );
+                    }).toList(),
+                  ),
+                );
+              },
+            ),
+
+            // Active Members Heading & Invite/Upload Buttons
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Active Members'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  Row(
+                    children: [
+                      TextButton.icon(
+                        onPressed: () => _showAddMemberSheet(participants),
+                        icon: const Icon(Icons.person_add_rounded),
+                        label: Text('Invite'.tr()),
+                      ),
+                      const SizedBox(width: 8),
+                      _isUploadingProof
+                          ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
+                          : TextButton.icon(
+                              onPressed: _uploadProofVoluntarily,
+                              icon: const Icon(Icons.upload_file_rounded),
+                              label: Text('Upload My Proof'.tr()),
+                            ),
+                    ],
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
-        
-        // Members List
-        const Padding(
-          padding: EdgeInsets.fromLTRB(20, 20, 20, 8),
-          child: Text('Active Members', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-        ),
-        Expanded(
-          flex: 1,
-          child: ListView.builder(
-            itemCount: _members.length,
-            itemBuilder: (context, index) {
-              final member = _members[index];
-              return ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: member['isMe'] ? Colors.green.shade100 : Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-                  child: Icon(Icons.person, color: member['isMe'] ? Colors.green : Theme.of(context).colorScheme.primary),
-                ),
-                title: Text(member['name'], style: const TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: member['isAdmin'] ? const Text('Admin', style: TextStyle(fontSize: 12, color: Colors.deepOrange)) : const Text('Member', style: TextStyle(fontSize: 12)),
-                trailing: member['isMe'] 
-                  ? null 
-                  : IconButton(
-                      icon: const Icon(Icons.camera_alt_rounded, color: Colors.deepPurpleAccent),
-                      tooltip: 'Request Study Proof',
-                      onPressed: () => _requestProof(member['name']),
-                    ),
-              );
-            },
-          ),
-        ),
-        
-        // Proof Gallery
-        const Divider(height: 1),
-        const Padding(
-          padding: EdgeInsets.fromLTRB(20, 16, 20, 8),
-          child: Text('Study Proofs (Last 24h)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-        ),
-        Expanded(
-          flex: 1,
-          child: _proofs.isEmpty 
-            ? const Center(child: Text('No proofs requested/uploaded yet.', style: TextStyle(color: Colors.grey)))
-            : GridView.builder(
-                padding: const EdgeInsets.all(16),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 16, mainAxisSpacing: 16),
-                itemCount: _proofs.length,
+            ),
+
+            // Active Members List
+            Expanded(
+              flex: 2,
+              child: ListView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                itemCount: participants.length,
                 itemBuilder: (context, index) {
-                  final proof = _proofs[index];
-                  return Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      image: DecorationImage(image: NetworkImage(proof['image']!), fit: BoxFit.cover),
+                  final mId = participants[index];
+                  final mName = participantNames[mId] ?? 'Anonymous';
+                  final isMe = mId == user.uid;
+                  final isAdmin = mId == creatorId;
+
+                  return ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: isMe ? Colors.green.shade100 : Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                      child: Icon(Icons.person, color: isMe ? Colors.green : Theme.of(context).colorScheme.primary),
                     ),
-                    alignment: Alignment.bottomCenter,
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.6),
-                        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(proof['sender']!, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
-                          Text(proof['time']!, style: const TextStyle(color: Colors.white70, fontSize: 10)),
-                        ],
-                      ),
+                    title: Text(
+                      isMe ? '$mName (${'You'.tr()})' : mName,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
+                    subtitle: Text(
+                      isAdmin ? 'Admin'.tr() : 'Member'.tr(),
+                      style: TextStyle(fontSize: 12, color: isAdmin ? Colors.deepOrange : Colors.grey),
+                    ),
+                    trailing: isMe
+                        ? null
+                        : IconButton(
+                            icon: const Icon(Icons.camera_alt_rounded, color: Colors.deepPurpleAccent),
+                            tooltip: 'Request Study Proof'.tr(),
+                            onPressed: () => _requestProof(mId, mName),
+                          ),
                   );
                 },
               ),
-        ),
-      ],
+            ),
+
+            const Divider(height: 1),
+
+            // Proof Gallery Heading
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
+              child: Text('Study Proofs (Last 24h)'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            ),
+
+            // Proofs Gallery Grid
+            Expanded(
+              flex: 3,
+              child: StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('study_rooms')
+                    .doc(_roomCode)
+                    .collection('proofs')
+                    .orderBy('timestamp', descending: true)
+                    .snapshots(),
+                builder: (context, proofsSnap) {
+                  if (proofsSnap.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+
+                  final allProofs = proofsSnap.data?.docs ?? [];
+                  final twentyFourHoursAgo = DateTime.now().subtract(const Duration(hours: 24));
+                  final proofs = allProofs.where((doc) {
+                    final data = doc.data() as Map<String, dynamic>;
+                    final timestamp = data['timestamp'] as Timestamp?;
+                    if (timestamp == null) return true;
+                    return timestamp.toDate().isAfter(twentyFourHoursAgo);
+                  }).toList();
+
+                  if (proofs.isEmpty) {
+                    return Center(
+                      child: Text(
+                        'No proofs uploaded yet.'.tr(),
+                        style: const TextStyle(color: Colors.grey),
+                      ),
+                    );
+                  }
+
+                  return GridView.builder(
+                    padding: const EdgeInsets.all(16),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      crossAxisSpacing: 16,
+                      mainAxisSpacing: 16,
+                    ),
+                    itemCount: proofs.length,
+                    itemBuilder: (context, index) {
+                      final pData = proofs[index].data() as Map<String, dynamic>;
+                      final senderName = pData['senderName'] ?? 'Someone';
+                      final imageUrl = pData['imageUrl'] ?? '';
+                      final timestamp = pData['timestamp'] as Timestamp?;
+                      String timeStr = '';
+                      if (timestamp != null) {
+                        timeStr = DateFormat('hh:mm a').format(timestamp.toDate());
+                      }
+
+                      return GestureDetector(
+                        onTap: () {
+                          // Show enlarged photo dialog
+                          showDialog(
+                            context: context,
+                            builder: (ctx) => Dialog(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Image.network(imageUrl, fit: BoxFit.contain),
+                                  Padding(
+                                    padding: const EdgeInsets.all(16.0),
+                                    child: Text(
+                                      '${'Uploaded by'.tr()} $senderName ${'at'.tr()} $timeStr',
+                                      style: const TextStyle(fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(16),
+                            image: DecorationImage(image: NetworkImage(imageUrl), fit: BoxFit.cover),
+                          ),
+                          alignment: Alignment.bottomCenter,
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.6),
+                              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  senderName,
+                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                Text(timeStr, style: const TextStyle(color: Colors.white70, fontSize: 10)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+// Stateful helper widget for 30 seconds countdown auto-dismissal
+class ProofRequestBanner extends StatefulWidget {
+  final DocumentSnapshot requestDoc;
+  final Function(String) onUpload;
+
+  const ProofRequestBanner({super.key, required this.requestDoc, required this.onUpload});
+
+  @override
+  State<ProofRequestBanner> createState() => _ProofRequestBannerState();
+}
+
+class _ProofRequestBannerState extends State<ProofRequestBanner> {
+  Timer? _timer;
+  int _secondsLeft = 30;
+
+  @override
+  void initState() {
+    super.initState();
+    _startCountdown();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void _startCountdown() {
+    final data = widget.requestDoc.data() as Map<String, dynamic>? ?? {};
+    final timestamp = data['timestamp'] as Timestamp?;
+    if (timestamp != null) {
+      final requestTime = timestamp.toDate();
+      final elapsed = DateTime.now().difference(requestTime).inSeconds;
+      _secondsLeft = 30 - elapsed;
+      if (_secondsLeft <= 0) {
+        _secondsLeft = 0;
+        _expireRequest();
+        return;
+      }
+    }
+
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) return;
+      setState(() {
+        if (_secondsLeft > 0) {
+          _secondsLeft--;
+        } else {
+          timer.cancel();
+          _expireRequest();
+        }
+      });
+    });
+  }
+
+  Future<void> _expireRequest() async {
+    try {
+      await widget.requestDoc.reference.update({'status': 'expired'});
+    } catch (e) {
+      debugPrint("Error expiring request: $e");
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_secondsLeft <= 0) return const SizedBox.shrink();
+
+    final data = widget.requestDoc.data() as Map<String, dynamic>? ?? {};
+    final fromName = data['fromName'] ?? 'Someone';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.amber.shade800.withOpacity(0.95),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: const [
+          BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2)),
+        ],
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.add_a_photo_rounded, color: Colors.white),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$fromName ${'requested a study proof!'.tr()}',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${'Camera capture only. Autodismiss in'.tr()} ${_secondsLeft}s',
+                  style: const TextStyle(fontSize: 11, color: Colors.white70),
+                ),
+              ],
+            ),
+          ),
+          ElevatedButton.icon(
+            onPressed: () => widget.onUpload(widget.requestDoc.id),
+            icon: const Icon(Icons.camera_alt_rounded, size: 14),
+            label: Text('Upload'.tr()),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: Colors.amber.shade900,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -2599,17 +3275,195 @@ class PartnerTasksScreen extends StatefulWidget {
 }
 
 class _PartnerTasksScreenState extends State<PartnerTasksScreen> {
-  final List<String> _partners = ['Rakib']; // Max 3 partners
-  final List<Task> _sharedTasks = [];
+  bool _inRoom = false;
+  String _roomCode = '';
+  final TextEditingController _joinCodeCtrl = TextEditingController();
+  final TextEditingController _roomNameCtrl = TextEditingController();
 
-  void _addPartner() {
-    if (_partners.length >= 3) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('You can add maximum 3 partners!')));
-      return;
+  String _generateRoomCode() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    final rand = math.Random();
+    return List.generate(6, (index) => chars[rand.nextInt(chars.length)]).join();
+  }
+
+  Future<void> _createSpace() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    String name = _roomNameCtrl.text.trim();
+    if (name.isEmpty) {
+      name = '${user.displayName ?? 'Student'}\'s Partner Space';
     }
-    setState(() {
-      _partners.add('New Partner ${_partners.length + 1}');
-    });
+
+    final code = 'PR-${_generateRoomCode()}';
+
+    try {
+      await FirebaseFirestore.instance.collection('partner_rooms').doc(code).set({
+        'roomId': code,
+        'name': name,
+        'creatorId': user.uid,
+        'creatorName': user.displayName ?? 'Anonymous',
+        'createdAt': FieldValue.serverTimestamp(),
+        'participants': [user.uid],
+        'participantNames': {user.uid: user.displayName ?? 'Anonymous'},
+      });
+
+      setState(() {
+        _roomCode = code;
+        _inRoom = true;
+        _roomNameCtrl.clear();
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Space $code created!')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
+  }
+
+  Future<void> _joinSpace() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final code = _joinCodeCtrl.text.trim().toUpperCase();
+    if (code.isEmpty) return;
+
+    try {
+      final doc = await FirebaseFirestore.instance.collection('partner_rooms').doc(code).get();
+      if (!doc.exists) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Partner Space not found!')));
+        }
+        return;
+      }
+
+      await FirebaseFirestore.instance.collection('partner_rooms').doc(code).update({
+        'participants': FieldValue.arrayUnion([user.uid]),
+        'participantNames.${user.uid}': user.displayName ?? 'Anonymous',
+      });
+
+      setState(() {
+        _roomCode = code;
+        _inRoom = true;
+        _joinCodeCtrl.clear();
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
+  }
+
+  Future<void> _leaveSpace() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      await FirebaseFirestore.instance.collection('partner_rooms').doc(_roomCode).update({
+        'participants': FieldValue.arrayRemove([user.uid]),
+      });
+      setState(() {
+        _inRoom = false;
+        _roomCode = '';
+      });
+    } catch (e) {
+      setState(() {
+        _inRoom = false;
+        _roomCode = '';
+      });
+    }
+  }
+
+  Future<void> _addPartnerDirectly(String friendId, String friendName) async {
+    try {
+      await FirebaseFirestore.instance.collection('partner_rooms').doc(_roomCode).update({
+        'participants': FieldValue.arrayUnion([friendId]),
+        'participantNames.$friendId': friendName,
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Added $friendName as partner!')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
+  }
+
+  void _showAddPartnerSheet() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    showModalBottomSheet(
+      context: context,
+      useSafeArea: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) {
+        return StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .collection('friends')
+              .where('status', isEqualTo: 'accepted')
+              .snapshots(),
+          builder: (context, friendsSnap) {
+            if (friendsSnap.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            final docs = friendsSnap.data?.docs ?? [];
+            if (docs.isEmpty) {
+              return Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Center(
+                  child: Text('No friends found on your list.'.tr(), style: const TextStyle(color: Colors.grey)),
+                ),
+              );
+            }
+
+            return Container(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text('Add a Partner'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18), textAlign: TextAlign.center),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: docs.length,
+                      itemBuilder: (context, index) {
+                        final fData = docs[index].data() as Map<String, dynamic>;
+                        final fId = docs[index].id;
+                        final fName = fData['displayName'] ?? 'Friend';
+
+                        return ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                            child: Icon(Icons.person, color: Theme.of(context).colorScheme.primary),
+                          ),
+                          title: Text(fName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.person_add_rounded, color: Colors.green),
+                            onPressed: () {
+                              Navigator.pop(ctx);
+                              _addPartnerDirectly(fId, fName);
+                            },
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   void _showAddTaskOptions() {
@@ -2623,29 +3477,193 @@ class _PartnerTasksScreenState extends State<PartnerTasksScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Add Shared Task', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              Text('Add Shared Task'.tr(), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 24),
               ListTile(
                 leading: const Icon(Icons.add_task_rounded, color: Colors.green),
-                title: const Text('Create New Task'),
+                title: Text('Create New Task'.tr()),
                 onTap: () {
                   Navigator.pop(ctx);
-                  // ডেমো হিসেবে সরাসরি যুক্ত করা হচ্ছে
-                  setState(() {
-                    _sharedTasks.add(Task(id: DateTime.now().toString(), title: 'New Shared Task', totalDurationMinutes: 60));
-                  });
+                  _showCreateTaskDialog();
                 },
               ),
               ListTile(
                 leading: const Icon(Icons.import_export_rounded, color: Colors.blue),
-                title: const Text('Import from My Tasks'),
+                title: Text('Import from My Tasks'.tr()),
                 onTap: () {
                   Navigator.pop(ctx);
-                  // ডেমো ইমপোর্ট
-                  setState(() {
-                    _sharedTasks.add(Task(id: DateTime.now().toString(), title: 'Imported: Physics Chapter 2', totalDurationMinutes: 45));
-                  });
+                  _showImportTasksSheet();
                 },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showCreateTaskDialog() {
+    final titleCtrl = TextEditingController();
+    final durationCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Create Shared Task'.tr()),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(controller: titleCtrl, decoration: InputDecoration(labelText: 'Task Title'.tr())),
+            const SizedBox(height: 12),
+            TextField(controller: durationCtrl, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: 'Duration (Minutes)'.tr())),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text('Cancel'.tr())),
+          ElevatedButton(
+            onPressed: () async {
+              final title = titleCtrl.text.trim();
+              final duration = int.tryParse(durationCtrl.text.trim()) ?? 0;
+              if (title.isNotEmpty) {
+                Navigator.pop(ctx);
+                final user = FirebaseAuth.instance.currentUser;
+                await FirebaseFirestore.instance
+                    .collection('partner_rooms')
+                    .doc(_roomCode)
+                    .collection('tasks')
+                    .add({
+                  'title': title,
+                  'totalDurationMinutes': duration,
+                  'isCompleted': false,
+                  'createdBy': user?.uid ?? '',
+                  'createdByName': user?.displayName ?? 'Anonymous',
+                  'timestamp': FieldValue.serverTimestamp(),
+                });
+              }
+            },
+            child: Text('Create'.tr()),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showImportTasksSheet() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final todayDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final dayOfWeek = DateFormat('EEEE').format(DateTime.now());
+
+    // 1. Fetch Today's Daily Routine Tasks
+    List<Task> dailyTasks = [];
+    try {
+      final dailyDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('dailyRoutines')
+          .doc(todayDate)
+          .get();
+
+      if (dailyDoc.exists) {
+        final data = dailyDoc.data() as Map<String, dynamic>;
+        if (data['tasks'] != null) {
+          for (var taskMap in data['tasks']) {
+            dailyTasks.add(Task.fromMap(taskMap, taskMap['id'] ?? UniqueKey().toString()));
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching daily routine tasks: $e");
+    }
+
+    // 2. Fetch Weekly Routine Tasks for today
+    List<Task> weeklyTasks = [];
+    try {
+      final weeklySnap = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('weeklyRoutines')
+          .doc(dayOfWeek)
+          .collection('tasks')
+          .get();
+
+      for (var doc in weeklySnap.docs) {
+        weeklyTasks.add(Task.fromMap(doc.data(), doc.id));
+      }
+    } catch (e) {
+      debugPrint("Error fetching weekly tasks: $e");
+    }
+
+    // Merge lists
+    final List<Task> allRoutineTasks = [...dailyTasks, ...weeklyTasks];
+
+    if (!mounted) return;
+
+    showModalBottomSheet(
+      context: context,
+      useSafeArea: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) {
+        if (allRoutineTasks.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Center(
+              child: Text(
+                'No tasks found in your routine for today!'.tr(),
+                style: const TextStyle(color: Colors.grey),
+              ),
+            ),
+          );
+        }
+
+        return Container(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('Import Routine Tasks'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18), textAlign: TextAlign.center),
+              const SizedBox(height: 16),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: allRoutineTasks.length,
+                  itemBuilder: (context, index) {
+                    final t = allRoutineTasks[index];
+                    return Card(
+                      child: ListTile(
+                        leading: const Icon(Icons.task_alt_rounded, color: Colors.blue),
+                        title: Text(t.title, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        subtitle: Text('${t.totalDurationMinutes} ${'mins'.tr()}'),
+                        trailing: ElevatedButton.icon(
+                          onPressed: () async {
+                            Navigator.pop(ctx);
+                            // Add task to shared space
+                            await FirebaseFirestore.instance
+                                .collection('partner_rooms')
+                                .doc(_roomCode)
+                                .collection('tasks')
+                                .add({
+                              'title': t.title,
+                              'totalDurationMinutes': t.totalDurationMinutes,
+                              'isCompleted': false,
+                              'createdBy': user.uid,
+                              'createdByName': user.displayName ?? 'Anonymous',
+                              'timestamp': FieldValue.serverTimestamp(),
+                            });
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Imported: ${t.title}'.tr())),
+                              );
+                            }
+                          },
+                          icon: const Icon(Icons.add_circle_rounded, size: 16),
+                          label: Text('Import'.tr()),
+                        ),
+                      ),
+                    );
+                  },
+                ),
               ),
             ],
           ),
@@ -2656,80 +3674,318 @@ class _PartnerTasksScreenState extends State<PartnerTasksScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Partner Tasks')),
+        body: const Center(child: Text('Please log in to use Partner Tasks.')),
+      );
+    }
+
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        title: const Text('Partner Tasks'),
+        title: Text(_inRoom ? 'Partner Tasks Space: $_roomCode' : 'Partner Tasks'),
         backgroundColor: Colors.transparent,
         elevation: 0,
+        actions: _inRoom
+            ? [
+                IconButton(
+                  tooltip: 'Leave Space',
+                  icon: const Icon(Icons.exit_to_app_rounded, color: Colors.redAccent),
+                  onPressed: _leaveSpace,
+                )
+              ]
+            : null,
       ),
-      body: Column(
+      body: _inRoom ? _buildSpaceUI(user) : _buildJoinCreateUI(user),
+      floatingActionButton: _inRoom
+          ? FloatingActionButton.extended(
+              onPressed: _showAddTaskOptions,
+              icon: const Icon(Icons.add),
+              label: Text('Add Task'.tr()),
+            )
+          : null,
+    );
+  }
+
+  Widget _buildJoinCreateUI(User user) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Partners Header
-          Container(
-            padding: const EdgeInsets.all(20),
-            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.05),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Study Partners (${_partners.length}/3)', style: const TextStyle(fontWeight: FontWeight.bold)),
-                    if (_partners.length < 3)
-                      TextButton.icon(
-                        onPressed: _addPartner,
-                        icon: const Icon(Icons.person_add_rounded, size: 18),
-                        label: const Text('Add'),
-                      )
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 12,
-                  children: _partners.map((name) => Chip(
-                    avatar: const CircleAvatar(backgroundColor: Colors.white, child: Icon(Icons.person, size: 16)),
-                    label: Text(name),
-                    backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-                    side: BorderSide.none,
-                  )).toList(),
-                ),
-              ],
+          Center(
+            child: Icon(Icons.group_add_rounded, size: 80, color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5)),
+          ),
+          const SizedBox(height: 16),
+          Center(
+            child: Text('Study Partner Space'.tr(), style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+          ),
+          const SizedBox(height: 8),
+          Center(
+            child: Text(
+              'Join or create a space to share tasks and study with your partners.'.tr(),
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.grey),
             ),
           ),
-          
-          // Shared Tasks List
-          const Padding(
-            padding: EdgeInsets.fromLTRB(20, 20, 20, 8),
-            child: Text('Shared Tasks for the Room', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          const SizedBox(height: 32),
+
+          // Create Space Card
+          Card(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Create Partner Space'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _roomNameCtrl,
+                    decoration: InputDecoration(
+                      hintText: 'Enter Space name (optional)'.tr(),
+                      prefixIcon: const Icon(Icons.label_outline_rounded),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ElevatedButton.icon(
+                    onPressed: _createSpace,
+                    icon: const Icon(Icons.add_circle_outline_rounded),
+                    label: Text('Create Partner Space'.tr()),
+                    style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 45)),
+                  ),
+                ],
+              ),
+            ),
           ),
-          Expanded(
-            child: _sharedTasks.isEmpty
-              ? const Center(child: Text('No shared tasks yet. Add one!', style: TextStyle(color: Colors.grey)))
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _sharedTasks.length,
-                  itemBuilder: (context, index) {
-                    final task = _sharedTasks[index];
-                    return Card(
-                      child: ListTile(
-                        leading: const Icon(Icons.task_alt_rounded, color: Colors.green),
-                        title: Text(task.title, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text('Target: ${task.totalDurationMinutes} mins'),
-                        trailing: const Icon(Icons.more_vert_rounded),
+
+          const SizedBox(height: 16),
+
+          // Join Space Card
+          Card(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Join Partner Space'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _joinCodeCtrl,
+                    decoration: InputDecoration(
+                      hintText: 'Enter Space Code (e.g. PR-XXXXXX)'.tr(),
+                      prefixIcon: const Icon(Icons.meeting_room_rounded),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  OutlinedButton(
+                    onPressed: _joinSpace,
+                    style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 45)),
+                    child: Text('Join Space'.tr()),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          // Your Spaces Section
+          Text('Your Spaces'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+          const SizedBox(height: 8),
+          StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('partner_rooms')
+                .where('participants', arrayContains: user.uid)
+                .snapshots(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              final docs = snapshot.data?.docs ?? [];
+              if (docs.isEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 24.0),
+                  child: Center(
+                    child: Text(
+                      'You are not in any spaces yet.'.tr(),
+                      style: const TextStyle(color: Colors.grey),
+                    ),
+                  ),
+                );
+              }
+
+              return ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: docs.length,
+                itemBuilder: (context, index) {
+                  final roomData = docs[index].data() as Map<String, dynamic>;
+                  final name = roomData['name'] ?? 'Partner Space';
+                  final code = roomData['roomId'] ?? '';
+                  final participants = List<String>.from(roomData['participants'] ?? []);
+
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                        child: Icon(Icons.group_work_rounded, color: Theme.of(context).colorScheme.primary),
                       ),
-                    );
-                  },
-                ),
+                      title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      subtitle: Text('${'Code:'.tr()} $code • ${participants.length} ${'partners'.tr()}'),
+                      trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+                      onTap: () {
+                        setState(() {
+                          _roomCode = code;
+                          _inRoom = true;
+                        });
+                      },
+                    ),
+                  );
+                },
+              );
+            },
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showAddTaskOptions,
-        icon: const Icon(Icons.add),
-        label: const Text('Add Task'),
-      ),
+    );
+  }
+
+  Widget _buildSpaceUI(User user) {
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance.collection('partner_rooms').doc(_roomCode).snapshots(),
+      builder: (context, roomSnap) {
+        if (roomSnap.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (!roomSnap.hasData || !roomSnap.data!.exists) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text('Space not found or has been deleted.'.tr()),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () => setState(() {
+                    _inRoom = false;
+                    _roomCode = '';
+                  }),
+                  child: Text('Go Back'.tr()),
+                )
+              ],
+            ),
+          );
+        }
+
+        final roomData = roomSnap.data!.data() as Map<String, dynamic>;
+        final name = roomData['name'] ?? 'Partner Space';
+        final code = roomData['roomId'] ?? '';
+        final participants = List<String>.from(roomData['participants'] ?? []);
+        final participantNames = Map<String, dynamic>.from(roomData['participantNames'] ?? {});
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Partners Header Summary
+            Container(
+              padding: const EdgeInsets.all(20),
+              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.05),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('${'Study Partners'.tr()} (${participants.length}/4)', style: const TextStyle(fontWeight: FontWeight.bold)),
+                      if (participants.length < 4)
+                        TextButton.icon(
+                          onPressed: _showAddPartnerSheet,
+                          icon: const Icon(Icons.person_add_rounded, size: 18),
+                          label: Text('Add'.tr()),
+                        )
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 8,
+                    children: participants.map((mId) {
+                      final mName = participantNames[mId] ?? 'Partner';
+                      final isMe = mId == user.uid;
+                      return Chip(
+                        avatar: CircleAvatar(backgroundColor: Colors.white, child: Icon(Icons.person, size: 16, color: Theme.of(context).colorScheme.primary)),
+                        label: Text(isMe ? '$mName (${'You'.tr()})' : mName),
+                        backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                        side: BorderSide.none,
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ),
+            ),
+
+            // Shared Tasks Heading
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+              child: Text('Shared Tasks for the Room'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            ),
+
+            // Tasks List
+            Expanded(
+              child: StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('partner_rooms')
+                    .doc(_roomCode)
+                    .collection('tasks')
+                    .orderBy('timestamp', descending: true)
+                    .snapshots(),
+                builder: (context, tasksSnap) {
+                  if (tasksSnap.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+
+                  final taskDocs = tasksSnap.data?.docs ?? [];
+                  if (taskDocs.isEmpty) {
+                    return Center(child: Text('No shared tasks yet. Add one!'.tr(), style: const TextStyle(color: Colors.grey)));
+                  }
+
+                  return ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    itemCount: taskDocs.length,
+                    itemBuilder: (context, index) {
+                      final doc = taskDocs[index];
+                      final tData = doc.data() as Map<String, dynamic>;
+                      final title = tData['title'] ?? 'Task';
+                      final isCompleted = tData['isCompleted'] ?? false;
+                      final duration = tData['totalDurationMinutes'] ?? 0;
+                      final creatorName = tData['createdByName'] ?? 'Someone';
+
+                      return Card(
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        child: CheckboxListTile(
+                          value: isCompleted,
+                          title: Text(title, style: TextStyle(fontWeight: FontWeight.bold, decoration: isCompleted ? TextDecoration.lineThrough : null)),
+                          subtitle: Text('${'Target:'.tr()} $duration ${'mins'.tr()} • ${'By:'.tr()} $creatorName'),
+                          onChanged: (newValue) async {
+                            await doc.reference.update({'isCompleted': newValue});
+                          },
+                          secondary: Icon(isCompleted ? Icons.check_circle : Icons.radio_button_unchecked, color: isCompleted ? Colors.green : Colors.grey),
+                          controlAffinity: ListTileControlAffinity.leading,
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

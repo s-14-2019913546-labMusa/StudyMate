@@ -240,6 +240,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       _loadProfileDetails();
                     }
                   }),
+                  _buildListTile(
+                    context,
+                    Icons.lock_reset_rounded,
+                    'Change Password',
+                    onTap: () => _showChangePasswordBottomSheet(context),
+                  ),
                   _buildListTile(context, Icons.notifications_none_rounded, 'Notifications', onTap: () {
                     Navigator.push(
                       context,
@@ -705,6 +711,236 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  void _showChangePasswordBottomSheet(BuildContext context) {
+    if (_user == null) return;
+
+    final TextEditingController currentPasswordController = TextEditingController();
+    final TextEditingController newPasswordController = TextEditingController();
+    final TextEditingController confirmPasswordController = TextEditingController();
+    
+    bool obscureCurrent = true;
+    bool obscureNew = true;
+    bool obscureConfirm = true;
+    bool isLoading = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+              ),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 48,
+                          height: 5,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade300,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.lock_reset_rounded,
+                            color: Theme.of(context).colorScheme.primary,
+                            size: 28,
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            'Change Password'.tr(),
+                            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                      // Current Password
+                      TextField(
+                        controller: currentPasswordController,
+                        obscureText: obscureCurrent,
+                        decoration: InputDecoration(
+                          labelText: 'Current Password'.tr(),
+                          prefixIcon: const Icon(Icons.lock_outline),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              obscureCurrent ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                            ),
+                            onPressed: () {
+                              setModalState(() {
+                                obscureCurrent = !obscureCurrent;
+                              });
+                            },
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      // New Password
+                      TextField(
+                        controller: newPasswordController,
+                        obscureText: obscureNew,
+                        decoration: InputDecoration(
+                          labelText: 'New Password'.tr(),
+                          prefixIcon: const Icon(Icons.lock_open_outlined),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              obscureNew ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                            ),
+                            onPressed: () {
+                              setModalState(() {
+                                obscureNew = !obscureNew;
+                              });
+                            },
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      // Confirm New Password
+                      TextField(
+                        controller: confirmPasswordController,
+                        obscureText: obscureConfirm,
+                        decoration: InputDecoration(
+                          labelText: 'Confirm New Password'.tr(),
+                          prefixIcon: const Icon(Icons.lock_outline),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              obscureConfirm ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                            ),
+                            onPressed: () {
+                              setModalState(() {
+                                obscureConfirm = !obscureConfirm;
+                              });
+                            },
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      if (isLoading)
+                        const Center(child: CircularProgressIndicator())
+                      else
+                        ElevatedButton(
+                          onPressed: () async {
+                            final currentPassword = currentPasswordController.text;
+                            final newPassword = newPasswordController.text;
+                            final confirmPassword = confirmPasswordController.text;
+
+                            if (currentPassword.isEmpty || newPassword.isEmpty || confirmPassword.isEmpty) {
+                              ScaffoldMessenger.of(ctx).showSnackBar(
+                                SnackBar(content: Text('Please fill all fields'.tr())),
+                              );
+                              return;
+                            }
+
+                            if (_user!.email == null || _user!.email!.isEmpty) {
+                              ScaffoldMessenger.of(ctx).showSnackBar(
+                                SnackBar(content: Text('Email not found. Cannot change password.'.tr())),
+                              );
+                              return;
+                            }
+
+                            if (newPassword.length < 6) {
+                              ScaffoldMessenger.of(ctx).showSnackBar(
+                                SnackBar(content: Text('Password must be at least 6 characters'.tr())),
+                              );
+                              return;
+                            }
+
+                            if (newPassword != confirmPassword) {
+                              ScaffoldMessenger.of(ctx).showSnackBar(
+                                SnackBar(content: Text('Passwords do not match'.tr())),
+                              );
+                              return;
+                            }
+
+                            setModalState(() {
+                              isLoading = true;
+                            });
+
+                            try {
+                              // Reauthenticate user
+                              final AuthCredential credential = EmailAuthProvider.credential(
+                                email: _user!.email!,
+                                password: currentPassword,
+                              );
+                              await _user!.reauthenticateWithCredential(credential);
+
+                              // Update password
+                              await _user!.updatePassword(newPassword);
+
+                              if (context.mounted) {
+                                Navigator.pop(ctx);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Password changed successfully!'.tr()),
+                                    backgroundColor: Colors.green,
+                                  ),
+                                );
+                              }
+                            } on FirebaseAuthException catch (e) {
+                              String errorMessage = 'Error updating password'.tr();
+                              if (e.code == 'wrong-password') {
+                                errorMessage = 'Incorrect current password'.tr();
+                              } else if (e.code == 'weak-password') {
+                                errorMessage = 'The password is too weak'.tr();
+                              } else if (e.code == 'requires-recent-login') {
+                                errorMessage = 'Please log out and log in again'.tr();
+                              }
+                              ScaffoldMessenger.of(ctx).showSnackBar(
+                                SnackBar(
+                                  content: Text(errorMessage),
+                                  backgroundColor: Colors.redAccent,
+                                ),
+                              );
+                            } catch (e) {
+                              ScaffoldMessenger.of(ctx).showSnackBar(
+                                SnackBar(
+                                  content: Text('An error occurred: $e'.tr()),
+                                  backgroundColor: Colors.redAccent,
+                                ),
+                              );
+                            } finally {
+                              setModalState(() {
+                                isLoading = false;
+                              });
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            minimumSize: const Size(double.infinity, 50),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                          child: Text('Update Password'.tr()),
+                        ),
+                      const SizedBox(height: 16),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

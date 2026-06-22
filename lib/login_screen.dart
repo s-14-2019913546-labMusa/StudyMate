@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'signup_screen.dart';
 import 'focus_mode_screen.dart';
 import 'language_manager.dart';
+import 'fcm_service.dart';
 
 // ==========================================
 // 2. Login Screen (লগইন স্ক্রিন)
@@ -41,6 +42,10 @@ class _LoginScreenState extends State<LoginScreen> {
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
+
+      // Sync FCM token upon successful login
+      await FcmService.syncToken();
+
       if (mounted) {
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const FocusModeScreen()));
       }

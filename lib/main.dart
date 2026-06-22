@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 import 'firebase_options.dart';
@@ -7,6 +8,10 @@ import 'splash_screen.dart'; // Corrected import path (Assuming file is now in l
 import 'theme_manager.dart';
 import 'language_manager.dart';
 import 'local_notification_service.dart';
+import 'fcm_service.dart';
+
+// Global key for context-less notifications
+final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
 
 void main() async {
   // Ensure that Flutter binding is initialized
@@ -15,7 +20,14 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  // Initialize date formatting locales
+
+  // Configure Firestore offline persistence globally
+  FirebaseFirestore.instance.settings = const Settings(
+    persistenceEnabled: true,
+    cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
+  );
+
+  // Initialize Date formatting locales
   await initializeDateFormatting();
 
   // Load the stored theme preference before running the app
@@ -25,6 +37,9 @@ void main() async {
   
   // Initialize Local Notifications
   await LocalNotificationService.init();
+
+  // Initialize FCM (Web/Mobile Push)
+  await FcmService.init();
 
   runApp(const StudyMateApp());
 }
@@ -40,6 +55,7 @@ class StudyMateApp extends StatelessWidget {
         return MaterialApp(
           title: 'StudyMate',
           debugShowCheckedModeBanner: false,
+          scaffoldMessengerKey: scaffoldMessengerKey,
           theme: ThemeManager().currentThemeData,
           home: const SplashScreen(),
         );
