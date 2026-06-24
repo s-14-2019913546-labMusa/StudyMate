@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'local_notification_service.dart';
 
 class NotificationSettingsScreen extends StatefulWidget {
   const NotificationSettingsScreen({super.key});
@@ -86,6 +87,10 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
       if (key == 'selectedSound') _selectedSound = value as String;
     });
 
+    if (key == 'soundEnabled' || key == 'vibrationEnabled' || key == 'volumeLevel' || key == 'selectedSound') {
+      _playPreview();
+    }
+
     try {
       final settingsMap = {
         'globalNotifications': _globalNotifications,
@@ -117,10 +122,23 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     }
   }
 
+  void _playPreview() {
+    LocalNotificationService.playNotificationSoundAndVibration(
+      soundName: _selectedSound,
+      volume: _volumeLevel,
+      soundEnabled: _soundEnabled,
+      vibrationEnabled: _vibrationEnabled,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    const primaryGreen = Color(0xFF0F3625);
-    const accentGreen = Color(0xFF1D5C42);
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final primaryColor = theme.colorScheme.primary;
+    final primaryContainer = theme.colorScheme.primaryContainer;
+    final onSurface = theme.colorScheme.onSurface;
+    final onSurfaceVariant = theme.colorScheme.onSurfaceVariant;
 
     return Scaffold(
       appBar: AppBar(
@@ -128,9 +146,12 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
         backgroundColor: Colors.transparent,
         elevation: 0,
         flexibleSpace: Container(
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [primaryGreen, accentGreen],
+              colors: [
+                primaryColor,
+                isDark ? primaryColor.withValues(alpha: 0.6) : primaryColor.withValues(alpha: 0.8),
+              ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -138,7 +159,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
         ),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: accentGreen))
+          ? Center(child: CircularProgressIndicator(color: primaryColor))
           : SingleChildScrollView(
               padding: const EdgeInsets.all(20.0),
               child: Column(
@@ -156,24 +177,28 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: accentGreen.withValues(alpha: 0.1),
+                              color: primaryColor.withValues(alpha: 0.1),
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(Icons.notifications_active_outlined, color: accentGreen, size: 28),
+                            child: Icon(Icons.notifications_active_outlined, color: primaryColor, size: 28),
                           ),
                           const SizedBox(width: 16),
-                          const Expanded(
+                          Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
                                   'নোটিফিকেশন কনফিগারেশন',
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: primaryGreen),
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold, 
+                                    fontSize: 16, 
+                                    color: primaryColor,
+                                  ),
                                 ),
-                                SizedBox(height: 4),
+                                const SizedBox(height: 4),
                                 Text(
                                   'আপনার পড়াশোনার তাগিদ ও রিমাইন্ডার কাস্টমাইজ করুন।',
-                                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                                  style: TextStyle(fontSize: 12, color: onSurfaceVariant),
                                 ),
                               ],
                             ),
@@ -254,44 +279,165 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          const Row(
+                          Row(
                             children: [
-                              Icon(Icons.volume_up_rounded, color: accentGreen),
-                              SizedBox(width: 8),
+                              Icon(Icons.volume_up_rounded, color: primaryColor),
+                              const SizedBox(width: 8),
                               Text(
                                 'সাউন্ড ও ভাইব্রেশন সেটিংস',
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: primaryGreen),
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold, 
+                                  fontSize: 16, 
+                                  color: primaryColor,
+                                ),
                               ),
                             ],
                           ),
                           const Divider(height: 24),
                           
                           // Sound Toggle
-                          SwitchListTile(
-                            contentPadding: EdgeInsets.zero,
-                            title: const Text('নোটিফিকেশন সাউন্ড', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                            subtitle: const Text('নোটিফিকেশন আসার সময়ে সাউন্ড প্লে হবে', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                            value: _soundEnabled,
-                            onChanged: _globalNotifications ? (val) => _saveSettings('soundEnabled', val) : null,
-                            activeThumbColor: accentGreen,
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8.0),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        'নোটিফিকেশন সাউন্ড', 
+                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: onSurface),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'নোটিফিকেশন আসার সময়ে সাউন্ড প্লে হবে', 
+                                        style: TextStyle(fontSize: 11, color: onSurfaceVariant),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    SizedBox(
+                                      height: 28,
+                                      child: Transform.scale(
+                                        scale: 0.75,
+                                        child: Switch(
+                                          value: _soundEnabled,
+                                          onChanged: _globalNotifications ? (val) => _saveSettings('soundEnabled', val) : null,
+                                          activeThumbColor: primaryColor,
+                                          activeTrackColor: primaryColor.withValues(alpha: 0.3),
+                                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      _soundEnabled ? 'চালু (ON)' : 'বন্ধ (OFF)',
+                                      style: TextStyle(
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w800,
+                                        color: _soundEnabled 
+                                            ? (isDark ? Colors.green.shade300 : Colors.green.shade700) 
+                                            : onSurfaceVariant,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
                           ),
                           
                           // Vibration Toggle
-                          SwitchListTile(
-                            contentPadding: EdgeInsets.zero,
-                            title: const Text('ভাইব্রেশন', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                            subtitle: const Text('নোটিফিকেশন আসার সাথে ডিভাইস ভাইব্রেট করবে', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                            value: _vibrationEnabled,
-                            onChanged: _globalNotifications ? (val) => _saveSettings('vibrationEnabled', val) : null,
-                            activeThumbColor: accentGreen,
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8.0),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        'ভাইব্রেশন', 
+                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: onSurface),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'নোটিফিকেশন আসার সাথে ডিভাইস ভাইব্রেট করবে', 
+                                        style: TextStyle(fontSize: 11, color: onSurfaceVariant),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    SizedBox(
+                                      height: 28,
+                                      child: Transform.scale(
+                                        scale: 0.75,
+                                        child: Switch(
+                                          value: _vibrationEnabled,
+                                          onChanged: _globalNotifications ? (val) => _saveSettings('vibrationEnabled', val) : null,
+                                          activeThumbColor: primaryColor,
+                                          activeTrackColor: primaryColor.withValues(alpha: 0.3),
+                                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      _vibrationEnabled ? 'চালু (ON)' : 'বন্ধ (OFF)',
+                                      style: TextStyle(
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w800,
+                                        color: _vibrationEnabled 
+                                            ? (isDark ? Colors.green.shade300 : Colors.green.shade700) 
+                                            : onSurfaceVariant,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
                           ),
                           
                           if (_soundEnabled) ...[
                             const SizedBox(height: 12),
-                            const Text('নোটিফিকেশন টিউন', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'নোটিফিকেশন টিউন', 
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: onSurface),
+                                ),
+                                TextButton.icon(
+                                  onPressed: _globalNotifications ? _playPreview : null,
+                                  icon: Icon(Icons.play_circle_outline_rounded, size: 18, color: primaryColor),
+                                  label: Text(
+                                    'টেস্ট সাউন্ড',
+                                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: primaryColor),
+                                  ),
+                                  style: TextButton.styleFrom(
+                                    padding: EdgeInsets.zero,
+                                    minimumSize: Size.zero,
+                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  ),
+                                ),
+                              ],
+                            ),
                             const SizedBox(height: 8),
                             DropdownButtonFormField<String>(
                               initialValue: _selectedSound,
+                              dropdownColor: theme.cardColor,
+                              style: TextStyle(color: onSurface),
                               decoration: InputDecoration(
                                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
@@ -313,8 +459,14 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text('সাউন্ডের মাত্রা', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                                Text('${(_volumeLevel * 100).toInt()}%', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: accentGreen)),
+                                Text(
+                                  'সাউন্ডের মাত্রা', 
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: onSurface),
+                                ),
+                                Text(
+                                  '${(_volumeLevel * 100).toInt()}%', 
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: primaryColor),
+                                ),
                               ],
                             ),
                             Slider(
@@ -322,8 +474,8 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                               min: 0.0,
                               max: 1.0,
                               divisions: 10,
-                              activeColor: accentGreen,
-                              inactiveColor: accentGreen.withValues(alpha: 0.2),
+                              activeColor: primaryColor,
+                              inactiveColor: primaryColor.withValues(alpha: 0.2),
                               onChanged: _globalNotifications
                                   ? (val) => _saveSettings('volumeLevel', val)
                                   : null,
@@ -341,19 +493,26 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       color: Colors.amber.withValues(alpha: 0.1),
-                      border: Border.all(color: Colors.amber.shade300, width: 1),
+                      border: Border.all(
+                        color: isDark ? Colors.amber.shade700.withValues(alpha: 0.5) : Colors.amber.shade300, 
+                        width: 1,
+                      ),
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.info_outline_rounded, color: Colors.amber.shade800, size: 22),
+                        Icon(
+                          Icons.info_outline_rounded, 
+                          color: isDark ? Colors.amber.shade300 : Colors.amber.shade800, 
+                          size: 22,
+                        ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Text(
                             'বিশেষ দ্রষ্টব্য: ইসলামিক লাইফ ফিচারের নামাজের ওয়াক্ত ও আযানের অ্যালার্মগুলো এই গ্লোবাল সেটিং এর আওতামুক্ত। নামাজের নোটিফিকেশনগুলো সম্পূর্ণভাবে নিয়ন্ত্রণ করতে দয়া করে "Islamic Life" অপশনে যান।',
                             style: TextStyle(
-                              color: Colors.amber.shade900,
+                              color: isDark ? Colors.amber.shade200 : Colors.amber.shade900,
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
                               height: 1.5,
@@ -366,9 +525,15 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
 
                   // Small Loading Indicator for background saves
                   if (_isSaving)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 16.0),
-                      child: Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: accentGreen))),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 16.0),
+                      child: Center(
+                        child: SizedBox(
+                          width: 20, 
+                          height: 20, 
+                          child: CircularProgressIndicator(strokeWidth: 2, color: primaryColor),
+                        ),
+                      ),
                     ),
                 ],
               ),
@@ -384,40 +549,95 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     required ValueChanged<bool> onChanged,
     bool isHeader = false,
   }) {
-    const primaryGreen = Color(0xFF0F3625);
-    const accentGreen = Color(0xFF1D5C42);
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    
+    final primaryColor = theme.colorScheme.primary;
+    final onSurface = theme.colorScheme.onSurface;
+    final onSurfaceVariant = theme.colorScheme.onSurfaceVariant;
+    
+    Color cardBgColor = isHeader 
+        ? primaryColor.withValues(alpha: 0.08) 
+        : theme.cardColor;
+        
+    Color cardBorderColor = isHeader 
+        ? primaryColor.withValues(alpha: 0.25) 
+        : theme.colorScheme.onSurface.withValues(alpha: 0.08);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 0,
-      color: isHeader ? accentGreen.withValues(alpha: 0.05) : Theme.of(context).cardColor,
+      color: cardBgColor,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: isHeader ? accentGreen.withValues(alpha: 0.2) : Colors.grey.shade200),
+        side: BorderSide(color: cardBorderColor, width: 1.2),
       ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        leading: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: isHeader ? accentGreen.withValues(alpha: 0.15) : Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(icon, color: isHeader ? accentGreen : Theme.of(context).colorScheme.primary),
-        ),
-        title: Text(
-          title,
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: isHeader ? primaryGreen : Colors.black87,
-          ),
-        ),
-        subtitle: Text(subtitle, style: const TextStyle(fontSize: 11, color: Colors.grey)),
-        trailing: Switch(
-          value: value,
-          onChanged: onChanged,
-          activeThumbColor: accentGreen,
-          activeTrackColor: accentGreen.withValues(alpha: 0.3),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: primaryColor.withValues(alpha: isHeader ? 0.2 : 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: primaryColor),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: onSurface,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle, 
+                    style: TextStyle(fontSize: 11, color: onSurfaceVariant),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 16),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                SizedBox(
+                  height: 28,
+                  child: Transform.scale(
+                    scale: 0.75,
+                    child: Switch(
+                      value: value,
+                      onChanged: onChanged,
+                      activeThumbColor: primaryColor,
+                      activeTrackColor: primaryColor.withValues(alpha: 0.3),
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value ? 'চালু (ON)' : 'বন্ধ (OFF)',
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                    color: value 
+                        ? (isDark ? Colors.green.shade300 : Colors.green.shade700) 
+                        : onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );

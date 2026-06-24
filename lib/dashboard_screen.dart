@@ -14,6 +14,7 @@ import 'chat_screen.dart';
 import 'shared_task_form.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
+import 'local_notification_service.dart';
 
 // ==========================================
 // 4. Dashboard Screen (ড্যাশবোর্ড স্ক্রিন)
@@ -34,24 +35,249 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _currentStreak = 0;
   Timer? _breathingTimer;
   Timer? _missedTasksSnoozeTimer;
+  StreamSubscription<DailyRoutine?>? _routineSubscription;
 
   @override
   void initState() {
     super.initState();
     if (user != null) {
       _todaysRoutineStream = _fetchTodaysRoutine();
+      _listenToTodaysRoutine();
       _loadStreak();
       _checkMissedTasksFromYesterday();
       _checkAndScheduleBreathingPopup();
+      _startTaskAlertsTimer();
     }
+  }
+
+  void _listenToTodaysRoutine() {
+    _routineSubscription?.cancel();
+    _routineSubscription = _fetchTodaysRoutine().listen((routine) {
+      if (mounted) {
+        setState(() {
+          _currentTasks = routine?.tasks ?? [];
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
     _breathingTimer?.cancel();
     _missedTasksSnoozeTimer?.cancel();
+    _taskAlertsTimer?.cancel();
+    _routineSubscription?.cancel();
     super.dispose();
   }
+
+  Timer? _taskAlertsTimer;
+  final Set<String> _triggeredStartAlerts = {};
+  final Set<String> _triggeredEndAlerts = {};
+  List<Task> _currentTasks = [];
+
+  void _startTaskAlertsTimer() {
+    _taskAlertsTimer?.cancel();
+    _taskAlertsTimer = Timer.periodic(const Duration(seconds: 15), (timer) {
+      if (user == null) return;
+      _checkTaskTimes();
+    });
+  }
+
+  void _checkTaskTimes() {
+    if (!mounted) return;
+    final now = DateTime.now();
+    debugPrint('[TaskAlerts] Timer ticked. Current task count: ${_currentTasks.length}');
+
+    if (_currentTasks.isEmpty) {
+      debugPrint('[TaskAlerts] No tasks in _currentTasks yet.');
+      return;
+    }
+
+    for (var task in _currentTasks) {
+      debugPrint('[TaskAlerts] Task: "${task.title}", Status: "${task.status}", alarmEnabled: ${task.alarmEnabled}, isCompleted: ${task.isCompleted}, startTime: ${task.startTime}, endTime: ${task.endTime}');
+      if (!task.alarmEnabled) continue;
+
+      // 1. Check Start Time
+      if (task.startTime != null) {
+        final diff = now.difference(task.startTime!);
+        final isAfterStart = now.isAfter(task.startTime!);
+        debugPrint('[TaskAlerts] Start check for "${task.title}": isAfterStart=$isAfterStart, diffInMinutes=${diff.inMinutes}, status=${task.status}');
+        
+        if (task.status == 'pending' && 
+            !task.isCompleted && 
+            isAfterStart && 
+            diff.inMinutes < 15) {
+          
+          final alertKey = '${task.id}_start';
+          if (!_triggeredStartAlerts.contains(alertKey)) {
+            _triggeredStartAlerts.add(alertKey);
+            debugPrint('[TaskAlerts] Triggering start dialog for task "${task.title}"');
+            _showInAppTaskStartDialog(task);
+          }
+        }
+      }
+
+      // 2. Check End Time
+      if (task.endTime != null) {
+        final diff = now.difference(task.endTime!);
+        final isAfterEnd = now.isAfter(task.endTime!);
+        debugPrint('[TaskAlerts] End check for "${task.title}": isAfterEnd=$isAfterEnd, diffInMinutes=${diff.inMinutes}, status=${task.status}');
+
+        if (task.status == 'running' && 
+            isAfterEnd && 
+            diff.inMinutes < 15) {
+            
+          final alertKey = '${task.id}_end';
+          if (!_triggeredEndAlerts.contains(alertKey)) {
+            _triggeredEndAlerts.add(alertKey);
+            debugPrint('[TaskAlerts] Triggering end dialog for task "${task.title}"');
+            _showInAppTaskEndDialog(task);
+          }
+        }
+      }
+    }
+  }
+
+  void _showInAppTaskStartDialog(Task task) {
+    LocalNotificationService.playCustomNotificationSound();
+    final String timeRange = '${task.startTime != null ? DateFormat('h:mm a').format(task.startTime!) : 'N/A'} - ${task.endTime != null ? DateFormat('h:mm a').format(task.endTime!) : 'N/A'}';
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              Icon(Icons.alarm_on_rounded, color: Theme.of(context).colorScheme.primary, size: 28),
+              const SizedBox(width: 8),
+              const Text('টাস্ক শুরুর সময়!', style: TextStyle(fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'আপনার নির্ধারিত কাজ "${task.title}" শুরু করার সময় হয়েছে।',
+                style: const TextStyle(fontSize: 14),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Icon(Icons.schedule_rounded, size: 16, color: Theme.of(context).colorScheme.primary),
+                  const SizedBox(width: 6),
+                  Text(
+                    'নির্ধারিত সময়: $timeRange',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'আপনি কি এটি এখন শুরু করতে চান?',
+                style: TextStyle(fontSize: 14),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(
+                'এখন না',
+                style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.bold),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _updateTaskInFirestore(task.copyWith(status: 'running'));
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: const Text(
+                'হ্যাঁ, শুরু করুন',
+                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showInAppTaskEndDialog(Task task) {
+    LocalNotificationService.playCustomNotificationSound();
+    final String timeRange = '${task.startTime != null ? DateFormat('h:mm a').format(task.startTime!) : 'N/A'} - ${task.endTime != null ? DateFormat('h:mm a').format(task.endTime!) : 'N/A'}';
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              const Icon(Icons.timer_off_rounded, color: Colors.redAccent, size: 28),
+              const SizedBox(width: 8),
+              const Text('টাস্কের সময় শেষ!', style: TextStyle(fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'আপনার কাজ "${task.title}" এর নির্ধারিত সময় শেষ হয়েছে।',
+                style: const TextStyle(fontSize: 14),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Icon(Icons.schedule_rounded, size: 16, color: Colors.redAccent),
+                  const SizedBox(width: 6),
+                  Text(
+                    'নির্ধারিত সময়: $timeRange',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.redAccent),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'আপনি কি এটি সম্পন্ন হিসেবে মার্ক করতে চান?',
+                style: TextStyle(fontSize: 14),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(
+                'পরে করব',
+                style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.bold),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _updateTaskInFirestore(task.copyWith(status: 'completed', isCompleted: true, completedDurationMinutes: task.totalDurationMinutes));
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: const Text(
+                'সম্পন্ন (Done)',
+                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
 
   Future<void> _checkMissedTasksFromYesterday() async {
     final prefs = await SharedPreferences.getInstance();
@@ -293,6 +519,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       );
       await docRef.set(newRoutine.toMap());
     }
+
+    if (newTask.alarmEnabled) {
+      await LocalNotificationService.scheduleTaskNotifications(newTask);
+    }
+
     if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Task Added Successfully!'.tr())));
   }
 
@@ -314,6 +545,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final newRoutine = DailyRoutine(id: _todayDocId, userId: user!.uid, date: DateTime.now(), tasks: newTasks);
       await docRef.set(newRoutine.toMap());
     }
+
+    for (var t in newTasks) {
+      if (t.alarmEnabled) {
+        await LocalNotificationService.scheduleTaskNotifications(t);
+      }
+    }
+
     if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('AI Routine Added Successfully!'.tr())));
   }
 
@@ -333,6 +571,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (index != -1) {
         routine.tasks[index] = updatedTask;
         await docRef.update({'tasks': routine.tasks.map((t) => t.toMap()).toList()});
+        
+        // local notification সিডিউল বা বাতিল করা
+        if (updatedTask.alarmEnabled && updatedTask.status != 'completed' && !updatedTask.isCompleted) {
+          await LocalNotificationService.scheduleTaskNotifications(updatedTask);
+        } else {
+          await LocalNotificationService.cancelTaskNotifications(updatedTask.id);
+        }
+
         if (updatedTask.status == 'completed') {
           _loadStreak();
         }
@@ -592,6 +838,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
             StreamBuilder<DailyRoutine?>(
               stream: _todaysRoutineStream,
               builder: (context, snapshot) {
+                if (snapshot.hasData && snapshot.data != null) {
+                  _currentTasks = snapshot.data!.tasks;
+                }
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
@@ -783,6 +1032,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return StreamBuilder<DailyRoutine?>(
       stream: _todaysRoutineStream,
       builder: (context, snapshot) {
+        if (snapshot.hasData && snapshot.data != null) {
+          _currentTasks = snapshot.data!.tasks;
+        }
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
@@ -1732,6 +1984,9 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
         setState(() {
           _elapsedSeconds++;
         });
+        if (_elapsedSeconds > 0 && _elapsedSeconds % 30 == 0) {
+          widget.onUpdate(widget.task.copyWith(status: 'running', elapsedSeconds: _elapsedSeconds));
+        }
       }
     });
   }
@@ -1742,6 +1997,97 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
       _status = 'paused';
     });
     widget.onUpdate(widget.task.copyWith(status: 'paused', elapsedSeconds: _elapsedSeconds));
+  }
+
+  void _showMissedTaskWarningDialog() {
+    String formatTime(DateTime? dt) {
+      if (dt == null) return '';
+      return DateFormat('h:mm a').format(dt);
+    }
+    String formatDate(DateTime? dt) {
+      if (dt == null) return '';
+      return DateFormat('MMM d, yyyy').format(dt);
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
+              const SizedBox(width: 8),
+              Text(
+                'Missed Task Alert'.tr(),
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'This was a missed task.'.tr(),
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              const SizedBox(height: 12),
+              if (widget.task.startTime != null) ...[
+                Text(
+                  '${'Scheduled Start Time'.tr()}:',
+                  style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.grey),
+                ),
+                Text(
+                  '${formatDate(widget.task.startTime)} at ${formatTime(widget.task.startTime)}',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+              ],
+              if (widget.task.endTime != null) ...[
+                Text(
+                  '${'Scheduled End Time'.tr()}:',
+                  style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.grey),
+                ),
+                Text(
+                  '${formatDate(widget.task.endTime)} at ${formatTime(widget.task.endTime)}',
+                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
+                ),
+                const SizedBox(height: 12),
+              ],
+              Text(
+                'Do you want to start it now?'.tr(),
+                style: const TextStyle(fontSize: 14),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(
+                'No'.tr(),
+                style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.bold),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _startTimer(saveToDb: true);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: Text(
+                'Yes, Start'.tr(),
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   void _showDoneDialog() {
@@ -2071,7 +2417,19 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                   ElevatedButton.icon(
                     icon: Icon(_status == 'paused' ? Icons.play_arrow_rounded : Icons.play_circle_fill_rounded, size: 18),
                     label: Text(_status == 'paused' ? 'Resume' : 'Start', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                    onPressed: () => _startTimer(saveToDb: true),
+                    onPressed: () {
+                      final now = DateTime.now();
+                      double progress = widget.task.totalDurationMinutes > 0
+                          ? (_elapsedSeconds / (widget.task.totalDurationMinutes * 60))
+                          : 0.0;
+                      bool isMissed = widget.task.endTime != null && widget.task.endTime!.isBefore(now) && progress < 0.1;
+
+                      if (isMissed && _status == 'pending') {
+                        _showMissedTaskWarningDialog();
+                      } else {
+                        _startTimer(saveToDb: true);
+                      }
+                    },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                       foregroundColor: Theme.of(context).colorScheme.primary,

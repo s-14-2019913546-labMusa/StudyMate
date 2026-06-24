@@ -7,6 +7,7 @@ import 'login_screen.dart'; // লগইন স্ক্রিন ইমপো�
 import 'social_hub_screen.dart'; // সোশ্যাল হাব স্ক্রিন ইমপোর্ট করা হলো
 import 'edit_profile_screen.dart';
 import 'notification_settings_screen.dart';
+import 'about_us_screen.dart';
 import 'theme_manager.dart';
 import 'gamification_service.dart';
 import 'language_manager.dart';
@@ -259,11 +260,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     'Language (ভাষা)',
                     onTap: () => _showLanguageDialog(context),
                   ),
-                  _buildListTile(
+                   _buildListTile(
                     context,
-                    Icons.privacy_tip_outlined,
-                    'Privacy Policy',
-                    onTap: () => _showPrivacyPolicyDialog(context),
+                    Icons.info_outline_rounded,
+                    'About Us',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const AboutUsScreen()),
+                      );
+                    },
                   ),
                   const SizedBox(height: 20),
                   
@@ -508,110 +514,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  void _showPrivacyPolicyDialog(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return Container(
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-          ),
-          child: SafeArea(
-            top: true,
-            bottom: false,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 48,
-                      height: 5,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade300,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.privacy_tip_rounded,
-                        color: Theme.of(context).colorScheme.primary,
-                        size: 28,
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        'Privacy Policy'.tr(),
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Flexible(
-                    child: SingleChildScrollView(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Last Updated: June 2026'.tr(),
-                            style: TextStyle(
-                              color: Colors.grey.shade600,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          _buildPrivacySection(
-                            '১. তথ্য সংগ্রহ (Information Collection)'.tr(),
-                            'StudyMate আপনার প্রোফাইল তৈরি করতে নাম, ইমেল এবং প্রোফাইল ছবি সংগ্রহ করে। আপনার স্টাডি সেশন, টাস্ক ট্র্যাকিং এবং ইসলামিক লাইফ স্ক্রিনের কার্যক্রম শুধুমাত্র আপনার ব্যক্তিগত অগ্রগতির জন্য ব্যবহার করা হয়।'.tr(),
-                          ),
-                          _buildPrivacySection(
-                            '২. তথ্যের নিরাপত্তা (Data Security)'.tr(),
-                            'আমরা আপনার তথ্যের নিরাপত্তা নিশ্চিত করতে Firebase Authentication এবং Cloud Firestore-এর সিকিউরিটি রুলস ব্যবহার করি। আপনার পাসওয়ার্ড ও ব্যক্তিগত তথ্য সম্পূর্ণ সুরক্ষিত অবস্থায় সংরক্ষিত থাকে।'.tr(),
-                          ),
-                          _buildPrivacySection(
-                            '৩. থার্ড-পার্টি সার্ভিস (Third-Party Services)'.tr(),
-                            'আমাদের অ্যাপটি Firebase (Google-এর অংশ) সার্ভিসসমূহ ব্যবহার করে ডেটা স্টোর ও অথেন্টিকেশনের জন্য। Google-এর প্রাইভেসি পলিসি অনুযায়ী এই ডেটা প্রসেস করা হয়।'.tr(),
-                          ),
-                          _buildPrivacySection(
-                            '৪. আপনার অধিকার (Your Rights)'.tr(),
-                            'আপনি যেকোনো সময় আপনার প্রোফাইল এডিট করে তথ্য পরিবর্তন করতে পারেন অথবা আমাদের সাপোর্ট সেন্টারে যোগাযোগ করে আপনার অ্যাকাউন্ট ও সংশ্লিষ্ট সকল ডেটা সম্পূর্ণ মুছে ফেলার অনুরোধ জানাতে পারেন।'.tr(),
-                          ),
-                          const SizedBox(height: 20),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: ElevatedButton.styleFrom(
-                      minimumSize: const Size(double.infinity, 50),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    child: Text('Close'.tr()),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
   void _showLanguageDialog(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -684,33 +586,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         );
       },
-    );
-  }
-
-  Widget _buildPrivacySection(String title, String content) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 14,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            content,
-            style: TextStyle(
-              color: Colors.grey.shade700,
-              fontSize: 13,
-              height: 1.5,
-            ),
-          ),
-        ],
-      ),
     );
   }
 

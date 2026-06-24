@@ -1,9 +1,13 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'daily_routine.dart';
 import 'chat_screen.dart';
+import 'task_details_screen.dart';
+import 'gamification_service.dart';
+import 'language_manager.dart';
 
 // ==========================================
 // Social Hub Screen
@@ -303,15 +307,26 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
                 builder: (ctx, userSnap) {
                   if (!userSnap.hasData) return const ListTile(title: Text('Loading...'));
                   final userData = userSnap.data!.data() as Map<String, dynamic>? ?? {};
+                  final photoUrl = userData['photoUrl'] as String?;
+                  ImageProvider? avatarImage;
+                  if (photoUrl != null && photoUrl.isNotEmpty) {
+                    avatarImage = photoUrl.startsWith('http')
+                        ? NetworkImage(photoUrl)
+                        : FileImage(File(photoUrl)) as ImageProvider;
+                  }
                   return ListTile(
                     contentPadding: EdgeInsets.zero,
-                    leading: const CircleAvatar(child: Icon(Icons.person)),
+                    leading: CircleAvatar(
+                      backgroundImage: avatarImage,
+                      child: avatarImage == null ? const Icon(Icons.person) : null,
+                    ),
                     title: Text(userData['displayName'] ?? 'Study Buddy', style: const TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle: const Text('Tap to view profile & tasks'),
+                    subtitle: const Text('Tap to view tasks'),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         IconButton(
+                          tooltip: 'Send Message',
                           icon: Icon(Icons.chat_bubble_outline_rounded, color: Theme.of(context).colorScheme.primary),
                           onPressed: () {
                             Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(
@@ -320,7 +335,16 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
                             )));
                           },
                         ),
-                        const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+                        IconButton(
+                          tooltip: 'View Profile',
+                          icon: Icon(Icons.account_circle_outlined, color: Theme.of(context).colorScheme.secondary),
+                          onPressed: () {
+                            Navigator.push(context, MaterialPageRoute(builder: (_) => FriendDetailsScreen(
+                              friendId: friendId,
+                              friendName: userData['displayName'] ?? 'Study Buddy',
+                            )));
+                          },
+                        ),
                       ],
                     ),
                     onTap: () {
@@ -781,48 +805,6 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
     });
   }
 
-  Future<void> _showUnfriendConfirmation(BuildContext context) async {
-    final bool? confirm = await showDialog<bool>(
-      context: context,
-      builder: (BuildContext ctx) {
-        return AlertDialog(
-          title: Text('Unfriend ${widget.friendName}?'),
-          content: Text('Are you sure you want to remove ${widget.friendName} from your friends list?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.of(ctx).pop(true),
-              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error),
-              child: const Text('Unfriend', style: TextStyle(color: Colors.white)),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (confirm == true && mounted) {
-      final currentUser = FirebaseAuth.instance.currentUser;
-      if (currentUser == null) return;
-      
-      try {
-        await FirebaseFirestore.instance.collection('users').doc(currentUser.uid).collection('friends').doc(widget.friendId).delete();
-        await FirebaseFirestore.instance.collection('users').doc(widget.friendId).collection('friends').doc(currentUser.uid).delete();
-        
-        if (mounted) {
-          Navigator.of(context).pop(); // Go back from profile screen
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Removed ${widget.friendName} from friends.')),
-          );
-        }
-      } catch (e) {
-        debugPrint("Error unfriending: $e");
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final String dateDocId = DateFormat('yyyy-MM-dd').format(_selectedDate);
@@ -839,48 +821,70 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Profile Header
-          Container(
-            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.05),
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              children: [
-                const CircleAvatar(radius: 40, child: Icon(Icons.person, size: 40)),
-                const SizedBox(height: 12),
-                Text(widget.friendName, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-                const Text('Study Buddy', style: TextStyle(color: Colors.grey)),
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+          FutureBuilder<DocumentSnapshot>(
+            future: FirebaseFirestore.instance.collection('users').doc(widget.friendId).get(),
+            builder: (context, userSnap) {
+              final userData = userSnap.data?.data() as Map<String, dynamic>? ?? {};
+              final photoUrl = userData['photoUrl'] as String?;
+              ImageProvider? avatarImage;
+              if (photoUrl != null && photoUrl.isNotEmpty) {
+                avatarImage = photoUrl.startsWith('http')
+                    ? NetworkImage(photoUrl)
+                    : FileImage(File(photoUrl)) as ImageProvider;
+              }
+              return Container(
+                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.05),
+                padding: const EdgeInsets.all(24),
+                child: Column(
                   children: [
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(
-                          friendId: widget.friendId,
-                          friendName: widget.friendName,
-                        )));
-                      },
-                      icon: const Icon(Icons.message_rounded),
-                      label: const Text('Send Message'),
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      ),
+                    CircleAvatar(
+                      radius: 40,
+                      backgroundImage: avatarImage,
+                      child: avatarImage == null ? const Icon(Icons.person, size: 40) : null,
                     ),
-                    const SizedBox(width: 12),
-                    ElevatedButton.icon(
-                      onPressed: () => _showUnfriendConfirmation(context),
-                      icon: const Icon(Icons.person_remove_rounded),
-                      label: const Text('Unfriend'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Theme.of(context).colorScheme.error.withValues(alpha: 0.1),
-                        foregroundColor: Theme.of(context).colorScheme.error,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        elevation: 0,
-                      ),
+                    const SizedBox(height: 12),
+                    Text(widget.friendName, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 8,
+                      alignment: WrapAlignment.center,
+                      children: [
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(
+                              friendId: widget.friendId,
+                              friendName: widget.friendName,
+                            )));
+                          },
+                          icon: const Icon(Icons.message_rounded),
+                          label: const Text('Send Message'),
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          ),
+                        ),
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.push(context, MaterialPageRoute(builder: (_) => FriendDetailsScreen(
+                              friendId: widget.friendId,
+                              friendName: widget.friendName,
+                            )));
+                          },
+                          icon: const Icon(Icons.account_circle_rounded),
+                          label: const Text('View Profile'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Theme.of(context).colorScheme.secondary.withValues(alpha: 0.1),
+                            foregroundColor: Theme.of(context).colorScheme.secondary,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            elevation: 0,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
-            ),
+              );
+            },
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
@@ -942,18 +946,197 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
                   itemCount: routine.tasks.length,
                   itemBuilder: (context, index) {
                     final task = routine.tasks[index];
-                    String displayTitle = task.isPrivate ? '🔒 Private Task' : task.title;
+                    
+                    double progress = task.totalDurationMinutes > 0
+                        ? (task.elapsedSeconds / (task.totalDurationMinutes * 60))
+                        : 0.0;
+                    if (progress > 1.0) progress = 1.0;
+                    int progressPercentage = (progress * 100).toInt();
+
+                    // Status identification
+                    String statusText = 'Pending';
+                    Color statusColor = Colors.grey;
+                    IconData statusIcon = Icons.pending_actions_rounded;
+
+                    if (task.isCompleted || task.status == 'completed') {
+                      statusText = 'Completed';
+                      statusColor = Colors.green;
+                      statusIcon = Icons.check_circle_rounded;
+                    } else if (task.endTime != null && task.endTime!.isBefore(DateTime.now()) && progress < 0.1) {
+                      statusText = 'Missed';
+                      statusColor = Colors.red;
+                      statusIcon = Icons.error_outline_rounded;
+                    } else if (task.status == 'running') {
+                      statusText = 'Running';
+                      statusColor = Colors.blue;
+                      statusIcon = Icons.play_circle_fill_rounded;
+                    } else if (task.status == 'paused') {
+                      statusText = 'Paused';
+                      statusColor = Colors.amber.shade700;
+                      statusIcon = Icons.pause_circle_filled_rounded;
+                    }
+
+                    String displayTitle = task.isPrivate ? 'Private Task'.tr() : (task.subject ?? task.title);
+                    
+                    String timeText = '';
+                    if (task.startTime != null && task.endTime != null) {
+                      timeText = '${DateFormat('h:mm a').format(task.startTime!)} - ${DateFormat('h:mm a').format(task.endTime!)}';
+                    }
+
                     return Card(
                       margin: const EdgeInsets.only(bottom: 12),
+                      clipBehavior: Clip.antiAlias,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      child: ListTile(
-                        leading: Icon(
-                          task.isCompleted ? Icons.check_circle_rounded : Icons.pending_actions_rounded,
-                          color: task.isCompleted ? Colors.green : Colors.orange,
+                      child: InkWell(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => TaskDetailsScreen(
+                                task: task,
+                                isFriendView: true,
+                                onUpdate: (updatedTask) async {
+                                  try {
+                                    final docRef = FirebaseFirestore.instance
+                                        .collection('users')
+                                        .doc(widget.friendId)
+                                        .collection('dailyRoutines')
+                                        .doc(dateDocId);
+                                    final docSnap = await docRef.get();
+                                    if (docSnap.exists) {
+                                      DailyRoutine currentRoutine = DailyRoutine.fromMap(docSnap.data()!, docSnap.id);
+                                      int taskIndex = currentRoutine.tasks.indexWhere((t) => t.id == updatedTask.id);
+                                      if (taskIndex != -1) {
+                                        currentRoutine.tasks[taskIndex] = updatedTask;
+                                        await docRef.update({
+                                          'tasks': currentRoutine.tasks.map((t) => t.toMap()).toList()
+                                        });
+                                      }
+                                    }
+                                  } catch (e) {
+                                    debugPrint("Error updating friend task: $e");
+                                  }
+                                },
+                              ),
+                            ),
+                          );
+                        },
+                        child: Container(
+                          decoration: BoxDecoration(
+                            border: Border(
+                              left: BorderSide(color: statusColor, width: 6),
+                            ),
+                          ),
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Row 1: Icon, Title, Private Icon, Status Badge
+                              Row(
+                                children: [
+                                  Icon(statusIcon, color: statusColor, size: 22),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      displayTitle,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 15,
+                                        color: statusText == 'Missed' ? Colors.red.shade900 : null,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  if (task.isPrivate) ...[
+                                    const Icon(Icons.lock_outline_rounded, size: 16, color: Colors.grey),
+                                    const SizedBox(width: 8),
+                                  ],
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: statusColor.withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      statusText.tr(),
+                                      style: TextStyle(
+                                        color: statusColor,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              // Row 2: Category tag & Time if available
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  if (!task.isPrivate && task.category != null && task.category!.isNotEmpty)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: Colors.blueGrey.withValues(alpha: 0.1),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        task.category!.tr(),
+                                        style: const TextStyle(
+                                          color: Colors.blueGrey,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    )
+                                  else
+                                    const SizedBox.shrink(),
+                                  if (timeText.isNotEmpty)
+                                    Text(
+                                      timeText,
+                                      style: TextStyle(
+                                        color: Colors.grey.shade600,
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              // Row 3: Progress text
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    '${progressPercentage}% ' + 'Completed'.tr(),
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  Text(
+                                    '${task.elapsedSeconds ~/ 60} / ${task.totalDurationMinutes} mins',
+                                    style: TextStyle(
+                                      color: Colors.grey.shade600,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              // Row 4: Progress bar
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(4),
+                                child: LinearProgressIndicator(
+                                  value: progress,
+                                  backgroundColor: Colors.grey.shade200,
+                                  color: statusColor,
+                                  minHeight: 6,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                        title: Text(displayTitle, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text('${task.completedDurationMinutes} / ${task.totalDurationMinutes} mins completed'),
-                        trailing: Text('${(task.totalDurationMinutes > 0 ? (task.completedDurationMinutes / task.totalDurationMinutes * 100).toInt() : 0)}%'),
                       ),
                     );
                   },
@@ -961,6 +1144,315 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
               },
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+// ==========================================
+// Friend's Detailed Profile Screen
+// ==========================================
+class FriendDetailsScreen extends StatefulWidget {
+  final String friendId;
+  final String friendName;
+
+  const FriendDetailsScreen({super.key, required this.friendId, required this.friendName});
+
+  @override
+  State<FriendDetailsScreen> createState() => _FriendDetailsScreenState();
+}
+
+class _FriendDetailsScreenState extends State<FriendDetailsScreen> {
+  bool _isLoading = true;
+  Map<String, dynamic> _userData = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFriendDetails();
+  }
+
+  Future<void> _loadFriendDetails() async {
+    try {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(widget.friendId).get();
+      if (doc.exists && doc.data() != null) {
+        setState(() {
+          _userData = doc.data()!;
+          _isLoading = false;
+        });
+      } else {
+        setState(() => _isLoading = false);
+      }
+    } catch (e) {
+      debugPrint("Error loading friend details: $e");
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _showUnfriendConfirmation(BuildContext context) async {
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext ctx) {
+        return AlertDialog(
+          title: Text('Unfriend ${widget.friendName}?'),
+          content: Text('Are you sure you want to remove ${widget.friendName} from your friends list?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error),
+              child: const Text('Unfriend', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirm == true && mounted) {
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) return;
+      
+      try {
+        await FirebaseFirestore.instance.collection('users').doc(currentUser.uid).collection('friends').doc(widget.friendId).delete();
+        await FirebaseFirestore.instance.collection('users').doc(widget.friendId).collection('friends').doc(currentUser.uid).delete();
+        
+        if (mounted) {
+          // Go back from details screen and refresh previous screens
+          Navigator.of(context).pop(); // Pops FriendDetailsScreen
+          Navigator.of(context).pop(); // Pops FriendProfileScreen (if open)
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Removed ${widget.friendName} from friends.')),
+          );
+        }
+      } catch (e) {
+        debugPrint("Error unfriending: $e");
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        appBar: AppBar(title: Text('${widget.friendName}\'s Profile')),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final String name = _userData['name'] ?? _userData['displayName'] ?? widget.friendName;
+    final String bio = _userData['bio'] ?? "Let's study hard together!";
+    final String institution = _userData['institution'] ?? "No Institution Set";
+    final String academicYear = _userData['academicYear'] ?? "";
+    final String major = _userData['major'] ?? "";
+    final double dailyGoal = ((_userData['dailyStudyGoalHours'] ?? 2.0) as num).toDouble();
+    final int totalTasksDone = (_userData['totalTasksDone'] ?? 0) as int;
+    final int streak = (_userData['streak'] ?? 0) as int;
+    final int totalXP = (_userData['totalXP'] ?? 0) as int;
+    final String? photoUrl = _userData['photoUrl'] as String?;
+
+    ImageProvider? avatarImage;
+    if (photoUrl != null && photoUrl.isNotEmpty) {
+      avatarImage = photoUrl.startsWith('http')
+          ? NetworkImage(photoUrl)
+          : FileImage(File(photoUrl)) as ImageProvider;
+    }
+
+    final level = GamificationService.getLevel(totalXP);
+    final progress = GamificationService.getLevelProgress(totalXP);
+    final levelTitle = GamificationService.getLevelTitle(level);
+    final xpNext = GamificationService.xpForNextLevel(totalXP);
+
+    return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      appBar: AppBar(
+        title: Text('$name\'s Profile'),
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        elevation: 0,
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Avatar
+            CircleAvatar(
+              radius: 50,
+              backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+              backgroundImage: avatarImage,
+              child: avatarImage == null
+                  ? Text(
+                      name.isNotEmpty ? name.substring(0, 1).toUpperCase() : 'U',
+                      style: TextStyle(
+                        fontSize: 40,
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    )
+                  : null,
+            ),
+            const SizedBox(height: 16),
+            // Name
+            Text(
+              name,
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            // Institution / Year / Major
+            if (institution.isNotEmpty || academicYear.isNotEmpty || major.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                '${institution.isNotEmpty ? institution : "StudyMate"}'
+                '${academicYear.isNotEmpty ? " • $academicYear" : ""}'
+                '${major.isNotEmpty ? " • $major" : ""}',
+                style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 13, fontWeight: FontWeight.w600),
+                textAlign: TextAlign.center,
+              ),
+            ],
+            // Bio
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Text(
+                bio,
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(color: Colors.grey, fontStyle: FontStyle.italic),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            const SizedBox(height: 24),
+            // Stat Cards
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _buildStatCard(context, totalTasksDone.toString(), 'Tasks Done', Icons.check_circle_rounded, Colors.green),
+                _buildStatCard(context, '${dailyGoal.toInt()}h', 'Goal/Day', Icons.access_time_filled_rounded, Colors.blue),
+                _buildStatCard(context, streak.toString(), 'Day Streak', Icons.local_fire_department_rounded, Colors.orange),
+              ],
+            ),
+            const SizedBox(height: 24),
+            // Level Card
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Theme.of(context).colorScheme.primary,
+                    Theme.of(context).colorScheme.secondary,
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
+                    blurRadius: 12,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Level $level',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            levelTitle,
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.8),
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          '$totalXP XP',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: LinearProgressIndicator(
+                      value: progress,
+                      backgroundColor: Colors.white.withValues(alpha: 0.25),
+                      valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                      minHeight: 10,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    '$xpNext XP to next level',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.8),
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 36),
+            // Unfriend Button
+            ElevatedButton.icon(
+              onPressed: () => _showUnfriendConfirmation(context),
+              icon: const Icon(Icons.person_remove_rounded),
+              label: Text('Unfriend $name', style: const TextStyle(fontWeight: FontWeight.bold)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.error.withValues(alpha: 0.1),
+                foregroundColor: Theme.of(context).colorScheme.error,
+                elevation: 0,
+                minimumSize: const Size(double.infinity, 50),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatCard(BuildContext context, String value, String label, IconData icon, Color color) {
+    return Container(
+      width: MediaQuery.of(context).size.width * 0.26,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.withValues(alpha: 0.15)),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 24),
+          const SizedBox(height: 6),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+          Text(label, style: const TextStyle(color: Colors.grey, fontSize: 11)),
         ],
       ),
     );

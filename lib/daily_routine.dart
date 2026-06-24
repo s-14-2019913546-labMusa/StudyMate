@@ -190,7 +190,19 @@ class DailyRoutine {
 
   // Helper to calculate overall progress percentage
   double get progress {
-    if (totalPlannedDuration == 0) return 0.0;
-    return totalCompletedDuration / totalPlannedDuration;
+    if (tasks.isEmpty) return 0.0;
+    double totalTaskProgress = 0.0;
+    for (var task in tasks) {
+      double taskProgress = 0.0;
+      if (task.isCompleted || task.status == 'completed') {
+        taskProgress = 1.0;
+      } else if (task.totalDurationMinutes > 0) {
+        double fromElapsed = task.elapsedSeconds / (task.totalDurationMinutes * 60);
+        double fromMinutes = task.completedDurationMinutes / task.totalDurationMinutes;
+        taskProgress = (fromElapsed > fromMinutes ? fromElapsed : fromMinutes).clamp(0.0, 1.0);
+      }
+      totalTaskProgress += taskProgress;
+    }
+    return totalTaskProgress / tasks.length;
   }
 }

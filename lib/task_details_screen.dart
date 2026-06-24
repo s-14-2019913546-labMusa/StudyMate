@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'daily_routine.dart';
 
 // ==========================================
@@ -8,7 +9,13 @@ import 'daily_routine.dart';
 class TaskDetailsScreen extends StatefulWidget {
   final Task task;
   final Function(Task)? onUpdate;
-  const TaskDetailsScreen({super.key, required this.task, this.onUpdate});
+  final bool isFriendView;
+  const TaskDetailsScreen({
+    super.key, 
+    required this.task, 
+    this.onUpdate,
+    this.isFriendView = false,
+  });
 
   @override
   State<TaskDetailsScreen> createState() => _TaskDetailsScreenState();
@@ -16,6 +23,7 @@ class TaskDetailsScreen extends StatefulWidget {
 
 class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
   late List<String> _comments; 
+  final TextEditingController _commentController = TextEditingController();
 
   final List<String> _quickComments = [
     'Come on, do it!',
@@ -33,9 +41,19 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
     _comments = List.from(widget.task.comments); // ডাটাবেজ থেকে পূর্বের কমেন্টগুলো লোড করা
   }
 
+  @override
+  void dispose() {
+    _commentController.dispose();
+    super.dispose();
+  }
+
   void _addComment(String comment) {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    final senderName = currentUser?.displayName ?? 'Study Buddy';
+    final formattedComment = "$senderName: $comment";
+
     setState(() {
-      _comments.insert(0, comment); // নতুন কমেন্টটি লিস্টের শুরুতে যুক্ত হবে
+      _comments.insert(0, formattedComment); // নতুন কমেন্টটি লিস্টের শুরুতে যুক্ত হবে
     });
     if (widget.onUpdate != null) {
       // আপডেট হওয়া টাস্কটি ফায়ারবেসে সেভ করার জন্য কলব্যাক
@@ -54,11 +72,17 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
     double progress = totalTargetSeconds > 0 ? (elapsedSeconds / totalTargetSeconds) : 0.0;
     if (progress > 1.0) progress = 1.0;
 
-    // প্রাইভেসি চেক (টাস্ক প্রাইভেট হলে ডাটা হাইড করবে কিন্তু প্রগ্রেস বার দেখা যাবে)
-    bool isPrivate = widget.task.isPrivate;
-    String displayTitle = isPrivate ? '🔒 Private Task' : (widget.task.subject ?? widget.task.title);
-    String displayNotes = isPrivate ? 'The details of this task are hidden by the user.' : (widget.task.notes?.isNotEmpty == true ? widget.task.notes! : 'No notes available.');
-    String category = isPrivate ? 'Hidden' : (widget.task.category ?? 'Uncategorized');
+    // প্রাইভেসি চেক (টাস্ক প্রাইভেট হলে এবং অন্য বন্ধু দেখলে ডাটা হাইড করবে কিন্তু প্রগ্রেস বার দেখা যাবে)
+    bool shouldMaskDetails = widget.isFriendView && widget.task.isPrivate;
+    String displayTitle = widget.task.subject ?? widget.task.title;
+    if (widget.task.isPrivate) {
+      displayTitle = shouldMaskDetails ? '🔒 Private Task' : '🔒 $displayTitle';
+    }
+    String displayNotes = shouldMaskDetails 
+        ? 'The details of this task are hidden by the user.' 
+        : (widget.task.notes?.isNotEmpty == true ? widget.task.notes! : 'No notes available.');
+    
+    String category = shouldMaskDetails ? 'Hidden' : (widget.task.category ?? 'Uncategorized');
 
     String startTime = widget.task.startTime != null ? DateFormat('MMM d, yyyy - h:mm a').format(widget.task.startTime!) : 'Not Set';
     String endTime = widget.task.endTime != null ? DateFormat('MMM d, yyyy - h:mm a').format(widget.task.endTime!) : 'Not Set';
@@ -136,31 +160,42 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
                             displayTitle,
                             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                                   fontWeight: FontWeight.bold,
-                                  color: isPrivate ? Colors.grey.shade700 : Theme.of(context).colorScheme.onSurface,
+                                  color: widget.task.isPrivate ? Colors.grey.shade700 : Theme.of(context).colorScheme.onSurface,
                                 ),
                           ),
                           const SizedBox(height: 16),
-                          _buildInfoRow(context, Icons.category_rounded, 'Category', category),
+                          _buildInfoRow(context, Icons.access_time_rounded, 'Planned Duration', '${widget.task.totalDurationMinutes} mins'),
                           const SizedBox(height: 12),
-                          _buildInfoRow(context, Icons.access_time_rounded, 'Start Time', startTime),
-                          const SizedBox(height: 12),
-                          _buildInfoRow(context, Icons.access_time_filled_rounded, 'End Time', endTime),
-                          const Divider(height: 32),
-                          Text(
-                            'Goal / Notes',
-                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: Theme.of(context).colorScheme.primary,
-                                ),
+                          _buildInfoRow(
+                            context,
+                            Icons.timer_outlined,
+                            'Time Spent',
+                            '${widget.task.completedDurationMinutes} mins',
                           ),
-                          const SizedBox(height: 8),
-                          Text(
-                            displayNotes,
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  fontStyle: isPrivate ? FontStyle.italic : FontStyle.normal,
-                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                ),
-                          ),
+                          if (!shouldMaskDetails) ...[
+                            const SizedBox(height: 12),
+                            _buildInfoRow(context, Icons.category_rounded, 'Category', category),
+                            const SizedBox(height: 12),
+                            _buildInfoRow(context, Icons.access_time_rounded, 'Start Time', startTime),
+                            const SizedBox(height: 12),
+                            _buildInfoRow(context, Icons.access_time_filled_rounded, 'End Time', endTime),
+                            const Divider(height: 32),
+                            Text(
+                              'Goal / Notes',
+                              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: Theme.of(context).colorScheme.primary,
+                                  ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              displayNotes,
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    fontStyle: widget.task.isPrivate ? FontStyle.italic : FontStyle.normal,
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                  ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -195,6 +230,13 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
                       physics: const NeverScrollableScrollPhysics(),
                       itemCount: _comments.length,
                       itemBuilder: (context, index) {
+                        String author = 'Study Buddy';
+                        String commentText = _comments[index];
+                        if (_comments[index].contains(': ')) {
+                          int splitIndex = _comments[index].indexOf(': ');
+                          author = _comments[index].substring(0, splitIndex);
+                          commentText = _comments[index].substring(splitIndex + 2);
+                        }
                         return Card(
                           margin: const EdgeInsets.only(bottom: 8),
                           elevation: 0,
@@ -205,8 +247,8 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
                               backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
                               child: Icon(Icons.person, color: Theme.of(context).colorScheme.primary),
                             ),
-                            title: const Text('Study Buddy', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                            subtitle: Text(_comments[index], style: const TextStyle(fontSize: 14)),
+                            title: Text(author, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                            subtitle: Text(commentText, style: const TextStyle(fontSize: 14)),
                           ),
                         );
                       },
@@ -216,7 +258,7 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
             ),
           ),
 
-          // ৪. কুইক কমেন্ট চিপস (নিচের দিকে)
+          // ৪. কুইক কমেন্ট চিপস এবং কাস্টম কমেন্ট ফিল্ড (নিচের দিকে)
           Container(
             padding: const EdgeInsets.symmetric(vertical: 12),
             decoration: BoxDecoration(
@@ -262,6 +304,50 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
                         ),
                       );
                     },
+                  ),
+                ),
+                const Divider(height: 12, thickness: 1),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _commentController,
+                          decoration: InputDecoration(
+                            hintText: 'Type a comment...',
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(24),
+                              borderSide: BorderSide(color: Colors.grey.shade300),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(24),
+                              borderSide: BorderSide(color: Colors.grey.shade300),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(24),
+                              borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        onPressed: () {
+                          final text = _commentController.text.trim();
+                          if (text.isNotEmpty) {
+                            _addComment(text);
+                            _commentController.clear();
+                          }
+                        },
+                        icon: const Icon(Icons.send_rounded),
+                        color: Theme.of(context).colorScheme.primary,
+                        style: IconButton.styleFrom(
+                          backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],

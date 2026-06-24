@@ -3,7 +3,13 @@ import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:audioplayers/audioplayers.dart';
 import 'dart:developer';
+import 'daily_routine.dart';
 
 @pragma('vm:entry-point')
 void notificationTapBackground(NotificationResponse notificationResponse) {
@@ -54,41 +60,50 @@ class LocalNotificationService {
   static final FlutterLocalNotificationsPlugin _notificationsPlugin = FlutterLocalNotificationsPlugin();
 
   static Future<void> init() async {
-    tz.initializeTimeZones();
-    tz.setLocalLocation(tz.getLocation('Asia/Dhaka')); // Defaulting to local, should be dynamic if possible
+    if (kIsWeb) {
+      log('LocalNotificationService: Web platform detected. Skipping local notifications initialization.');
+      return;
+    }
+    try {
+      tz.initializeTimeZones();
+      tz.setLocalLocation(tz.getLocation('Asia/Dhaka')); // Defaulting to local, should be dynamic if possible
 
-    const AndroidInitializationSettings initializationSettingsAndroid = AndroidInitializationSettings('@mipmap/ic_launcher');
-    
-    // For iOS
-    final DarwinInitializationSettings initializationSettingsDarwin = DarwinInitializationSettings(
-      requestAlertPermission: true,
-      requestBadgePermission: true,
-      requestSoundPermission: true,
-    );
+      const AndroidInitializationSettings initializationSettingsAndroid = AndroidInitializationSettings('@mipmap/ic_launcher');
+      
+      // For iOS
+      final DarwinInitializationSettings initializationSettingsDarwin = DarwinInitializationSettings(
+        requestAlertPermission: true,
+        requestBadgePermission: true,
+        requestSoundPermission: true,
+      );
 
-    final InitializationSettings initializationSettings = InitializationSettings(
-      android: initializationSettingsAndroid,
-      iOS: initializationSettingsDarwin,
-    );
+      final InitializationSettings initializationSettings = InitializationSettings(
+        android: initializationSettingsAndroid,
+        iOS: initializationSettingsDarwin,
+      );
 
-    await _notificationsPlugin.initialize(
-      settings: initializationSettings,
-      onDidReceiveNotificationResponse: (NotificationResponse response) {
-        log('Foreground Notification Action Triggered: ${response.actionId}');
-        _handleNotificationAction(response.actionId);
-      },
-      onDidReceiveBackgroundNotificationResponse: notificationTapBackground,
-    );
+      await _notificationsPlugin.initialize(
+        settings: initializationSettings,
+        onDidReceiveNotificationResponse: (NotificationResponse response) {
+          log('Foreground Notification Action Triggered: ${response.actionId}');
+          _handleNotificationAction(response.actionId);
+        },
+        onDidReceiveBackgroundNotificationResponse: notificationTapBackground,
+      );
 
-    // Request Android 13+ permissions
-    final androidPlugin = _notificationsPlugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
-    if (androidPlugin != null) {
-      await androidPlugin.requestNotificationsPermission();
-      await androidPlugin.requestExactAlarmsPermission();
+      // Request Android 13+ permissions
+      final androidPlugin = _notificationsPlugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+      if (androidPlugin != null) {
+        await androidPlugin.requestNotificationsPermission();
+        await androidPlugin.requestExactAlarmsPermission();
+      }
+    } catch (e) {
+      log('Error initializing local notifications: $e');
     }
   }
 
   static Future<void> scheduleAllSleepNotifications(DateTime bedTime, DateTime? wakeUpTime) async {
+    if (kIsWeb) return;
     await cancelAllNotifications();
     final prefs = await SharedPreferences.getInstance();
     
@@ -142,6 +157,7 @@ class LocalNotificationService {
   }
 
   static Future<void> scheduleCheckupNotification(Duration delay) async {
+    if (kIsWeb) return;
     await _scheduleNotification(
       id: 3,
       title: 'Sleep Checkup',
@@ -155,6 +171,7 @@ class LocalNotificationService {
   }
 
   static Future<void> scheduleMorningAlarm(DateTime wakeUpTime) async {
+    if (kIsWeb) return;
     await _scheduleNotification(
       id: 4,
       title: '⏰ Good Morning!',
@@ -179,6 +196,7 @@ class LocalNotificationService {
     bool enableVibration = false,
     List<AndroidNotificationAction>? actions,
   }) async {
+    if (kIsWeb) return;
     final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
       'sleep_tracker_channel',
       'Sleep Tracker Notifications',
@@ -213,6 +231,177 @@ class LocalNotificationService {
   }
 
   static Future<void> cancelAllNotifications() async {
+    if (kIsWeb) return;
     await _notificationsPlugin.cancelAll();
   }
+
+  static Future<void> scheduleTaskNotifications(Task task) async {
+    if (kIsWeb) {
+      log('LocalNotificationService: scheduleTaskNotifications called on Web. Bypassing native notifications.');
+      return;
+    }
+    final int startId = task.id.hashCode;
+    final int endId = startId + 1;
+
+    // Cancel any existing notifications for this task first to avoid duplicate schedules
+    await cancelTaskNotifications(task.id);
+
+    final now = DateTime.now();
+
+    // 1. Alert at task start time
+    if (task.startTime != null && task.startTime!.isAfter(now)) {
+      await _scheduleNotificationForTask(
+        id: startId,
+        title: '⏰ Task Starting: ${task.title}',
+        body: 'It is time to start your scheduled task: ${task.title}.',
+        scheduledDate: task.startTime!,
+      );
+      log('Scheduled start notification for task "${task.title}" at ${task.startTime}');
+    }
+
+    // 2. Alert 5 minutes before task end time
+    if (task.endTime != null) {
+      final warningTime = task.endTime!.subtract(const Duration(minutes: 5));
+      if (warningTime.isAfter(now)) {
+        await _scheduleNotificationForTask(
+          id: endId,
+          title: '⏳ Task Ending Soon: ${task.title}',
+          body: 'Your task is ending in 5 minutes.',
+          scheduledDate: warningTime,
+        );
+        log('Scheduled end warning notification for task "${task.title}" at $warningTime');
+      }
+    }
+  }
+
+  static Future<void> cancelTaskNotifications(String taskId) async {
+    if (kIsWeb) return;
+    final int startId = taskId.hashCode;
+    final int endId = startId + 1;
+    await _notificationsPlugin.cancel(id: startId);
+    await _notificationsPlugin.cancel(id: endId);
+    log('Cancelled notifications for task ID: $taskId');
+  }
+
+  static Future<void> _scheduleNotificationForTask({
+    required int id,
+    required String title,
+    required String body,
+    required DateTime scheduledDate,
+  }) async {
+    if (kIsWeb) return;
+    final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+      'task_alerts_channel',
+      'Task Alerts',
+      channelDescription: 'Reminds you when tasks are starting or ending',
+      importance: Importance.max,
+      priority: Priority.high,
+      playSound: true,
+      enableVibration: true,
+    );
+
+    final DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
+      presentSound: true,
+      presentAlert: true,
+      presentBadge: true,
+    );
+
+    final NotificationDetails platformDetails = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    await _notificationsPlugin.zonedSchedule(
+      id: id,
+      title: title,
+      body: body,
+      scheduledDate: tz.TZDateTime.from(scheduledDate, tz.local),
+      notificationDetails: platformDetails,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+    );
+  }
+
+  static Future<void> playNotificationSoundAndVibration({
+    required String soundName,
+    required double volume,
+    required bool soundEnabled,
+    required bool vibrationEnabled,
+  }) async {
+    if (vibrationEnabled) {
+      try {
+        await HapticFeedback.vibrate();
+      } catch (e) {
+        log('Haptic feedback error: $e');
+      }
+    }
+    if (!soundEnabled) return;
+
+    String url;
+    switch (soundName) {
+      case 'Beep':
+        url = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-600.wav';
+        break;
+      case 'Chime':
+        url = 'https://assets.mixkit.co/active_storage/sfx/911/911-600.wav';
+        break;
+      case 'Marimba':
+        url = 'https://assets.mixkit.co/active_storage/sfx/1653/1653-600.wav';
+        break;
+      case 'Bell':
+        url = 'https://assets.mixkit.co/active_storage/sfx/1987/1987-600.wav';
+        break;
+      case 'Digital':
+        url = 'https://assets.mixkit.co/active_storage/sfx/2568/2568-600.wav';
+        break;
+      default:
+        url = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-600.wav';
+    }
+
+    try {
+      final player = AudioPlayer();
+      await player.setVolume(volume);
+      await player.play(UrlSource(url));
+    } catch (e) {
+      log('Error playing custom notification sound: $e');
+      try {
+        await SystemSound.play(SystemSoundType.click);
+      } catch (_) {}
+    }
+  }
+
+  static Future<void> playCustomNotificationSound() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      if (doc.exists && doc.data() != null) {
+        final data = doc.data()!;
+        final settings = data['notificationSettings'] as Map<String, dynamic>?;
+        if (settings != null) {
+          final bool soundEnabled = settings['soundEnabled'] as bool? ?? true;
+          final bool vibrationEnabled = settings['vibrationEnabled'] as bool? ?? true;
+          final double volume = (settings['volumeLevel'] as num?)?.toDouble() ?? 0.8;
+          final String soundName = settings['selectedSound'] as String? ?? 'Beep';
+
+          await playNotificationSoundAndVibration(
+            soundName: soundName,
+            volume: volume,
+            soundEnabled: soundEnabled,
+            vibrationEnabled: vibrationEnabled,
+          );
+          return;
+        }
+      }
+    } catch (e) {
+      log('Error playing current settings sound: $e');
+    }
+
+    // Default fallback if settings fail to load
+    try {
+      await HapticFeedback.vibrate();
+      await SystemSound.play(SystemSoundType.click);
+    } catch (_) {}
+  }
 }
+
