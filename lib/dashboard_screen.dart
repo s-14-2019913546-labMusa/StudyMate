@@ -12,6 +12,8 @@ import 'tools_screen.dart'; // Tools স্ক্রিন ইমপোর্ট
 import 'profile_screen.dart'; // Profile স্ক্রিন ইমপোর্ট
 import 'chat_screen.dart';
 import 'shared_task_form.dart';
+import 'conversations_screen.dart'; // নতুন ফাইলটি ইমপোর্ট করা হলো
+import 'social_hub_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
 import 'local_notification_service.dart';
@@ -25,7 +27,7 @@ class DashboardScreen extends StatefulWidget {
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
+class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingObserver {
   final User? user = FirebaseAuth.instance.currentUser;
   String get _todayDateFormatted => DateFormat('EEEE, d MMMM', LanguageManager().currentLanguage).format(DateTime.now());
   final String _todayDocId = DateFormat('yyyy-MM-dd').format(DateTime.now()); // e.g., "2023-10-27"
@@ -40,6 +42,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+
     if (user != null) {
       _todaysRoutineStream = _fetchTodaysRoutine();
       _listenToTodaysRoutine();
@@ -47,7 +51,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _checkMissedTasksFromYesterday();
       _checkAndScheduleBreathingPopup();
       _startTaskAlertsTimer();
+      _updateUserStatus(true); // Initial status update
     }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (user == null) return;
+    if (state == AppLifecycleState.resumed) {
+      _updateUserStatus(true);
+    } else {
+      _updateUserStatus(false);
+    }
+  }
+
+  Future<void> _updateUserStatus(bool isOnline) async {
+    await FirebaseFirestore.instance.collection('users').doc(user!.uid).set({
+      'lastSeen': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
   }
 
   void _listenToTodaysRoutine() {
@@ -63,6 +85,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _breathingTimer?.cancel();
     _missedTasksSnoozeTimer?.cancel();
     _taskAlertsTimer?.cancel();
@@ -139,7 +162,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   void _showInAppTaskStartDialog(Task task) {
-    LocalNotificationService.playCustomNotificationSound();
+    SoundPlayer.playPushNotificationSound();
     final String timeRange = '${task.startTime != null ? DateFormat('h:mm a').format(task.startTime!) : 'N/A'} - ${task.endTime != null ? DateFormat('h:mm a').format(task.endTime!) : 'N/A'}';
     showDialog(
       context: context,
@@ -209,7 +232,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   void _showInAppTaskEndDialog(Task task) {
-    LocalNotificationService.playCustomNotificationSound();
+    SoundPlayer.playPushNotificationSound();
     final String timeRange = '${task.startTime != null ? DateFormat('h:mm a').format(task.startTime!) : 'N/A'} - ${task.endTime != null ? DateFormat('h:mm a').format(task.endTime!) : 'N/A'}';
     showDialog(
       context: context,
@@ -1000,7 +1023,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const ConversationsScreen()),
+                  MaterialPageRoute(builder: (_) => const SocialHubScreen(initialTabIndex: 0)),
                 );
               },
             ),

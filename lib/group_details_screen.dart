@@ -1,6 +1,10 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'social_hub_screen.dart';
 
 class GroupDetailsScreen extends StatefulWidget {
   final String groupId;
@@ -19,11 +23,56 @@ class GroupDetailsScreen extends StatefulWidget {
 class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
   final User? currentUser = FirebaseAuth.instance.currentUser;
   final TextEditingController _nameController = TextEditingController();
+  bool _isUploading = false;
 
   @override
   void dispose() {
     _nameController.dispose();
     super.dispose();
+  }
+
+  Future<void> _changeGroupPhoto() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
+
+    if (pickedFile == null) return;
+
+    setState(() => _isUploading = true);
+
+    try {
+      final file = File(pickedFile.path);
+      final ref = FirebaseStorage.instance
+          .ref('group_photos')
+          .child('${widget.groupId}.jpg');
+
+      await ref.putFile(file);
+      final downloadUrl = await ref.getDownloadURL();
+
+      final chatRef = FirebaseFirestore.instance.collection('chats').doc(widget.groupId);
+      await chatRef.update({'groupPhotoUrl': downloadUrl});
+
+      await chatRef.collection('messages').add({
+        'senderId': 'system',
+        'content': '${currentUser!.displayName ?? 'Someone'} changed the group photo.',
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Group photo updated successfully!')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error updating photo: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isUploading = false);
+      }
+    }
   }
 
   // গ্রুপের নাম পরিবর্তন করার ডায়ালগ
@@ -428,12 +477,38 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
                   padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
                   child: Column(
                     children: [
-                      CircleAvatar(
-                        radius: 44,
-                        backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.1),
-                        child: Text(
-                          groupName.isNotEmpty ? groupName[0].toUpperCase() : 'G',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 32, color: theme.colorScheme.primary),
+                      AbsorbPointer( // This widget absorbs pointer events
+                        absorbing: _isUploading,
+                        child: Stack( // The Stack should be a child of AbsorbPointer
+                          alignment: Alignment.bottomRight,
+                          children: [
+                            CircleAvatar(
+                              radius: 44,
+                              backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.1),
+                              backgroundImage: data['groupPhotoUrl'] != null ? NetworkImage(data['groupPhotoUrl']) : null,
+                              child: _isUploading
+                                  ? const CircularProgressIndicator()
+                                  : (data['groupPhotoUrl'] == null
+                                      ? Text(
+                                          groupName.isNotEmpty ? groupName[0].toUpperCase() : 'G',
+                                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 32, color: theme.colorScheme.primary),
+                                        )
+                                      : null),
+                            ),
+                            if (isAdmin)
+                              GestureDetector(
+                                onTap: _changeGroupPhoto,
+                                child: CircleAvatar(
+                                  radius: 16,
+                                  backgroundColor: theme.colorScheme.secondary,
+                                  child: const Icon(
+                                    Icons.edit_rounded,
+                                    size: 16,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -460,7 +535,7 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
                         style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.w500),
                       ),
                     ],
-                  ),
+                  ), // AbsorbPointer and Column closed here
                 ),
 
                 const SizedBox(height: 8),
@@ -518,11 +593,46 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
                         if (!userSnap.hasData) return const SizedBox.shrink();
                         final userData = userSnap.data!.data() as Map<String, dynamic>? ?? {};
                         final name = userData['displayName'] ?? 'Study Buddy';
-                        final email = userData['email'] ?? '';
+                        final lastSeen = (userData['lastSeen'] as Timestamp?)?.toDate();
+                        final isOnline = lastSeen != null && DateTime.now().difference(lastSeen).inMinutes < 2;
 
                         return ListTile(
-                          leading: CircleAvatar(
-                            child: Text(name.isNotEmpty ? name[0].toUpperCase() : 'B'),
+                          onTap: isMe
+                              ? null
+                              : () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => FriendProfileScreen(
+                                        friendId: memberId,
+                                        friendName: name,
+                                      ),
+                                    ),
+                                  );
+                                },
+                          leading: Stack(
+                            children: [
+                              CircleAvatar(
+                                child: Text(name.isNotEmpty ? name[0].toUpperCase() : 'B'),
+                              ),
+                              if (isOnline)
+                                Positioned(
+                                  bottom: 0,
+                                  right: 0,
+                                  child: Container(
+                                    width: 12,
+                                    height: 12,
+                                    decoration: BoxDecoration(
+                                      color: Colors.green,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: Theme.of(context).scaffoldBackgroundColor,
+                                        width: 2,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
                           title: Text(
                             isMe ? '$name (You)' : name,
@@ -530,7 +640,10 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
                               fontWeight: isMe ? FontWeight.bold : FontWeight.w600,
                             ),
                           ),
-                          subtitle: Text(email),
+                          subtitle: Text(
+                            isOnline ? 'Online' : 'Offline',
+                            style: TextStyle(color: isOnline ? Colors.green : Colors.grey),
+                          ),
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [

@@ -8,12 +8,14 @@ import 'chat_screen.dart';
 import 'task_details_screen.dart';
 import 'gamification_service.dart';
 import 'language_manager.dart';
+import 'conversations_screen.dart';
 
 // ==========================================
 // Social Hub Screen
 // ==========================================
 class SocialHubScreen extends StatefulWidget {
-  const SocialHubScreen({super.key});
+  final int initialTabIndex;
+  const SocialHubScreen({super.key, this.initialTabIndex = 1});
 
   @override
   State<SocialHubScreen> createState() => _SocialHubScreenState();
@@ -30,7 +32,7 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this, initialIndex: widget.initialTabIndex);
     _ensureUserExistsInFirestore();
   }
 
@@ -138,6 +140,16 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
     return searchResults;
   }
 
+  // Helper to create a consistent one-on-one chat ID
+  String _getOneOnOneChatId(String userId1, String userId2) {
+    // Sort the UIDs to ensure the chat ID is always the same regardless of who initiates
+    if (userId1.compareTo(userId2) > 0) {
+      return '$userId2\_$userId1';
+    } else {
+      return '$userId1\_$userId2';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -152,6 +164,7 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
           labelColor: Theme.of(context).colorScheme.primary,
           unselectedLabelColor: Colors.grey,
           tabs: const [
+            Tab(text: 'Chats'),
             Tab(text: 'Leaderboard'),
             Tab(text: 'Find Friends'),
             Tab(text: 'My Friends'),
@@ -162,6 +175,7 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
       body: TabBarView(
         controller: _tabController,
         children: [
+          const ConversationsScreen(isEmbedded: true),
           _buildLeaderboardTab(),
           _buildFindFriendsTab(),
           _buildMyFriendsTab(),
@@ -330,20 +344,20 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
                           icon: Icon(Icons.chat_bubble_outline_rounded, color: Theme.of(context).colorScheme.primary),
                           onPressed: () {
                             Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(
-                              friendId: friendId,
-                              friendName: userData['displayName'] ?? 'Study Buddy',
+                              chatId: _getOneOnOneChatId(currentUser!.uid, friendId),
+                              chatName: userData['displayName'] ?? 'Study Buddy',
+                              receiverId: friendId,
+                              isGroupChat: false,
                             )));
                           },
                         ),
                         IconButton(
                           tooltip: 'View Profile',
                           icon: Icon(Icons.account_circle_outlined, color: Theme.of(context).colorScheme.secondary),
-                          onPressed: () {
-                            Navigator.push(context, MaterialPageRoute(builder: (_) => FriendDetailsScreen(
-                              friendId: friendId,
-                              friendName: userData['displayName'] ?? 'Study Buddy',
-                            )));
-                          },
+                          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => FriendDetailsScreen(
+                            friendId: friendId,
+                            friendName: userData['displayName'] ?? 'Study Buddy',
+                          ))),
                         ),
                       ],
                     ),
@@ -436,10 +450,10 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => ChatScreen(
-                            isGroup: true,
-                            groupId: groupId,
-                            groupName: groupName,
+                          builder: (context) => ChatScreen(
+                            chatId: groupId,
+                            chatName: groupName,
+                            isGroupChat: true,
                           ),
                         ),
                       );
@@ -666,10 +680,10 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => ChatScreen(
-              isGroup: true,
-              groupId: groupId,
-              groupName: name,
+            builder: (context) => ChatScreen(
+              chatId: groupId,
+              chatName: name,
+              isGroupChat: true,
             ),
           ),
         );
@@ -805,6 +819,16 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
     });
   }
 
+  // Helper to create a consistent one-on-one chat ID
+  String _getOneOnOneChatId(String userId1, String userId2) {
+    // Sort the UIDs to ensure the chat ID is always the same regardless of who initiates
+    if (userId1.compareTo(userId2) > 0) {
+      return '$userId2\_$userId1';
+    } else {
+      return '$userId1\_$userId2';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final String dateDocId = DateFormat('yyyy-MM-dd').format(_selectedDate);
@@ -853,8 +877,9 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
                         ElevatedButton.icon(
                           onPressed: () {
                             Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(
-                              friendId: widget.friendId,
-                              friendName: widget.friendName,
+                              chatId: _getOneOnOneChatId(FirebaseAuth.instance.currentUser!.uid, widget.friendId),
+                              receiverId: widget.friendId,
+                              chatName: widget.friendName,
                             )));
                           },
                           icon: const Icon(Icons.message_rounded),
@@ -867,8 +892,7 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
                           onPressed: () {
                             Navigator.push(context, MaterialPageRoute(builder: (_) => FriendDetailsScreen(
                               friendId: widget.friendId,
-                              friendName: widget.friendName,
-                            )));
+                              friendName: widget.friendName)));
                           },
                           icon: const Icon(Icons.account_circle_rounded),
                           label: const Text('View Profile'),
@@ -1458,4 +1482,3 @@ class _FriendDetailsScreenState extends State<FriendDetailsScreen> {
     );
   }
 }
-

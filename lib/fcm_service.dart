@@ -8,8 +8,14 @@ import 'main.dart'; // Import main to access the global scaffoldMessengerKey
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  await Firebase.initializeApp();
-  debugPrint("Handling background message: ${message.messageId}");
+  try {
+    if (Firebase.apps.isEmpty) {
+      await Firebase.initializeApp();
+    }
+    debugPrint("Handling background message: ${message.messageId}");
+  } catch (e) {
+    debugPrint("FCM background handler error: $e");
+  }
 }
 
 class FcmService {

@@ -1,499 +1,30 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:intl/intl.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
-import 'dart:io';
+import 'package:file_picker/file_picker.dart' as fp;
+import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
+import 'package:open_filex/open_filex.dart';
+import 'package:path_provider/path_provider.dart';
 import 'group_details_screen.dart';
-import 'social_hub_screen.dart';
+import 'chat_profile_screen.dart';
+import 'language_manager.dart';
 
-// Helper function to generate a unique chat ID based on two user UIDs
-String getChatId(String uid1, String uid2) {
-  List<String> ids = [uid1, uid2];
-  ids.sort(); // Sort to ensure consistency regardless of who initiates the chat
-  return ids.join('_');
-}
-
-// Format the timestamp nicely for chat list and chat bubbles
-String formatChatTime(Timestamp? timestamp) {
-  if (timestamp == null) return '';
-  DateTime dateTime = timestamp.toDate();
-  DateTime now = DateTime.now();
-  
-  if (dateTime.day == now.day && dateTime.month == now.month && dateTime.year == now.year) {
-    return DateFormat('h:mm a').format(dateTime);
-  } else if (dateTime.day == now.subtract(const Duration(days: 1)).day &&
-             dateTime.month == now.month &&
-             dateTime.year == now.year) {
-    return 'Yesterday';
-  } else {
-    return DateFormat('MMM d').format(dateTime);
-  }
-}
-
-// ==========================================
-// Conversations List Screen (Messenger Home)
-// ==========================================
-class ConversationsScreen extends StatefulWidget {
-  const ConversationsScreen({super.key});
-
-  @override
-  State<ConversationsScreen> createState() => _ConversationsScreenState();
-}
-
-class _ConversationsScreenState extends State<ConversationsScreen> {
-  final User? currentUser = FirebaseAuth.instance.currentUser;
-  final TextEditingController _searchController = TextEditingController();
-  String _searchQuery = '';
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (currentUser == null) {
-      return const Scaffold(
-        body: Center(child: Text("Please log in first")),
-      );
-    }
-
-    final theme = Theme.of(context);
-
-    return Scaffold(
-      backgroundColor: theme.colorScheme.surface,
-      appBar: AppBar(
-        backgroundColor: theme.colorScheme.surface,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        title: const Text('Chats', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 24)),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.edit_note_rounded, size: 28),
-            onPressed: () {
-              // Quick search/start chat
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Select a friend from the Social Hub to start chatting!')),
-              );
-            },
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          // Search Bar
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-            child: TextField(
-              controller: _searchController,
-              onChanged: (value) => setState(() => _searchQuery = value.trim().toLowerCase()),
-              decoration: InputDecoration(
-                hintText: 'Search chats...',
-                prefixIcon: const Icon(Icons.search_rounded),
-                fillColor: theme.brightness == Brightness.light 
-                    ? const Color(0xFFF1F5F9) 
-                    : const Color(0xFF1E293B),
-                filled: true,
-                contentPadding: const EdgeInsets.symmetric(vertical: 0),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(24),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-            ),
-          ),
-
-          // Active Friends Horizontal List (Cosmetic Active Now)
-          _buildActiveFriendsSection(),
-
-          const Divider(height: 1, thickness: 0.5),
-
-          // Conversation List
-          Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('chats')
-                  .where('participants', arrayContains: currentUser!.uid)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.chat_bubble_outline_rounded, size: 64, color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5)),
-                        const SizedBox(height: 16),
-                        Text(
-                          'No conversations yet',
-                          style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontSize: 16),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Start chatting with your study buddies!',
-                          style: TextStyle(color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7), fontSize: 13),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-
-                // Filter & Sort doc listing locally as where/orderBy combined query has firestore limitations
-                var chatDocs = snapshot.data!.docs;
-                for (var doc in chatDocs) {
-                  final data = doc.data() as Map<String, dynamic>;
-                  debugPrint("DEBUG CHATS: docId=${doc.id}, isGroup=${data['isGroup']}, participants=${data['participants']}");
-                }
-                chatDocs.sort((a, b) {
-                  Timestamp? tA = (a.data() as Map<String, dynamic>)['lastMessageTimestamp'] as Timestamp?;
-                  Timestamp? tB = (b.data() as Map<String, dynamic>)['lastMessageTimestamp'] as Timestamp?;
-                  if (tA == null) return 1;
-                  if (tB == null) return -1;
-                  return tB.compareTo(tA); // Descending order
-                });
-
-                return ListView.builder(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  itemCount: chatDocs.length,
-                  itemBuilder: (context, index) {
-                    final chatDoc = chatDocs[index];
-                    final chatData = chatDoc.data() as Map<String, dynamic>;
-                    final chatDocId = chatDoc.id;
-                    final bool isGroup = chatData['isGroup'] == true;
-
-                    if (isGroup) {
-                      final groupName = chatData['groupName'] ?? 'Unnamed Group';
-                      // Search filter
-                      if (_searchQuery.isNotEmpty && !groupName.toLowerCase().contains(_searchQuery)) {
-                        return const SizedBox.shrink();
-                      }
-
-                      final lastMessage = chatData['lastMessage'] ?? '';
-                      final lastMessageSenderId = chatData['lastMessageSenderId'] ?? '';
-                      final lastMessageSenderName = chatData['lastMessageSenderName'] ?? '';
-                      final Timestamp? lastMessageTimestamp = chatData['lastMessageTimestamp'] as Timestamp?;
-                      final Map<String, dynamic> unreadMap = chatData['unreadCount'] ?? {};
-                      final int unreadCount = unreadMap[currentUser!.uid] ?? 0;
-                      final bool isUnread = unreadCount > 0 && lastMessageSenderId != currentUser!.uid;
-
-                      String subtitleText = lastMessage;
-                      if (lastMessageSenderId == currentUser!.uid) {
-                        subtitleText = 'You: $lastMessage';
-                      } else if (lastMessageSenderName.isNotEmpty) {
-                        subtitleText = '$lastMessageSenderName: $lastMessage';
-                      }
-
-                      return ListTile(
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                        leading: CircleAvatar(
-                          radius: 26,
-                          backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.1),
-                          child: Icon(Icons.groups_rounded, color: theme.colorScheme.primary, size: 28),
-                        ),
-                        title: Text(
-                          groupName,
-                          style: TextStyle(
-                            fontWeight: isUnread ? FontWeight.bold : FontWeight.w600,
-                            fontSize: 16,
-                          ),
-                        ),
-                        subtitle: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                subtitleText,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontWeight: isUnread ? FontWeight.bold : FontWeight.normal,
-                                  color: isUnread ? theme.colorScheme.onSurface : theme.colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              formatChatTime(lastMessageTimestamp),
-                              style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: isUnread ? FontWeight.bold : FontWeight.normal,
-                                  color: isUnread ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                        ),
-                        trailing: isUnread
-                            ? Container(
-                                padding: const EdgeInsets.all(6),
-                                decoration: BoxDecoration(
-                                  color: theme.colorScheme.primary,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Text(
-                                  '$unreadCount',
-                                  style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                                ),
-                              )
-                            : null,
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => ChatScreen(
-                                isGroup: true,
-                                groupId: chatDocId,
-                                groupName: groupName,
-                              ),
-                            ),
-                          );
-                        },
-                      );
-                    }
-
-                    final List<dynamic> participants = chatData['participants'] ?? [];
-                    final String otherUserId = participants.firstWhere((id) => id != currentUser!.uid, orElse: () => '');
-
-                    if (otherUserId.isEmpty) return const SizedBox.shrink();
-
-                    return FutureBuilder<DocumentSnapshot>(
-                      future: FirebaseFirestore.instance.collection('users').doc(otherUserId).get(),
-                      builder: (context, userSnapshot) {
-                        if (!userSnapshot.hasData) return const SizedBox.shrink();
-                        final userData = userSnapshot.data!.data() as Map<String, dynamic>? ?? {};
-                        final displayName = userData['displayName'] ?? 'Study Buddy';
-                        final email = userData['email'] ?? '';
-
-                        // Search filter
-                        if (_searchQuery.isNotEmpty &&
-                            !displayName.toLowerCase().contains(_searchQuery) &&
-                            !email.toLowerCase().contains(_searchQuery)) {
-                          return const SizedBox.shrink();
-                        }
-
-                        final lastMessage = chatData['lastMessage'] ?? '';
-                        final lastMessageSenderId = chatData['lastMessageSenderId'] ?? '';
-                        final Timestamp? lastMessageTimestamp = chatData['lastMessageTimestamp'] as Timestamp?;
-                        final Map<String, dynamic> unreadMap = chatData['unreadCount'] ?? {};
-                        final int unreadCount = unreadMap[currentUser!.uid] ?? 0;
-
-                        final bool isUnread = unreadCount > 0 && lastMessageSenderId != currentUser!.uid;
-
-                        return ListTile(
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                          leading: Stack(
-                            children: [
-                              CircleAvatar(
-                                radius: 26,
-                                backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.1),
-                                child: Text(
-                                  displayName.isNotEmpty ? displayName[0].toUpperCase() : 'S',
-                                  style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.primary),
-                                ),
-                              ),
-                              Positioned(
-                                right: 0,
-                                bottom: 0,
-                                child: Container(
-                                  width: 14,
-                                  height: 14,
-                                  decoration: BoxDecoration(
-                                    color: Colors.green,
-                                    shape: BoxShape.circle,
-                                    border: Border.all(color: theme.colorScheme.surface, width: 2),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          title: Text(
-                            displayName,
-                            style: TextStyle(
-                              fontWeight: isUnread ? FontWeight.bold : FontWeight.w600,
-                              fontSize: 16,
-                            ),
-                          ),
-                          subtitle: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  lastMessageSenderId == currentUser!.uid 
-                                      ? 'You: $lastMessage' 
-                                      : lastMessage,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontWeight: isUnread ? FontWeight.bold : FontWeight.normal,
-                                    color: isUnread ? theme.colorScheme.onSurface : theme.colorScheme.onSurfaceVariant,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                formatChatTime(lastMessageTimestamp),
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: isUnread ? FontWeight.bold : FontWeight.normal,
-                                  color: isUnread ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ],
-                          ),
-                          trailing: isUnread
-                              ? Container(
-                                  padding: const EdgeInsets.all(6),
-                                  decoration: BoxDecoration(
-                                    color: theme.colorScheme.primary,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Text(
-                                    '$unreadCount',
-                                    style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                                  ),
-                                )
-                              : null,
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => ChatScreen(
-                                  friendId: otherUserId,
-                                  friendName: displayName,
-                                ),
-                              ),
-                            );
-                          },
-                        );
-                      },
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Active Now row at the top
-  Widget _buildActiveFriendsSection() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('users')
-          .doc(currentUser!.uid)
-          .collection('friends')
-          .where('status', isEqualTo: 'accepted')
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return const SizedBox.shrink();
-        }
-
-        final friendDocs = snapshot.data!.docs;
-
-        return Container(
-          height: 100,
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            itemCount: friendDocs.length,
-            itemBuilder: (context, index) {
-              final friendId = friendDocs[index].id;
-
-              return FutureBuilder<DocumentSnapshot>(
-                future: FirebaseFirestore.instance.collection('users').doc(friendId).get(),
-                builder: (context, userSnapshot) {
-                  if (!userSnapshot.hasData) return const SizedBox.shrink();
-                  final userData = userSnapshot.data!.data() as Map<String, dynamic>? ?? {};
-                  final displayName = userData['displayName'] ?? 'Buddy';
-
-                  return GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ChatScreen(
-                            friendId: friendId,
-                            friendName: displayName,
-                          ),
-                        ),
-                      );
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                      child: Column(
-                        children: [
-                          Stack(
-                            children: [
-                              CircleAvatar(
-                                radius: 26,
-                                backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-                                child: Text(
-                                  displayName.isNotEmpty ? displayName[0].toUpperCase() : 'B',
-                                  style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary),
-                                ),
-                              ),
-                              Positioned(
-                                right: 0,
-                                bottom: 0,
-                                child: Container(
-                                  width: 14,
-                                  height: 14,
-                                  decoration: BoxDecoration(
-                                    color: Colors.green,
-                                    shape: BoxShape.circle,
-                                    border: Border.all(color: Theme.of(context).colorScheme.surface, width: 2),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          SizedBox(
-                            width: 60,
-                            child: Text(
-                              displayName.split(' ')[0],
-                              textAlign: TextAlign.center,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              );
-            },
-          ),
-        );
-      },
-    );
-  }
-}
-
-// ==========================================
-// Chat Room Screen (Messenger Chat Window)
-// ==========================================
 class ChatScreen extends StatefulWidget {
-  final String friendId;
-  final String friendName;
-  final bool isGroup;
-  final String? groupId;
-  final String? groupName;
+  final String chatId;
+  final String chatName;
+  final String? receiverId; // For one-on-one chats
+  final bool isGroupChat;
 
   const ChatScreen({
-    super.key, 
-    this.friendId = '', 
-    this.friendName = '',
-    this.isGroup = false,
-    this.groupId,
-    this.groupName,
+    super.key,
+    required this.chatId,
+    required this.chatName,
+    this.receiverId,
+    this.isGroupChat = false,
   });
 
   @override
@@ -501,18 +32,35 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> {
-  final User? currentUser = FirebaseAuth.instance.currentUser;
   final TextEditingController _messageController = TextEditingController();
+  final User? _currentUser = FirebaseAuth.instance.currentUser;
   final ScrollController _scrollController = ScrollController();
-  late String _chatId;
+
+  bool _isUploading = false;
 
   @override
   void initState() {
     super.initState();
-    if (currentUser != null) {
-      _chatId = widget.isGroup ? widget.groupId! : getChatId(currentUser!.uid, widget.friendId);
-      _markMessagesAsRead();
+    // Ensure chat document exists for one-on-one chats
+    if (!widget.isGroupChat && widget.receiverId != null) {
+      _ensureChatDocumentExists();
+    } else {
+      _markAsRead();
     }
+  }
+
+  Future<void> _ensureChatDocumentExists() async {
+    final chatRef = FirebaseFirestore.instance.collection('chats').doc(widget.chatId);
+    final doc = await chatRef.get();
+    if (!doc.exists) {
+      await chatRef.set({
+        'participants': [_currentUser!.uid, widget.receiverId],
+        'isGroup': false,
+        'createdAt': FieldValue.serverTimestamp(),
+        'unreadCount': {_currentUser!.uid: 0, widget.receiverId!: 0},
+      });
+    }
+    _markAsRead();
   }
 
   @override
@@ -522,523 +70,812 @@ class _ChatScreenState extends State<ChatScreen> {
     super.dispose();
   }
 
-  // Mark all unread messages as read in this conversation
-  Future<void> _markMessagesAsRead() async {
-    if (currentUser == null) return;
-    
-    // Clear unread count for current user
-    await FirebaseFirestore.instance.collection('chats').doc(_chatId).set({
-      'unreadCount': {
-        currentUser!.uid: 0,
-      }
-    }, SetOptions(merge: true));
+  void _markAsRead() {
+    if (_currentUser != null) {
+      FirebaseFirestore.instance.collection('chats').doc(widget.chatId).update({
+        'unreadCount.${_currentUser!.uid}': 0,
+      });
+    }
   }
 
-  // Send message function
-  Future<void> _sendMessage({String? pdfUrl, String? pdfName}) async {
-    final String text = _messageController.text.trim();
-    if (text.isEmpty && pdfUrl == null && currentUser == null) return;
+  Future<void> _sendMessage() async {
+    final text = _messageController.text.trim();
+    if (text.isEmpty || _currentUser == null) return;
 
     _messageController.clear();
+    _scrollToBottom();
 
-    final Timestamp now = Timestamp.now();
-    final messageDoc = {
-      'senderId': currentUser!.uid,
-      'senderName': currentUser!.displayName ?? 'Study Buddy',
-      'receiverId': widget.isGroup ? widget.groupId! : widget.friendId,
-      'content': pdfUrl != null ? (pdfName ?? '📄 PDF Document') : text,
-      'timestamp': now,
-      'isRead': false,
-      if (pdfUrl != null) 'pdfUrl': pdfUrl,
-    };
+    await _addMessageToFirestore(content: text, type: 'text');
+  }
 
-    // Use a transaction/batch to ensure chat update and message addition are synced
-    final chatDocRef = FirebaseFirestore.instance.collection('chats').doc(_chatId);
-    final messageColRef = chatDocRef.collection('messages');
+  Future<void> _addMessageToFirestore({
+    required String content,
+    required String type,
+    String? fileName,
+    int? fileSize,
+  }) async {
+    if (_currentUser == null) return;
 
-    // Run in parallel or transaction to update chat metadata
-    Map<String, dynamic> chatMeta = {
-      'lastMessage': pdfUrl != null ? '📄 [PDF] $pdfName' : text,
-      'lastMessageSenderId': currentUser!.uid,
-      'lastMessageSenderName': currentUser!.displayName ?? 'Study Buddy',
-      'lastMessageTimestamp': now,
-    };
+    final chatRef = FirebaseFirestore.instance.collection('chats').doc(widget.chatId);
 
-    if (!widget.isGroup) {
-      chatMeta['participants'] = [currentUser!.uid, widget.friendId];
-    }
-
-    await chatDocRef.set(chatMeta, SetOptions(merge: true));
-
-    // Add message doc
-    await messageColRef.add(messageDoc);
-
-    // Update unread count for receiver(s)
-    await FirebaseFirestore.instance.runTransaction((transaction) async {
-      DocumentSnapshot chatSnap = await transaction.get(chatDocRef);
-      if (chatSnap.exists) {
-        Map<String, dynamic> data = chatSnap.data() as Map<String, dynamic>;
-        Map<String, dynamic> unreadMap = Map<String, dynamic>.from(data['unreadCount'] ?? {});
-        
-        if (widget.isGroup) {
-          List<dynamic> participants = data['participants'] ?? [];
-          for (var participantId in participants) {
-            if (participantId != currentUser!.uid) {
-              int currentUnread = unreadMap[participantId] ?? 0;
-              unreadMap[participantId] = currentUnread + 1;
-            }
-          }
-        } else {
-          int currentUnread = unreadMap[widget.friendId] ?? 0;
-          unreadMap[widget.friendId] = currentUnread + 1;
-        }
-        transaction.update(chatDocRef, {'unreadCount': unreadMap});
-      } else if (!widget.isGroup) {
-        transaction.set(chatDocRef, {
-          'unreadCount': {
-            widget.friendId: 1,
-            currentUser!.uid: 0,
-          }
-        }, SetOptions(merge: true));
-      }
+    await chatRef.collection('messages').add({
+      'senderId': _currentUser!.uid,
+      'senderName': _currentUser!.displayName ?? 'User',
+      'content': content,
+      'type': type,
+      'fileName': fileName,
+      'fileSize': fileSize,
+      'timestamp': FieldValue.serverTimestamp(),
     });
 
-    // Auto scroll to bottom
-    _scrollToBottom();
+    // Update last message and unread counts for all participants
+    final chatDoc = await chatRef.get();
+    final participants = List<String>.from(chatDoc.data()?['participants'] ?? []);
+    final unreadUpdates = <String, dynamic>{};
+    for (var pId in participants) {
+      if (pId != _currentUser!.uid) {
+        unreadUpdates['unreadCount.$pId'] = FieldValue.increment(1);
+      }
+    }
+
+    await chatRef.update({
+      'lastMessage': type == 'image' ? '📷 Photo' : (type == 'file' ? '📄 File' : content),
+      'lastMessageTimestamp': FieldValue.serverTimestamp(),
+      ...unreadUpdates,
+    });
+  }
+
+  Future<void> _pickAndUploadFile({bool pickImage = true}) async {
+    if (_isUploading) return;
+
+    File? fileToUpload;
+    String? fileName;
+
+    if (pickImage) {
+      final pickedFile = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 70);
+      if (pickedFile != null) {
+        fileToUpload = File(pickedFile.path);
+        fileName = pickedFile.name;
+      }
+    } else {
+      final result = await fp.FilePicker.pickFiles(
+        type: fp.FileType.custom,
+        allowedExtensions: ['pdf', 'doc', 'docx', 'txt'],
+      );
+      if (result != null && result.files.single.path != null) {
+        fileToUpload = File(result.files.single.path!);
+        fileName = result.files.single.name;
+      }
+    }
+
+    if (fileToUpload == null) return;
+
+    setState(() => _isUploading = true);
+
+    try {
+      final fileType = pickImage ? 'image' : 'file';
+      final ref = FirebaseStorage.instance
+          .ref('chat_media')
+          .child(widget.chatId)
+          .child('${DateTime.now().millisecondsSinceEpoch}_$fileName');
+
+      final uploadTask = ref.putFile(fileToUpload);
+      final snapshot = await uploadTask.whenComplete(() {});
+      final downloadUrl = await snapshot.ref.getDownloadURL();
+      final fileSize = await fileToUpload.length();
+
+      await _addMessageToFirestore(
+        content: downloadUrl,
+        type: fileType,
+        fileName: fileName,
+        fileSize: fileSize,
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to upload file: $e')),
+      );
+    } finally {
+      setState(() => _isUploading = false);
+    }
   }
 
   void _scrollToBottom() {
     if (_scrollController.hasClients) {
       _scrollController.animateTo(
-        0.0,
+        _scrollController.position.minScrollExtent,
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeOut,
       );
     }
   }
 
-  // Pick PDF simulated logic
-  Future<void> _pickAndSendPdf() async {
-    try {
-      final ImagePicker picker = ImagePicker();
-      final XFile? pickedFile = await picker.pickImage(source: ImageSource.gallery);
-      if (pickedFile != null) {
-        final path = pickedFile.path.toLowerCase();
-        if (!path.endsWith('.pdf')) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Error: Only PDF files (.pdf) are allowed! This is a JPG/PNG image file.'),
-              backgroundColor: Colors.redAccent,
-            ),
-          );
-          return;
-        }
-
-        final fileName = pickedFile.path.split('/').last.split('\\').last;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Uploading PDF...')),
-        );
-        
-        // Simulating Firebase Storage PDF upload
-        final String simulatedUrl = pickedFile.path; // Local path works as url for opening immediately
-        await _sendMessage(pdfUrl: simulatedUrl, pdfName: fileName);
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to pick document: $e')),
+  BoxDecoration _getThemeDecoration(String? themeName, bool isDark) {
+    if (themeName == null || themeName == 'default') {
+      return BoxDecoration(
+        color: isDark ? Colors.grey[900] : Colors.grey[50],
       );
+    }
+    switch (themeName) {
+      case 'sunset':
+        return const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFFFF7E5F), Color(0xFFFEB47B)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        );
+      case 'forest':
+        return const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF11998E), Color(0xFF38EF7D)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        );
+      case 'ocean':
+        return const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF02AABD), Color(0xFF00CDAC)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        );
+      case 'midnight':
+        return const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF0F2027), Color(0xFF203A43), Color(0xFF2C5364)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        );
+      case 'lavender':
+        return const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFFE0C3FC), Color(0xFF8EC5FC)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        );
+      default:
+        return BoxDecoration(
+          color: isDark ? Colors.grey[900] : Colors.grey[50],
+        );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (currentUser == null) {
-      return const Scaffold(body: Center(child: Text("Please login first")));
-    }
-
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
-    return Scaffold(
-      backgroundColor: theme.colorScheme.surface,
-      appBar: AppBar(
-        backgroundColor: theme.colorScheme.surface,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        leadingWidth: 40,
-        title: StreamBuilder<DocumentSnapshot>(
-          stream: widget.isGroup
-              ? FirebaseFirestore.instance.collection('chats').doc(_chatId).snapshots()
-              : null,
-          builder: (context, snapshot) {
-            String title = widget.isGroup ? (widget.groupName ?? 'Group') : widget.friendName;
-            String subtitle = widget.isGroup ? 'Group' : 'Active Now';
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance.collection('chats').doc(widget.chatId).snapshots(),
+      builder: (context, chatSnap) {
+        Map<String, dynamic> chatData = {};
+        if (chatSnap.hasData && chatSnap.data!.exists) {
+          chatData = chatSnap.data!.data() as Map<String, dynamic>;
+        }
 
-            if (widget.isGroup && snapshot.hasData && snapshot.data!.exists) {
-              final data = snapshot.data!.data() as Map<String, dynamic>?;
-              if (data != null) {
-                title = data['groupName'] ?? title;
-                final List<dynamic> participants = data['participants'] ?? [];
-                subtitle = '${participants.length} members';
-              }
-            }
+        final themeName = chatData['theme'] as String? ?? 'default';
+        final nicknames = chatData['nicknames'] as Map<String, dynamic>? ?? {};
+        final blocked = chatData['blocked'] as Map<String, dynamic>? ?? {};
 
-            return Row(
-              children: [
-                CircleAvatar(
-                  radius: 18,
-                  backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.1),
-                  child: Text(
-                    widget.isGroup
-                        ? (title.isNotEmpty ? title[0].toUpperCase() : 'G')
-                        : (widget.friendName.isNotEmpty ? widget.friendName[0].toUpperCase() : 'F'),
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: theme.colorScheme.primary),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                      ),
-                      Text(
-                        subtitle,
-                        style: TextStyle(
-                          color: widget.isGroup ? Colors.grey : Colors.green,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
+        // Nickname for the other user
+        final receiverNickname = widget.receiverId != null ? nicknames[widget.receiverId] as String? : null;
+        final chatTitle = receiverNickname ?? widget.chatName;
+
+        // Block status
+        final isMutedByMe = widget.receiverId != null && (blocked[_currentUser?.uid] == true);
+        final isMutedByOther = widget.receiverId != null && (blocked[widget.receiverId] == true);
+        final isBlocked = isMutedByMe || isMutedByOther;
+
+        return Scaffold( // Main Scaffold
+          backgroundColor: theme.colorScheme.surface,
+          appBar: AppBar( // Custom AppBar
+            elevation: 0.5,
+            backgroundColor: theme.cardColor,
+            title: widget.isGroupChat
+                ? _buildGroupAppBarTitle(context)
+                : _buildOneOnOneAppBarTitle(context, chatTitle),
+            actions: [ // Actions
+              if (widget.isGroupChat)
+                IconButton(
+                  icon: const Icon(Icons.more_vert),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => GroupDetailsScreen(
+                          groupId: widget.chatId,
+                          groupName: widget.chatName,
                         ),
                       ),
-                    ],
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
-        actions: [
-          if (!widget.isGroup) ...[
-            IconButton(
-              icon: Icon(Icons.call_rounded, color: theme.colorScheme.primary),
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Voice Call feature is coming soon!')),
-                );
-              },
-            ),
-            IconButton(
-              icon: Icon(Icons.videocam_rounded, color: theme.colorScheme.primary),
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Video Call feature is coming soon!')),
-                );
-              },
-            ),
-          ],
-          IconButton(
-            icon: Icon(Icons.info_outline_rounded, color: theme.colorScheme.primary),
-            onPressed: () {
-              if (widget.isGroup) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => GroupDetailsScreen(
-                      groupId: _chatId,
-                      groupName: widget.groupName ?? 'Group',
-                    ),
-                  ),
-                );
-              } else {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => FriendProfileScreen(
-                      friendId: widget.friendId,
-                      friendName: widget.friendName,
-                    ),
-                  ),
-                );
-              }
-            },
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          // Message Area
-          Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('chats')
-                  .doc(_chatId)
-                  .collection('messages')
-                  .orderBy('timestamp', descending: true)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                
-                // When new messages arrive, mark as read
-                _markMessagesAsRead();
-
-                final messageDocs = snapshot.data?.docs ?? [];
-
-                if (messageDocs.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        CircleAvatar(
-                          radius: 40,
-                          backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.1),
-                          child: Icon(Icons.waving_hand_rounded, size: 36, color: theme.colorScheme.primary),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          widget.isGroup
-                              ? 'Say Hello to your study group!'
-                              : 'Say Hello to ${widget.friendName}!',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                        ),
-                        const SizedBox(height: 8),
-                        const Text('Start your study discussion here.', style: TextStyle(color: Colors.grey, fontSize: 13)),
-                      ],
-                    ),
-                  );
-                }
-
-                return ListView.builder(
-                  controller: _scrollController,
-                  reverse: true, // Show recent messages at the bottom
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  itemCount: messageDocs.length,
-                  itemBuilder: (context, index) {
-                    final messageData = messageDocs[index].data() as Map<String, dynamic>;
-                    final String senderId = messageData['senderId'] ?? '';
-                    final String senderName = messageData['senderName'] ?? '';
-                    final String content = messageData['content'] ?? '';
-                    final String? pdfUrl = messageData['pdfUrl'] as String?;
-                    final Timestamp? timestamp = messageData['timestamp'] as Timestamp?;
-                    final bool isMe = senderId == currentUser!.uid;
-
-                    if (senderId == 'system') {
-                      return Align(
-                        alignment: Alignment.center,
-                        child: Container(
-                          margin: const EdgeInsets.symmetric(vertical: 8),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: theme.brightness == Brightness.light ? Colors.grey.shade200 : Colors.grey.shade800,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            content,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: theme.brightness == Brightness.light ? Colors.grey.shade700 : Colors.grey.shade300,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      );
-                    }
-
-                    return _buildMessageBubble(content, isMe, timestamp, theme, pdfUrl, senderName: senderName);
+                    );
                   },
-                );
-              },
+                ),
+            ],
+          ),
+          body: Container(
+            decoration: _getThemeDecoration(themeName, isDark),
+            child: Column( // Body with messages and input
+              children: [
+                Expanded(
+                  child: StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection('chats')
+                        .doc(widget.chatId)
+                        .collection('messages')
+                        .orderBy('timestamp', descending: true)
+                        .snapshots(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                        return const Center(child: Text('Say hello! 👋'));
+                      }
+
+                      final messages = snapshot.data!.docs;
+
+                      WidgetsBinding.instance.addPostFrameCallback((_) => _markAsRead());
+
+                      return ListView.builder(
+                        controller: _scrollController,
+                        reverse: true,
+                        padding: const EdgeInsets.all(8.0),
+                        itemCount: messages.length,
+                        itemBuilder: (context, index) {
+                          final message = messages[index];
+                          final data = message.data() as Map<String, dynamic>;
+                          final isMe = data['senderId'] == _currentUser?.uid;
+                          final isFirstMessage = index == messages.length - 1 ||
+                              (messages[index + 1].data() as Map<String, dynamic>)['senderId'] != data['senderId'];
+                          final isSystemMessage = data['senderId'] == 'system';
+
+                          if (isSystemMessage) {
+                            return _SystemMessageBubble(message: data['content'] ?? '');
+                          }
+                          
+                          return _MessageBubble(
+                            data: data,
+                            isMe: isMe,
+                            isGroupChat: widget.isGroupChat,
+                            themeName: themeName,
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+                if (_isUploading)
+                  const Padding(
+                    padding: EdgeInsets.all(8.0),
+                    child: LinearProgressIndicator(),
+                  ),
+                _buildMessageInput(theme, isBlocked, isMutedByMe),
+              ],
             ),
           ),
-
-          // Message Input Field
-          _buildMessageInput(theme),
-        ],
-      ),
+        );
+      }
     );
   }
 
-  // Message Bubble UI
-  Widget _buildMessageBubble(String content, bool isMe, Timestamp? timestamp, ThemeData theme, String? pdfUrl, {String senderName = ''}) {
-    final bubbleWidth = MediaQuery.of(context).size.width * 0.75;
-    
-    return Align(
-      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-      child: Column(
-        crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-        children: [
-          if (widget.isGroup && !isMe)
-            Padding(
-              padding: const EdgeInsets.only(left: 8.0, bottom: 2.0),
-              child: Text(
-                senderName.isNotEmpty ? senderName : 'Study Buddy',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  color: theme.colorScheme.primary,
-                ),
-              ),
-            ),
-          GestureDetector(
-            onTap: pdfUrl == null ? null : () {
-              // Open PDF simulation view
+  // AppBar for One-on-One Chat
+  Widget _buildOneOnOneAppBarTitle(BuildContext context, String displayName) {
+    return FutureBuilder<DocumentSnapshot>(
+      future: widget.receiverId != null
+          ? FirebaseFirestore.instance.collection('users').doc(widget.receiverId).get()
+          : null,
+      builder: (context, userSnapshot) {
+        String photoUrl = '';
+        bool isOnline = false;
+
+        if (userSnapshot.hasData && userSnapshot.data!.data() != null) {
+          final userData = userSnapshot.data!.data() as Map<String, dynamic>;
+          photoUrl = userData['photoUrl'] ?? '';
+          final lastSeen = (userData['lastSeen'] as Timestamp?)?.toDate();
+          isOnline = lastSeen != null && DateTime.now().difference(lastSeen).inMinutes < 2;
+        }
+
+        ImageProvider? avatarImage;
+        if (photoUrl.isNotEmpty) {
+          avatarImage = photoUrl.startsWith('http')
+              ? NetworkImage(photoUrl)
+              : FileImage(File(photoUrl)) as ImageProvider;
+        }
+
+        return GestureDetector(
+          onTap: () {
+            if (widget.receiverId != null) {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => Scaffold(
-                    appBar: AppBar(title: Text(content)),
-                    body: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.picture_as_pdf_rounded, size: 100, color: Colors.redAccent),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Opening PDF Document: $content',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                          ),
-                          const SizedBox(height: 8),
-                          const Text('Loaded inside StudyMate PDF Viewer.', style: TextStyle(color: Colors.grey)),
-                        ],
-                      ),
-                    ),
+                  builder: (_) => ChatProfileScreen(
+                    chatId: widget.chatId,
+                    receiverId: widget.receiverId!,
+                    receiverName: widget.chatName,
                   ),
                 ),
               );
-            },
-            child: Container(
-              margin: const EdgeInsets.symmetric(vertical: 4),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              constraints: BoxConstraints(maxWidth: bubbleWidth),
-              decoration: BoxDecoration(
-                gradient: pdfUrl != null
-                    ? null
-                    : (isMe 
-                        ? LinearGradient(
-                            colors: [theme.colorScheme.primary, theme.colorScheme.primary.withValues(alpha: 0.85)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          )
-                        : null),
-                color: pdfUrl != null
-                    ? (theme.brightness == Brightness.light ? const Color(0xFFFEE2E2) : const Color(0xFF7F1D1D))
-                    : (isMe 
-                        ? null 
-                        : (theme.brightness == Brightness.light 
-                            ? const Color(0xFFF1F5F9) 
-                            : const Color(0xFF1E293B))),
-                borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(18),
-                  topRight: const Radius.circular(18),
-                  bottomLeft: isMe ? const Radius.circular(18) : const Radius.circular(4),
-                  bottomRight: isMe ? const Radius.circular(4) : const Radius.circular(18),
-                ),
-                border: pdfUrl != null ? Border.all(color: Colors.redAccent.withValues(alpha: 0.5), width: 1.5) : null,
-              ),
-              child: pdfUrl != null
-                  ? Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.picture_as_pdf_rounded, color: Colors.redAccent, size: 28),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                content,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: theme.colorScheme.onSurface,
-                                  fontSize: 14,
-                                ),
-                              ),
-                              const Text(
-                                'Tap to open document',
-                                style: TextStyle(
-                                  color: Colors.grey,
-                                  fontSize: 10,
-                                ),
-                              ),
-                            ],
-                          ),
+            }
+          },
+          child: Row(
+            children: [
+              Stack(
+                children: [
+                  CircleAvatar(
+                    radius: 20,
+                    backgroundImage: avatarImage,
+                    child: avatarImage == null ? const Icon(Icons.person, size: 20) : null,
+                  ),
+                  if (isOnline)
+                    Positioned(
+                      bottom: 0,
+                      right: 0,
+                      child: Container(
+                        width: 12,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: Colors.green,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Theme.of(context).cardColor, width: 2),
                         ),
-                      ],
-                    )
-                  : Text(
-                      content,
-                      style: TextStyle(
-                        color: isMe ? Colors.white : theme.colorScheme.onSurface,
-                        fontSize: 15,
-                        height: 1.3,
                       ),
                     ),
-            ),
-          ),
-          if (timestamp != null)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 1.0),
-              child: Text(
-                formatChatTime(timestamp),
-                style: TextStyle(color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6), fontSize: 10),
+                ],
               ),
-            ),
-        ],
-      ),
+              const SizedBox(width: 12),
+              Text(displayName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            ],
+          ),
+        );
+      }
     );
   }
 
-  // Message input bar
-  Widget _buildMessageInput(ThemeData theme) {
-    return SafeArea(
-      child: Container(
-        padding: const EdgeInsets.all(8.0),
+  // AppBar for Group Chat
+  Widget _buildGroupAppBarTitle(BuildContext context) {
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance.collection('chats').doc(widget.chatId).snapshots(),
+      builder: (context, snapshot) {
+        final groupData = snapshot.hasData ? snapshot.data!.data() as Map<String, dynamic>? : null;
+        final groupPhotoUrl = groupData?['groupPhotoUrl'] as String?;
+
+        return GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => GroupDetailsScreen(
+                  groupId: widget.chatId,
+                  groupName: widget.chatName,
+                ),
+              ),
+            );
+          },
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 20,
+                backgroundImage: groupPhotoUrl != null ? NetworkImage(groupPhotoUrl) : null,
+                child: groupPhotoUrl == null ? const Icon(Icons.groups_rounded, size: 20) : null,
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(widget.chatName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                  const Text('Tap for group info', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildMessageInput(ThemeData theme, bool isBlocked, bool isMutedByMe) {
+    if (isBlocked) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
         decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
+          color: theme.cardColor,
           border: Border(top: BorderSide(color: theme.dividerColor, width: 0.5)),
         ),
+        child: SafeArea(
+          child: Center(
+            child: Text(
+              isMutedByMe 
+                  ? 'You have muted this chat. Enable messages in settings to chat.'.tr()
+                  : 'Messages are disabled for this chat.'.tr(),
+              style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.bold, fontSize: 13),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 12.0),
+      decoration: BoxDecoration(
+        color: theme.cardColor,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
+      child: SafeArea(
         child: Row(
           children: [
+            // Attachment Button
             IconButton(
-              icon: Icon(Icons.attach_file_rounded, color: theme.colorScheme.primary),
-              tooltip: 'Send PDF',
-              onPressed: _pickAndSendPdf,
-            ),
-            IconButton(
-              icon: Icon(Icons.image_outlined, color: theme.colorScheme.primary),
-              onPressed: () {},
+              icon: const Icon(Icons.attach_file_rounded),
+              onPressed: _showAttachmentMenu,
+              color: theme.colorScheme.primary,
             ),
             Expanded(
               child: TextField(
                 controller: _messageController,
                 textCapitalization: TextCapitalization.sentences,
-                onSubmitted: (_) => _sendMessage(),
                 decoration: InputDecoration(
-                  hintText: 'Message...',
-                  hintStyle: TextStyle(color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7)),
+                  hintText: 'Type a message...',
+                  filled: true,
+                  fillColor: theme.colorScheme.surface,
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(24),
+                    borderRadius: BorderRadius.circular(24.0),
                     borderSide: BorderSide.none,
                   ),
-                  fillColor: theme.brightness == Brightness.light 
-                      ? const Color(0xFFF1F5F9) 
-                      : const Color(0xFF1E293B),
-                  filled: true,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16.0),
                 ),
+                onSubmitted: (_) => _sendMessage(),
               ),
             ),
-            const SizedBox(width: 4),
-            IconButton(
-              icon: Icon(Icons.send_rounded, color: theme.colorScheme.primary),
-              onPressed: () => _sendMessage(),
+            const SizedBox(width: 8),
+            // Send Button
+            FloatingActionButton(
+              onPressed: _sendMessage,
+              mini: true,
+              elevation: 2,
+              backgroundColor: theme.colorScheme.primary,
+              child: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  void _showAttachmentMenu() {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        return SafeArea(
+          child: Wrap(
+            children: <Widget>[
+              ListTile(
+                leading: const Icon(Icons.photo_library),
+                title: const Text('Photo'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _pickAndUploadFile(pickImage: true);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.insert_drive_file),
+                title: const Text('Document (PDF)'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _pickAndUploadFile(pickImage: false);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+// --- Message Bubble Widgets ---
+
+class _MessageBubble extends StatelessWidget {
+  final Map<String, dynamic> data;
+  final bool isMe;
+  final bool isGroupChat;
+  final String themeName;
+
+  const _MessageBubble({
+    required this.data,
+    required this.isMe,
+    required this.isGroupChat,
+    required this.themeName,
+  });
+
+  Color _getBubbleColor(String? themeName, bool isMe, ThemeData themeData) {
+    if (themeName == null || themeName == 'default') {
+      return isMe ? themeData.colorScheme.primary : themeData.cardColor;
+    }
+    if (!isMe) {
+      return themeData.brightness == Brightness.dark 
+          ? Colors.black.withValues(alpha: 0.4) 
+          : Colors.white.withValues(alpha: 0.7);
+    }
+    switch (themeName) {
+      case 'sunset': return const Color(0xFFFF7E5F);
+      case 'forest': return const Color(0xFF11998E);
+      case 'ocean': return const Color(0xFF02AABD);
+      case 'midnight': return const Color(0xFF203A43);
+      case 'lavender': return const Color(0xFFB19FFB);
+      default: return themeData.colorScheme.primary;
+    }
+  }
+
+  Color _getBubbleTextColor(String? themeName, bool isMe, ThemeData themeData) {
+    if (themeName == null || themeName == 'default') {
+      return isMe ? Colors.white : themeData.colorScheme.onSurface;
+    }
+    if (!isMe) {
+      return themeData.colorScheme.onSurface;
+    }
+    return Colors.white;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context); // Theme
+    final alignment = isMe ? Alignment.centerRight : Alignment.centerLeft; // Alignment
+    final color = _getBubbleColor(themeName, isMe, theme);
+    final textColor = _getBubbleTextColor(themeName, isMe, theme);
+
+    // Generate a color from sender's name for group chats
+    final List<Color> nameColors = [Colors.blue, Colors.green, Colors.purple, Colors.orange, Colors.teal, Colors.pink];
+    final senderName = data['senderName'] ?? 'User';
+    final nameColor = isMe
+        ? Colors.transparent
+        : nameColors[senderName.hashCode % nameColors.length];
+
+    final timestamp = (data['timestamp'] as Timestamp?)?.toDate();
+    final timeString = timestamp != null ? DateFormat('h:mm a').format(timestamp) : '';
+
+    return Container(
+      alignment: alignment,
+      margin: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
+      child: Column(
+        crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        children: [
+          if (isGroupChat && !isMe)
+            Padding(
+              padding: const EdgeInsets.only(left: 12.0, bottom: 4.0),
+              child: Text(
+                senderName,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: nameColor,
+                  fontWeight: FontWeight.bold),
+              ),
+            ),
+          Container(
+            constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
+            padding: const EdgeInsets.all(12.0),
+            decoration: BoxDecoration(
+              color: color,
+              border: (isMe || themeName != 'default') ? null : Border.all(color: theme.dividerColor.withValues(alpha: 0.5)),
+              borderRadius: BorderRadius.only(
+                topLeft: const Radius.circular(16),
+                topRight: const Radius.circular(16),
+                bottomLeft: isMe ? const Radius.circular(16) : const Radius.circular(4),
+                bottomRight: isMe ? const Radius.circular(4) : const Radius.circular(16),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildMessageContent(context, textColor),
+                const SizedBox(height: 4),
+                Text(
+                  timeString,
+                  style: TextStyle(fontSize: 10, color: textColor.withValues(alpha: 0.7)),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMessageContent(BuildContext context, Color textColor) {
+    final type = data['type'] ?? 'text';
+    final content = data['content'] ?? '';
+
+    switch (type) {
+      case 'image':
+        return GestureDetector(
+          onTap: () => _showFullScreenImage(context, content),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.network(
+              content,
+              loadingBuilder: (context, child, progress) {
+                return progress == null ? child : const CircularProgressIndicator();
+              },
+              errorBuilder: (context, error, stack) => const Icon(Icons.broken_image),
+            ),
+          ),
+        );
+      case 'file':
+        return _FileMessage(
+          url: content,
+          fileName: data['fileName'] ?? 'File',
+          fileSize: data['fileSize'],
+          textColor: textColor,
+        );
+      case 'text':
+      default:
+        return Text(content, style: TextStyle(color: textColor, fontSize: 15));
+    }
+  }
+
+  void _showFullScreenImage(BuildContext context, String imageUrl) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(backgroundColor: Colors.black, elevation: 0),
+          body: Center(
+            child: InteractiveViewer(
+              child: Image.network(imageUrl),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FileMessage extends StatefulWidget {
+  final String url;
+  final String fileName;
+  final int? fileSize;
+  final Color textColor;
+
+  const _FileMessage({
+    required this.url,
+    required this.fileName,
+    this.fileSize,
+    required this.textColor,
+  });
+
+  @override
+  State<_FileMessage> createState() => _FileMessageState();
+}
+
+class _FileMessageState extends State<_FileMessage> {
+  bool _isDownloading = false;
+  double _progress = 0.0;
+
+  String _formatBytes(int bytes) {
+    if (bytes <= 0) return "0 B";
+    const suffixes = ["B", "KB", "MB", "GB"];
+    var i = (bytes.toString().length - 1) ~/ 3;
+    return '${(bytes / (1 << (i * 10))).toStringAsFixed(1)} ${suffixes[i]}';
+  }
+
+  Future<void> _downloadAndOpenFile() async {
+    setState(() {
+      _isDownloading = true;
+      _progress = 0.0;
+    });
+
+    try {
+      final directory = await getApplicationDocumentsDirectory();
+      final filePath = '${directory.path}/${widget.fileName}';
+      final file = File(filePath);
+
+      // If file already exists, open it directly
+      if (await file.exists()) {
+        await OpenFilex.open(filePath);
+        setState(() => _isDownloading = false);
+      } else {
+        // Download the file
+        final response = await http.get(Uri.parse(widget.url));
+        if (response.statusCode == 200) {
+          await file.writeAsBytes(response.bodyBytes);
+        } else {
+          throw Exception('Failed to download file: ${response.statusCode}');
+        }
+
+        await OpenFilex.open(filePath);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not open file: $e'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    } finally {
+      setState(() => _isDownloading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: _isDownloading ? null : _downloadAndOpenFile,
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        child: Column(
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.insert_drive_file_rounded, color: widget.textColor, size: 40),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.fileName,
+                        style: TextStyle(color: widget.textColor, fontWeight: FontWeight.bold),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (widget.fileSize != null)
+                        Text(
+                          _formatBytes(widget.fileSize!),
+                          style: TextStyle(color: widget.textColor.withValues(alpha: 0.7), fontSize: 12),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            if (_isDownloading)
+              Padding(
+                padding: const EdgeInsets.only(top: 8.0),
+                child: LinearProgressIndicator(
+                  value: _progress,
+                  backgroundColor: Colors.white.withValues(alpha: 0.3),
+                  color: Colors.white,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SystemMessageBubble extends StatelessWidget {
+  final String message;
+  const _SystemMessageBubble({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      alignment: Alignment.center,
+      margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 20.0),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade300,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Text(
+          message,
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 12, color: Colors.grey.shade800, fontStyle: FontStyle.italic),
         ),
       ),
     );

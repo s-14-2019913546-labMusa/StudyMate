@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'dart:math';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:http/http.dart' as http;
 
 class AIService {
   // Helper to query Gemini with 1.5-flash and fallback to gemini-pro
@@ -523,14 +523,11 @@ Do not write any markdown code blocks (like ```json), explanations, or preamble.
 
     // 2. Fallback to free public APIs (api.dictionaryapi.dev + Google Translate API) if Gemini fails or is not configured
     try {
-      final client = HttpClient();
       final dictUrl = Uri.parse('https://api.dictionaryapi.dev/api/v2/entries/en/$cleanWord');
-      final dictRequest = await client.getUrl(dictUrl);
-      final dictResponse = await dictRequest.close();
+      final dictResponse = await http.get(dictUrl);
       
       if (dictResponse.statusCode == 200) {
-        final dictBody = await dictResponse.transform(utf8.decoder).join();
-        final List<dynamic> parsed = jsonDecode(dictBody);
+        final List<dynamic> parsed = jsonDecode(utf8.decode(dictResponse.bodyBytes));
         if (parsed.isNotEmpty) {
           final wordData = parsed[0];
           final wordName = (wordData['word'] ?? word).toString();
@@ -561,21 +558,17 @@ Do not write any markdown code blocks (like ```json), explanations, or preamble.
           
           try {
             final translateWordUrl = Uri.parse('https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=bn&dt=t&q=${Uri.encodeComponent(wordName)}');
-            final twRequest = await client.getUrl(translateWordUrl);
-            final twResponse = await twRequest.close();
+            final twResponse = await http.get(translateWordUrl);
             if (twResponse.statusCode == 200) {
-              final twBody = await twResponse.transform(utf8.decoder).join();
-              final twParsed = jsonDecode(twBody);
+              final twParsed = jsonDecode(utf8.decode(twResponse.bodyBytes));
               bengaliMeaning = twParsed[0][0][0].toString();
             }
             
             if (example.isNotEmpty) {
               final translateExUrl = Uri.parse('https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=bn&dt=t&q=${Uri.encodeComponent(example)}');
-              final teRequest = await client.getUrl(translateExUrl);
-              final teResponse = await teRequest.close();
+              final teResponse = await http.get(translateExUrl);
               if (teResponse.statusCode == 200) {
-                final teBody = await teResponse.transform(utf8.decoder).join();
-                final teParsed = jsonDecode(teBody);
+                final teParsed = jsonDecode(utf8.decode(teResponse.bodyBytes));
                 exampleBengali = teParsed[0][0][0].toString();
               }
             }

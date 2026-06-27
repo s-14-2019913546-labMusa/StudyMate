@@ -16,30 +16,58 @@ final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey = GlobalKey<Scaffol
 void main() async {
   // Ensure that Flutter binding is initialized
   WidgetsFlutterBinding.ensureInitialized();
-  // Initialize Firebase
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
 
-  // Configure Firestore offline persistence globally
-  FirebaseFirestore.instance.settings = const Settings(
-    persistenceEnabled: true,
-    cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
-  );
+  // Initialize Firebase
+  try {
+    if (Firebase.apps.isEmpty) {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+    }
+
+    // Configure Firestore offline persistence globally
+    FirebaseFirestore.instance.settings = const Settings(
+      persistenceEnabled: true,
+      cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
+    );
+  } catch (e) {
+    debugPrint("Firebase Initialization Error: $e");
+  }
 
   // Initialize Date formatting locales
-  await initializeDateFormatting();
+  try {
+    await initializeDateFormatting();
+  } catch (e) {
+    debugPrint("DateFormatting Initialization Error: $e");
+  }
 
   // Load the stored theme preference before running the app
-  await ThemeManager().loadTheme();
+  try {
+    await ThemeManager().loadTheme();
+  } catch (e) {
+    debugPrint("ThemeManager Initialization Error: $e");
+  }
+
   // Initialize Language Manager
-  await LanguageManager().init();
+  try {
+    await LanguageManager().init();
+  } catch (e) {
+    debugPrint("LanguageManager Initialization Error: $e");
+  }
   
   // Initialize Local Notifications
-  await LocalNotificationService.init();
+  try {
+    await LocalNotificationService.init();
+  } catch (e) {
+    debugPrint("LocalNotificationService Initialization Error: $e");
+  }
 
   // Initialize FCM (Web/Mobile Push)
-  await FcmService.init();
+  try {
+    await FcmService.init();
+  } catch (e) {
+    debugPrint("FcmService Initialization Error: $e");
+  }
 
   runApp(const StudyMateApp());
 }

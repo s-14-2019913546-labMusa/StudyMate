@@ -6,7 +6,16 @@ import 'daily_routine.dart';
 import 'language_manager.dart';
 
 class TaskHistoryScreen extends StatefulWidget {
-  const TaskHistoryScreen({super.key});
+  final String? userId;
+  final String? userName;
+  final bool isFriendView;
+
+  const TaskHistoryScreen({
+    super.key,
+    this.userId,
+    this.userName,
+    this.isFriendView = false,
+  });
 
   @override
   State<TaskHistoryScreen> createState() => _TaskHistoryScreenState();
@@ -30,6 +39,8 @@ class _TaskHistoryScreenState extends State<TaskHistoryScreen> with SingleTicker
   List<DailyRoutine> _loadedRoutines = [];
   bool _isLoading = false;
 
+  String get _effectiveUserId => widget.userId ?? _currentUser?.uid ?? '';
+
   @override
   void initState() {
     super.initState();
@@ -44,11 +55,11 @@ class _TaskHistoryScreenState extends State<TaskHistoryScreen> with SingleTicker
   }
 
   Future<void> _loadCustomFolders() async {
-    if (_currentUser == null) return;
+    if (_effectiveUserId.isEmpty) return;
     try {
       final snapshot = await FirebaseFirestore.instance
           .collection('users')
-          .doc(_currentUser.uid)
+          .doc(_effectiveUserId)
           .collection('studyFolders')
           .get();
       final list = snapshot.docs.map((doc) => doc.data()).toList();
@@ -108,7 +119,7 @@ class _TaskHistoryScreenState extends State<TaskHistoryScreen> with SingleTicker
   // --- Data Loading Logic ---
 
   Future<void> _loadWeekData() async {
-    if (_currentUser == null) return;
+    if (_effectiveUserId.isEmpty) return;
     setState(() => _isLoading = true);
 
     try {
@@ -117,7 +128,7 @@ class _TaskHistoryScreenState extends State<TaskHistoryScreen> with SingleTicker
       
       final snapshot = await FirebaseFirestore.instance
           .collection('users')
-          .doc(_currentUser.uid)
+          .doc(_effectiveUserId)
           .collection('dailyRoutines')
           .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
           .where('date', isLessThan: Timestamp.fromDate(end))
@@ -135,7 +146,7 @@ class _TaskHistoryScreenState extends State<TaskHistoryScreen> with SingleTicker
   }
 
   Future<void> _loadMonthData() async {
-    if (_currentUser == null) return;
+    if (_effectiveUserId.isEmpty) return;
     setState(() => _isLoading = true);
 
     try {
@@ -145,7 +156,7 @@ class _TaskHistoryScreenState extends State<TaskHistoryScreen> with SingleTicker
 
       final snapshot = await FirebaseFirestore.instance
           .collection('users')
-          .doc(_currentUser.uid)
+          .doc(_effectiveUserId)
           .collection('dailyRoutines')
           .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
           .where('date', isLessThan: Timestamp.fromDate(end))
@@ -165,7 +176,7 @@ class _TaskHistoryScreenState extends State<TaskHistoryScreen> with SingleTicker
   // --- Deletion Logic ---
 
   Future<void> _deleteTaskFromFirestore(String dateDocId, Task task) async {
-    if (_currentUser == null) return;
+    if (widget.isFriendView || _effectiveUserId.isEmpty) return;
 
     final confirm = await showDialog<bool>(
       context: context,
@@ -190,7 +201,7 @@ class _TaskHistoryScreenState extends State<TaskHistoryScreen> with SingleTicker
 
     final docRef = FirebaseFirestore.instance
         .collection('users')
-        .doc(_currentUser.uid)
+        .doc(_effectiveUserId)
         .collection('dailyRoutines')
         .doc(dateDocId);
 
@@ -289,7 +300,7 @@ class _TaskHistoryScreenState extends State<TaskHistoryScreen> with SingleTicker
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
-        title: Text('Task History'.tr(), style: const TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(widget.isFriendView ? '${widget.userName ?? 'Friend'}\'s Tasks' : 'Task History'.tr(), style: const TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
         elevation: 0,
         backgroundColor: Colors.transparent,
@@ -375,7 +386,7 @@ class _TaskHistoryScreenState extends State<TaskHistoryScreen> with SingleTicker
 
   // --- Day View Screen ---
   Widget _buildDayView() {
-    if (_currentUser == null) return const SizedBox.shrink();
+    if (_effectiveUserId.isEmpty) return const SizedBox.shrink();
 
     final dateDocId = DateFormat('yyyy-MM-dd').format(_selectedDay);
 
@@ -395,7 +406,7 @@ class _TaskHistoryScreenState extends State<TaskHistoryScreen> with SingleTicker
           child: StreamBuilder<DocumentSnapshot>(
             stream: FirebaseFirestore.instance
                 .collection('users')
-                .doc(_currentUser.uid)
+                .doc(_effectiveUserId)
                 .collection('dailyRoutines')
                 .doc(dateDocId)
                 .snapshots(),
@@ -713,10 +724,12 @@ class _TaskHistoryScreenState extends State<TaskHistoryScreen> with SingleTicker
             ),
           ],
         ),
-        trailing: IconButton(
-          icon: Icon(Icons.delete_outline_rounded, color: theme.colorScheme.error, size: 22),
-          onPressed: () => _deleteTaskFromFirestore(dateDocId, task),
-        ),
+        trailing: widget.isFriendView 
+            ? null 
+            : IconButton(
+                icon: Icon(Icons.delete_outline_rounded, color: theme.colorScheme.error, size: 22),
+                onPressed: () => _deleteTaskFromFirestore(dateDocId, task),
+              ),
       ),
     );
   }

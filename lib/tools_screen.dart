@@ -1,5 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
@@ -23,6 +25,7 @@ import 'revision_147_screen.dart';
 import 'islamic_life_screen.dart';
 import 'theme_manager.dart';
 import 'dashboard_screen.dart';
+import 'local_notification_service.dart';
 import 'study_analytics_screen.dart';
 import 'task_history_screen.dart';
 import 'gamification_service.dart';
@@ -30,7 +33,6 @@ import 'language_manager.dart';
 import 'study_folder_manager_screen.dart';
 import 'special_day_countdown_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'local_notification_service.dart';
 class ToolsScreen extends StatelessWidget {
   final Function(List<Task>) onTasksGenerated;
   const ToolsScreen({super.key, required this.onTasksGenerated});
@@ -1721,9 +1723,10 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
       try {
         final File audioFile = File(_audioFilePath!);
         // ফায়ারবেস ক্লাউড স্টোরেজে আপলোড
-        final storageRef = FirebaseStorage.instanceFor(bucket: 'gs://studymate-5ab8c.appspot.com').ref().child('notes_audio/${currentUser!.uid}_${DateTime.now().millisecondsSinceEpoch}.m4a');
-        final bytes = await audioFile.readAsBytes();
-        final uploadTask = await storageRef.putData(bytes);
+        final storageRef = FirebaseStorage.instance.ref().child('notes_audio/${currentUser!.uid}_${DateTime.now().millisecondsSinceEpoch}.m4a');
+        final uploadTask = kIsWeb
+            ? await storageRef.putData(await audioFile.readAsBytes())
+            : await storageRef.putFile(audioFile);
         audioUrl = await uploadTask.ref.getDownloadURL();
       } catch (e) {
         debugPrint("Audio Upload Error: $e");
@@ -1734,9 +1737,10 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
     if (_imageFilePath != null) {
       try {
         final File imageFile = File(_imageFilePath!);
-        final storageRef = FirebaseStorage.instanceFor(bucket: 'gs://studymate-5ab8c.appspot.com').ref().child('notes_images/${currentUser!.uid}_${DateTime.now().millisecondsSinceEpoch}.jpg');
-        final bytes = await imageFile.readAsBytes();
-        final uploadTask = await storageRef.putData(bytes);
+        final storageRef = FirebaseStorage.instance.ref().child('notes_images/${currentUser!.uid}_${DateTime.now().millisecondsSinceEpoch}.jpg');
+        final uploadTask = kIsWeb
+            ? await storageRef.putData(await imageFile.readAsBytes())
+            : await storageRef.putFile(imageFile);
         imageUrl = await uploadTask.ref.getDownloadURL();
       } catch (e) {
         debugPrint("Image Upload Error: $e");
@@ -2544,6 +2548,8 @@ class _StudyRoomScreenState extends State<StudyRoomScreen> {
         'toName': targetName,
         'timestamp': FieldValue.serverTimestamp(),
         'status': 'pending',
+        'seen': false,
+        'seenAt': null,
       });
 
       if (mounted) {
@@ -2558,7 +2564,85 @@ class _StudyRoomScreenState extends State<StudyRoomScreen> {
     }
   }
 
-  void _showAddMemberSheet(List<String> currentParticipants) {
+  Future<void> _confirmInviteFriend(String friendId, String friendName, bool isAdmin) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final title = isAdmin ? 'Add Member (মেম্বার যুক্ত করুন)'.tr() : 'Invite Friend (বন্ধু আমন্ত্রণ)'.tr();
+    final message = isAdmin
+        ? 'Do you want to add $friendName directly to this study room?'.tr()
+        : 'Do you want to send a request to add $friendName to the Admin for approval?'.tr();
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('No'.tr()),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('Yes'.tr()),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      if (isAdmin) {
+        try {
+          await FirebaseFirestore.instance.collection('study_rooms').doc(_roomCode).update({
+            'participants': FieldValue.arrayUnion([friendId]),
+            'participantNames.$friendId': friendName,
+          });
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('$friendName added directly to the room!'.tr())),
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Failed to add member: $e'.tr())),
+            );
+          }
+        }
+      } else {
+        try {
+          await FirebaseFirestore.instance
+              .collection('study_rooms')
+              .doc(_roomCode)
+              .collection('member_requests')
+              .doc(friendId)
+              .set({
+            'requesterId': user.uid,
+            'requesterName': user.displayName ?? 'Anonymous',
+            'invitedId': friendId,
+            'invitedName': friendName,
+            'status': 'pending',
+            'timestamp': FieldValue.serverTimestamp(),
+          });
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Invitation request sent to the Admin!'.tr())),
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Failed to send invite request: $e'.tr())),
+            );
+          }
+        }
+      }
+    }
+  }
+
+  void _showAddMemberSheet(List<String> currentParticipants, String creatorId) {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
@@ -2603,26 +2687,44 @@ class _StudyRoomScreenState extends State<StudyRoomScreen> {
                     child: ListView.builder(
                       itemCount: inviteableFriends.length,
                       itemBuilder: (context, index) {
-                        final fData = inviteableFriends[index].data() as Map<String, dynamic>;
                         final fId = inviteableFriends[index].id;
-                        final fName = fData['displayName'] ?? 'Friend';
 
-                        return ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-                            child: Icon(Icons.person, color: Theme.of(context).colorScheme.primary),
-                          ),
-                          title: Text(fName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                          trailing: IconButton(
-                            icon: const Icon(Icons.add_circle_rounded, color: Colors.green),
-                            onPressed: () async {
-                              Navigator.pop(ctx);
-                              await FirebaseFirestore.instance.collection('study_rooms').doc(_roomCode).update({
-                                'participants': FieldValue.arrayUnion([fId]),
-                                'participantNames.$fId': fName,
-                              });
-                            },
-                          ),
+                        return FutureBuilder<DocumentSnapshot>(
+                          future: FirebaseFirestore.instance.collection('users').doc(fId).get(),
+                          builder: (ctx, userSnap) {
+                            if (!userSnap.hasData) {
+                              return const ListTile(
+                                leading: CircleAvatar(child: Icon(Icons.person)),
+                                title: Text('Loading Buddy...'),
+                              );
+                            }
+
+                            final userData = userSnap.data!.data() as Map<String, dynamic>? ?? {};
+                            final fName = userData['displayName'] ?? 'Study Buddy';
+                            final photoUrl = userData['photoUrl'] as String?;
+                            ImageProvider? avatarImage;
+                            if (photoUrl != null && photoUrl.isNotEmpty) {
+                              avatarImage = photoUrl.startsWith('http')
+                                  ? NetworkImage(photoUrl)
+                                  : FileImage(File(photoUrl)) as ImageProvider;
+                            }
+
+                            return ListTile(
+                              leading: CircleAvatar(
+                                backgroundImage: avatarImage,
+                                backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                                child: avatarImage == null ? Icon(Icons.person, color: Theme.of(context).colorScheme.primary) : null,
+                              ),
+                              title: Text(fName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                              trailing: IconButton(
+                                icon: const Icon(Icons.add_circle_rounded, color: Colors.green),
+                                onPressed: () {
+                                  Navigator.pop(ctx);
+                                  _confirmInviteFriend(fId, fName, user.uid == creatorId);
+                                },
+                              ),
+                            );
+                          },
                         );
                       },
                     ),
@@ -2641,40 +2743,54 @@ class _StudyRoomScreenState extends State<StudyRoomScreen> {
     if (user == null) return;
 
     try {
-      final XFile? pickedFile = await _imagePicker.pickImage(source: ImageSource.camera, imageQuality: 70);
+      final XFile? pickedFile = await _imagePicker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 30,
+        maxWidth: 400,
+        maxHeight: 400,
+      );
       if (pickedFile == null) return;
 
       setState(() => _isUploadingProof = true);
 
-      // Upload to Firebase Storage
-      final storageRef = FirebaseStorage.instanceFor(bucket: 'gs://studymate-5ab8c.appspot.com')
-          .ref()
-          .child('study_proofs/${_roomCode}_${user.uid}_${DateTime.now().millisecondsSinceEpoch}.jpg');
+      // Convert image file to Base64 data string
+      String base64ImageUrl;
+      try {
+        final bytes = await pickedFile.readAsBytes();
+        final base64String = base64Encode(bytes);
+        base64ImageUrl = 'data:image/jpeg;base64,$base64String';
+      } catch (e) {
+        throw 'Failed to read and encode image: $e';
+      }
 
-      final bytes = await pickedFile.readAsBytes();
-      final uploadTask = await storageRef.putData(bytes);
-      final imageUrl = await uploadTask.ref.getDownloadURL();
-
-      // Write proof document
-      await FirebaseFirestore.instance
-          .collection('study_rooms')
-          .doc(_roomCode)
-          .collection('proofs')
-          .add({
-        'senderId': user.uid,
-        'senderName': user.displayName ?? 'Anonymous',
-        'imageUrl': imageUrl,
-        'timestamp': FieldValue.serverTimestamp(),
-      });
-
-      // Complete request
-      if (requestId.isNotEmpty) {
+      // Write proof document to Firestore
+      try {
         await FirebaseFirestore.instance
             .collection('study_rooms')
             .doc(_roomCode)
-            .collection('proof_requests')
-            .doc(requestId)
-            .update({'status': 'completed'});
+            .collection('proofs')
+            .add({
+          'senderId': user.uid,
+          'senderName': user.displayName ?? 'Anonymous',
+          'imageUrl': base64ImageUrl,
+          'timestamp': FieldValue.serverTimestamp(),
+        });
+      } catch (e) {
+        throw 'Firestore Save Proof Failed: $e';
+      }
+
+      // Complete request in Firestore
+      if (requestId.isNotEmpty) {
+        try {
+          await FirebaseFirestore.instance
+              .collection('study_rooms')
+              .doc(_roomCode)
+              .collection('proof_requests')
+              .doc(requestId)
+              .update({'status': 'completed'});
+        } catch (e) {
+          throw 'Firestore Update Request Failed: $e';
+        }
       }
 
       setState(() => _isUploadingProof = false);
@@ -2684,7 +2800,10 @@ class _StudyRoomScreenState extends State<StudyRoomScreen> {
     } catch (e) {
       setState(() => _isUploadingProof = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Upload failed: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('$e'),
+          backgroundColor: Colors.redAccent,
+        ));
       }
     }
   }
@@ -2963,27 +3082,150 @@ class _StudyRoomScreenState extends State<StudyRoomScreen> {
               },
             ),
 
+            // Pending Member Requests (Only for Admin)
+            if (user.uid == creatorId)
+              StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('study_rooms')
+                    .doc(_roomCode)
+                    .collection('member_requests')
+                    .where('status', isEqualTo: 'pending')
+                    .snapshots(),
+                builder: (context, requestsSnap) {
+                  if (requestsSnap.connectionState == ConnectionState.waiting) {
+                    return const SizedBox.shrink();
+                  }
+                  final requests = requestsSnap.data?.docs ?? [];
+                  if (requests.isEmpty) return const SizedBox.shrink();
+
+                  return Card(
+                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    color: Colors.amber.shade50,
+                    shape: RoundedRectangleBorder(
+                      side: BorderSide(color: Colors.amber.shade200, width: 1),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.group_add_rounded, color: Colors.amber),
+                              const SizedBox(width: 8),
+                              Text(
+                                'New Member Requests (মেম্বার রিকোয়েস্ট)'.tr(),
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.brown),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          ListView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: requests.length,
+                            itemBuilder: (context, idx) {
+                              final reqData = requests[idx].data() as Map<String, dynamic>;
+                              final reqId = requests[idx].id;
+                              final invitedName = reqData['invitedName'] ?? 'Friend';
+                              final invitedId = reqData['invitedId'] ?? '';
+                              final requesterName = reqData['requesterName'] ?? 'Member';
+
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 6.0),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        '$invitedName (${'Invited by'.tr()} $requesterName)',
+                                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        IconButton(
+                                          padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(),
+                                          icon: const Icon(Icons.check_circle_rounded, color: Colors.green, size: 24),
+                                          onPressed: () async {
+                                            await FirebaseFirestore.instance.collection('study_rooms').doc(_roomCode).update({
+                                              'participants': FieldValue.arrayUnion([invitedId]),
+                                              'participantNames.$invitedId': invitedName,
+                                            });
+                                            await FirebaseFirestore.instance
+                                                .collection('study_rooms')
+                                                .doc(_roomCode)
+                                                .collection('member_requests')
+                                                .doc(reqId)
+                                                .update({'status': 'accepted'});
+                                          },
+                                        ),
+                                        const SizedBox(width: 12),
+                                        IconButton(
+                                          padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(),
+                                          icon: const Icon(Icons.cancel_rounded, color: Colors.red, size: 24),
+                                          onPressed: () async {
+                                            await FirebaseFirestore.instance
+                                                .collection('study_rooms')
+                                                .doc(_roomCode)
+                                                .collection('member_requests')
+                                                .doc(reqId)
+                                                .update({'status': 'rejected'});
+                                          },
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+
             // Active Members Heading & Invite/Upload Buttons
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              child: Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 8,
+                runSpacing: 8,
                 children: [
                   Text('Active Members'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                  Row(
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
                     children: [
                       TextButton.icon(
-                        onPressed: () => _showAddMemberSheet(participants),
-                        icon: const Icon(Icons.person_add_rounded),
+                        onPressed: () => _showAddMemberSheet(participants, creatorId),
+                        icon: const Icon(Icons.person_add_rounded, size: 18),
                         label: Text('Invite'.tr()),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
                       ),
-                      const SizedBox(width: 8),
                       _isUploadingProof
                           ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
                           : TextButton.icon(
                               onPressed: _uploadProofVoluntarily,
-                              icon: const Icon(Icons.upload_file_rounded),
+                              icon: const Icon(Icons.upload_file_rounded, size: 18),
                               label: Text('Upload My Proof'.tr()),
+                              style: TextButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
                             ),
                     ],
                   ),
@@ -3096,7 +3338,12 @@ class _StudyRoomScreenState extends State<StudyRoomScreen> {
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Image.network(imageUrl, fit: BoxFit.contain),
+                                  imageUrl.startsWith('data:image/')
+                                      ? Image.memory(
+                                          base64Decode(imageUrl.split(',').last),
+                                          fit: BoxFit.contain,
+                                        )
+                                      : Image.network(imageUrl, fit: BoxFit.contain),
                                   Padding(
                                     padding: const EdgeInsets.all(16.0),
                                     child: Text(
@@ -3112,7 +3359,10 @@ class _StudyRoomScreenState extends State<StudyRoomScreen> {
                         child: Container(
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(16),
-                            image: DecorationImage(image: NetworkImage(imageUrl), fit: BoxFit.cover),
+                            image: DecorationImage(
+                              image: _getProofImageProvider(imageUrl),
+                              fit: BoxFit.cover,
+                            ),
                           ),
                           alignment: Alignment.bottomCenter,
                           child: Container(
@@ -3147,6 +3397,14 @@ class _StudyRoomScreenState extends State<StudyRoomScreen> {
       },
     );
   }
+
+  ImageProvider _getProofImageProvider(String imageUrl) {
+    if (imageUrl.startsWith('data:image/')) {
+      final base64Str = imageUrl.split(',').last;
+      return MemoryImage(base64Decode(base64Str));
+    }
+    return NetworkImage(imageUrl);
+  }
 }
 
 // Stateful helper widget for 30 seconds countdown auto-dismissal
@@ -3176,18 +3434,32 @@ class _ProofRequestBannerState extends State<ProofRequestBanner> {
     super.dispose();
   }
 
-  void _startCountdown() {
+  void _startCountdown() async {
     final data = widget.requestDoc.data() as Map<String, dynamic>? ?? {};
-    final timestamp = data['timestamp'] as Timestamp?;
-    if (timestamp != null) {
-      final requestTime = timestamp.toDate();
-      final elapsed = DateTime.now().difference(requestTime).inSeconds;
+    final bool seen = data['seen'] ?? false;
+    final Timestamp? seenAt = data['seenAt'] as Timestamp?;
+
+    if (!seen) {
+      // Mark as seen and initialize timer locally
+      try {
+        await widget.requestDoc.reference.update({
+          'seen': true,
+          'seenAt': FieldValue.serverTimestamp(),
+        });
+      } catch (e) {
+        debugPrint("Error updating seen status: $e");
+      }
+      _secondsLeft = 30;
+    } else if (seenAt != null) {
+      final elapsed = DateTime.now().difference(seenAt.toDate()).inSeconds;
       _secondsLeft = 30 - elapsed;
       if (_secondsLeft <= 0) {
         _secondsLeft = 0;
         _expireRequest();
         return;
       }
+    } else {
+      _secondsLeft = 30;
     }
 
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -3277,6 +3549,7 @@ class PartnerTasksScreen extends StatefulWidget {
 class _PartnerTasksScreenState extends State<PartnerTasksScreen> {
   bool _inRoom = false;
   String _roomCode = '';
+  String? _selectedPartnerId;
   final TextEditingController _joinCodeCtrl = TextEditingController();
   final TextEditingController _roomNameCtrl = TextEditingController();
 
@@ -3377,6 +3650,78 @@ class _PartnerTasksScreenState extends State<PartnerTasksScreen> {
     }
   }
 
+  Future<void> _confirmAddPartner(String friendId, String friendName, bool isAdmin, List<String> currentParticipants) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    if (currentParticipants.length >= 4) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Partner Space is full (Maximum 4 partners).'.tr())),
+        );
+      }
+      return;
+    }
+
+    final title = isAdmin ? 'Add Partner (পার্টনার যুক্ত করুন)'.tr() : 'Request Partner (পার্টনার রিকোয়েস্ট)'.tr();
+    final message = isAdmin
+        ? 'Do you want to add $friendName directly as a partner in this space?'.tr()
+        : 'Do you want to send a request to add $friendName to the Admin for approval?'.tr();
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('No'.tr()),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.green),
+            child: Text('Yes'.tr()),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      if (isAdmin) {
+        await _addPartnerDirectly(friendId, friendName);
+      } else {
+        // Send request to Admin
+        try {
+          await FirebaseFirestore.instance
+              .collection('partner_rooms')
+              .doc(_roomCode)
+              .collection('member_requests')
+              .add({
+            'invitedId': friendId,
+            'invitedName': friendName,
+            'requesterId': user.uid,
+            'requesterName': user.displayName ?? 'Anonymous',
+            'status': 'pending',
+            'timestamp': FieldValue.serverTimestamp(),
+          });
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Request sent to Admin to add $friendName.'.tr())),
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Failed to send request: $e'.tr())),
+            );
+          }
+        }
+      }
+    }
+  }
+
   Future<void> _addPartnerDirectly(String friendId, String friendName) async {
     try {
       await FirebaseFirestore.instance.collection('partner_rooms').doc(_roomCode).update({
@@ -3393,7 +3738,7 @@ class _PartnerTasksScreenState extends State<PartnerTasksScreen> {
     }
   }
 
-  void _showAddPartnerSheet() {
+  void _showAddPartnerSheet(List<String> currentParticipants, String creatorId) {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
@@ -3415,11 +3760,13 @@ class _PartnerTasksScreenState extends State<PartnerTasksScreen> {
             }
 
             final docs = friendsSnap.data?.docs ?? [];
-            if (docs.isEmpty) {
+            final inviteableFriends = docs.where((d) => !currentParticipants.contains(d.id)).toList();
+
+            if (inviteableFriends.isEmpty) {
               return Padding(
                 padding: const EdgeInsets.all(24.0),
                 child: Center(
-                  child: Text('No friends found on your list.'.tr(), style: const TextStyle(color: Colors.grey)),
+                  child: Text('No inviteable friends found.'.tr(), style: const TextStyle(color: Colors.grey)),
                 ),
               );
             }
@@ -3434,28 +3781,223 @@ class _PartnerTasksScreenState extends State<PartnerTasksScreen> {
                   const SizedBox(height: 16),
                   Expanded(
                     child: ListView.builder(
-                      itemCount: docs.length,
+                      itemCount: inviteableFriends.length,
                       itemBuilder: (context, index) {
-                        final fData = docs[index].data() as Map<String, dynamic>;
-                        final fId = docs[index].id;
-                        final fName = fData['displayName'] ?? 'Friend';
+                        final fId = inviteableFriends[index].id;
 
-                        return ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-                            child: Icon(Icons.person, color: Theme.of(context).colorScheme.primary),
-                          ),
-                          title: Text(fName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                          trailing: IconButton(
-                            icon: const Icon(Icons.person_add_rounded, color: Colors.green),
-                            onPressed: () {
-                              Navigator.pop(ctx);
-                              _addPartnerDirectly(fId, fName);
+                        return FutureBuilder<DocumentSnapshot>(
+                          future: FirebaseFirestore.instance.collection('users').doc(fId).get(),
+                          builder: (ctx, userSnap) {
+                            if (!userSnap.hasData) {
+                              return const ListTile(
+                                leading: CircleAvatar(child: Icon(Icons.person)),
+                                title: Text('Loading Buddy...'),
+                              );
+                            }
+
+                            final userData = userSnap.data!.data() as Map<String, dynamic>? ?? {};
+                            final fName = userData['displayName'] ?? 'Study Buddy';
+                            final photoUrl = userData['photoUrl'] as String?;
+                            ImageProvider? avatarImage;
+                            if (photoUrl != null && photoUrl.isNotEmpty) {
+                              avatarImage = photoUrl.startsWith('http')
+                                  ? NetworkImage(photoUrl)
+                                  : FileImage(File(photoUrl)) as ImageProvider;
+                            }
+
+                            return ListTile(
+                              leading: CircleAvatar(
+                                backgroundImage: avatarImage,
+                                backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                                child: avatarImage == null ? Icon(Icons.person, color: Theme.of(context).colorScheme.primary) : null,
+                              ),
+                              title: Text(fName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                              trailing: IconButton(
+                                icon: const Icon(Icons.person_add_rounded, color: Colors.green),
+                                onPressed: () {
+                                  Navigator.pop(ctx);
+                                  _confirmAddPartner(fId, fName, user.uid == creatorId, currentParticipants);
+                                },
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<List<Task>> _fetchUserRoutineTasks(String userId) async {
+    final todayDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final dayOfWeek = DateFormat('EEEE').format(DateTime.now());
+
+    List<Task> dailyTasks = [];
+    try {
+      final dailyDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('dailyRoutines')
+          .doc(todayDate)
+          .get();
+
+      if (dailyDoc.exists) {
+        final data = dailyDoc.data() as Map<String, dynamic>;
+        if (data['tasks'] != null) {
+          for (var taskMap in data['tasks']) {
+            dailyTasks.add(Task.fromMap(taskMap, taskMap['id'] ?? UniqueKey().toString()));
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching daily routine tasks: $e");
+    }
+
+    List<Task> weeklyTasks = [];
+    try {
+      final weeklySnap = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('weeklyRoutines')
+          .doc(dayOfWeek)
+          .collection('tasks')
+          .get();
+
+      for (var doc in weeklySnap.docs) {
+        weeklyTasks.add(Task.fromMap(doc.data(), doc.id));
+      }
+    } catch (e) {
+      debugPrint("Error fetching weekly tasks: $e");
+    }
+
+    return [...dailyTasks, ...weeklyTasks];
+  }
+
+  Future<void> _showPartnersTasksSheet(List<String> participants, Map<String, dynamic> participantNames) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final otherPartners = participants.where((id) => id != user.uid).toList();
+    if (otherPartners.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('No other partners in this space yet.'.tr())),
+        );
+      }
+      return;
+    }
+
+    // Default select first partner if not set
+    if (_selectedPartnerId == null || !otherPartners.contains(_selectedPartnerId)) {
+      _selectedPartnerId = otherPartners.first;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.75,
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    "Partners' Tasks (পার্টনারদের টাস্ক)".tr(),
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  // Select Partner list
+                  SizedBox(
+                    height: 50,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: otherPartners.length,
+                      itemBuilder: (ctx, idx) {
+                        final pId = otherPartners[idx];
+                        final pName = participantNames[pId] ?? 'Partner';
+                        final isSelected = _selectedPartnerId == pId;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8.0),
+                          child: ChoiceChip(
+                            label: Text(pName),
+                            selected: isSelected,
+                            onSelected: (val) {
+                              setModalState(() {
+                                _selectedPartnerId = pId;
+                              });
                             },
                           ),
                         );
                       },
                     ),
+                  ),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: _selectedPartnerId == null
+                        ? Center(child: Text('Select a partner to view tasks.'.tr(), style: const TextStyle(color: Colors.grey)))
+                        : FutureBuilder<List<Task>>(
+                            future: _fetchUserRoutineTasks(_selectedPartnerId!),
+                            builder: (ctx, snap) {
+                              if (snap.connectionState == ConnectionState.waiting) {
+                                return const Center(child: CircularProgressIndicator());
+                              }
+                              final tasks = snap.data ?? [];
+                              if (tasks.isEmpty) {
+                                return Center(
+                                  child: Text('No routine tasks found for this partner today.'.tr(), style: const TextStyle(color: Colors.grey)),
+                                );
+                              }
+
+                              return ListView.builder(
+                                itemCount: tasks.length,
+                                itemBuilder: (ctx, idx) {
+                                  final t = tasks[idx];
+                                  return Card(
+                                    margin: const EdgeInsets.only(bottom: 8),
+                                    child: ListTile(
+                                      title: Text(t.title, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                      subtitle: Text('${t.totalDurationMinutes} ${'mins'.tr()}'),
+                                      trailing: ElevatedButton.icon(
+                                        onPressed: () async {
+                                          await FirebaseFirestore.instance
+                                              .collection('partner_rooms')
+                                              .doc(_roomCode)
+                                              .collection('tasks')
+                                              .add({
+                                            'title': t.title,
+                                            'totalDurationMinutes': t.totalDurationMinutes,
+                                            'isCompleted': false,
+                                            'createdBy': user.uid,
+                                            'createdByName': user.displayName ?? 'Anonymous',
+                                            'timestamp': FieldValue.serverTimestamp(),
+                                          });
+                                          if (mounted) {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(content: Text('Added to space: ${t.title}'.tr())),
+                                            );
+                                          }
+                                        },
+                                        icon: const Icon(Icons.add, size: 14),
+                                        label: Text('Add'.tr()),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              );
+                            },
+                          ),
                   ),
                 ],
               ),
@@ -3885,12 +4427,131 @@ class _PartnerTasksScreenState extends State<PartnerTasksScreen> {
         final roomData = roomSnap.data!.data() as Map<String, dynamic>;
         final name = roomData['name'] ?? 'Partner Space';
         final code = roomData['roomId'] ?? '';
+        final creatorId = roomData['creatorId'] ?? '';
         final participants = List<String>.from(roomData['participants'] ?? []);
         final participantNames = Map<String, dynamic>.from(roomData['participantNames'] ?? {});
+        final isCreator = user.uid == creatorId;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // Pending Requests Card (Admin only)
+            if (isCreator)
+              StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('partner_rooms')
+                    .doc(_roomCode)
+                    .collection('member_requests')
+                    .where('status', isEqualTo: 'pending')
+                    .snapshots(),
+                builder: (context, requestsSnap) {
+                  if (requestsSnap.connectionState == ConnectionState.waiting) {
+                    return const SizedBox.shrink();
+                  }
+                  final requests = requestsSnap.data?.docs ?? [];
+                  if (requests.isEmpty) return const SizedBox.shrink();
+
+                  return Card(
+                    margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                    color: Colors.amber.shade50,
+                    shape: RoundedRectangleBorder(
+                      side: BorderSide(color: Colors.amber.shade200, width: 1),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.group_add_rounded, color: Colors.amber),
+                              const SizedBox(width: 8),
+                              Text(
+                                'New Partner Requests (নতুন পার্টনার রিকোয়েস্ট)'.tr(),
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.brown),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          ListView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: requests.length,
+                            itemBuilder: (context, idx) {
+                              final reqData = requests[idx].data() as Map<String, dynamic>;
+                              final reqId = requests[idx].id;
+                              final invitedName = reqData['invitedName'] ?? 'Friend';
+                              final invitedId = reqData['invitedId'] ?? '';
+                              final requesterName = reqData['requesterName'] ?? 'Partner';
+
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 6.0),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        '$invitedName (${'Invited by'.tr()} $requesterName)',
+                                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        IconButton(
+                                          padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(),
+                                          icon: const Icon(Icons.check_circle_rounded, color: Colors.green, size: 24),
+                                          onPressed: () async {
+                                            if (participants.length >= 4) {
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                SnackBar(content: Text('Cannot accept. Partner Space is full (Maximum 4 partners).'.tr())),
+                                              );
+                                              return;
+                                            }
+                                            await FirebaseFirestore.instance.collection('partner_rooms').doc(_roomCode).update({
+                                              'participants': FieldValue.arrayUnion([invitedId]),
+                                              'participantNames.$invitedId': invitedName,
+                                            });
+                                            await FirebaseFirestore.instance
+                                                .collection('partner_rooms')
+                                                .doc(_roomCode)
+                                                .collection('member_requests')
+                                                .doc(reqId)
+                                                .update({'status': 'accepted'});
+                                          },
+                                        ),
+                                        const SizedBox(width: 12),
+                                        IconButton(
+                                          padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(),
+                                          icon: const Icon(Icons.cancel_rounded, color: Colors.red, size: 24),
+                                          onPressed: () async {
+                                            await FirebaseFirestore.instance
+                                                .collection('partner_rooms')
+                                                .doc(_roomCode)
+                                                .collection('member_requests')
+                                                .doc(reqId)
+                                                .update({'status': 'rejected'});
+                                          },
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+
             // Partners Header Summary
             Container(
               padding: const EdgeInsets.all(20),
@@ -3904,7 +4565,7 @@ class _PartnerTasksScreenState extends State<PartnerTasksScreen> {
                       Text('${'Study Partners'.tr()} (${participants.length}/4)', style: const TextStyle(fontWeight: FontWeight.bold)),
                       if (participants.length < 4)
                         TextButton.icon(
-                          onPressed: _showAddPartnerSheet,
+                          onPressed: () => _showAddPartnerSheet(participants, creatorId),
                           icon: const Icon(Icons.person_add_rounded, size: 18),
                           label: Text('Add'.tr()),
                         )
@@ -3922,6 +4583,32 @@ class _PartnerTasksScreenState extends State<PartnerTasksScreen> {
                         label: Text(isMe ? '$mName (${'You'.tr()})' : mName),
                         backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                         side: BorderSide.none,
+                        onDeleted: (isCreator && !isMe)
+                            ? () async {
+                                final confirm = await showDialog<bool>(
+                                  context: context,
+                                  builder: (ctx) => AlertDialog(
+                                    title: Text('Remove Partner (পার্টনার রিমুভ করুন)'.tr()),
+                                    content: Text('Are you sure you want to remove $mName from this space?'.tr()),
+                                    actions: [
+                                      TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text('No'.tr())),
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(ctx, true),
+                                        style: TextButton.styleFrom(foregroundColor: Colors.red),
+                                        child: Text('Yes'.tr()),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                                if (confirm == true) {
+                                  await FirebaseFirestore.instance.collection('partner_rooms').doc(_roomCode).update({
+                                    'participants': FieldValue.arrayRemove([mId]),
+                                    'participantNames.$mId': FieldValue.delete(),
+                                  });
+                                }
+                              }
+                            : null,
+                        deleteIcon: (isCreator && !isMe) ? const Icon(Icons.cancel, size: 16, color: Colors.red) : null,
                       );
                     }).toList(),
                   ),
@@ -3932,7 +4619,18 @@ class _PartnerTasksScreenState extends State<PartnerTasksScreen> {
             // Shared Tasks Heading
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
-              child: Text('Shared Tasks for the Room'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Shared Tasks for the Room'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  if (isCreator)
+                    TextButton.icon(
+                      onPressed: () => _showPartnersTasksSheet(participants, participantNames),
+                      icon: const Icon(Icons.playlist_add_check_rounded, size: 18),
+                      label: Text("Partners' Tasks".tr()),
+                    ),
+                ],
+              ),
             ),
 
             // Tasks List
@@ -4486,8 +5184,7 @@ class _StopwatchScreenState extends State<StopwatchScreen> with TickerProviderSt
   }
 
   void _triggerAlarm() {
-    HapticFeedback.vibrate();
-    SystemSound.play(SystemSoundType.alert);
+    SoundPlayer.playAlarmNotificationSound();
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
@@ -4909,8 +5606,7 @@ class _PomodoroTimerScreenState extends State<PomodoroTimerScreen> {
 
   void _onTimerComplete() {
     // অ্যালার্ম সাউন্ড এবং ভাইব্রেশন
-    HapticFeedback.heavyImpact();
-    SystemSound.play(SystemSoundType.alert);
+    SoundPlayer.playAlarmNotificationSound();
     if (_currentMode == 'Focus') {
       _awardPomodoroXP();
     }

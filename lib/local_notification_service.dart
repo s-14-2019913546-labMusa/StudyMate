@@ -7,8 +7,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:path_provider/path_provider.dart';
 import 'dart:developer';
+import 'dart:io';
 import 'daily_routine.dart';
 
 @pragma('vm:entry-point')
@@ -172,18 +175,55 @@ class LocalNotificationService {
 
   static Future<void> scheduleMorningAlarm(DateTime wakeUpTime) async {
     if (kIsWeb) return;
+    final sound = await _getAndroidSoundForType(true);
     await _scheduleNotification(
       id: 4,
       title: '⏰ Good Morning!',
       body: 'Time to wake up and shine!',
       scheduledDate: wakeUpTime,
       playSound: true,
+      sound: sound,
+      channelId: 'morning_alarm_channel',
+      channelName: 'Morning Alarm Notifications',
+      channelDescription: 'Handles wake-up alarms with louder sounds',
       enableVibration: true,
       actions: [
         const AndroidNotificationAction('alarm_snooze', 'Snooze (5m)', showsUserInterface: true),
         const AndroidNotificationAction('alarm_off', 'Turn Off', showsUserInterface: true),
       ],
     );
+  }
+
+  static Future<AndroidNotificationSound?> _getAndroidSoundForType(bool isAlarm) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final soundKey = isAlarm ? 'selectedAlarmSound' : 'selectedPushSound';
+      final defaultSound = isAlarm ? 'Alarm' : 'Notification';
+      final soundPath = prefs.getString(soundKey) ?? defaultSound;
+
+      if (soundPath.startsWith('content://') || soundPath.startsWith('file://')) {
+        return UriAndroidNotificationSound(soundPath);
+      }
+      
+      // Check if it is a premium built-in sound downloaded locally
+      final dir = await getApplicationDocumentsDirectory();
+      final file = File('${dir.path}/$soundPath.wav');
+      if (await file.exists()) {
+        return UriAndroidNotificationSound('file://${file.path}');
+      }
+      
+      // If it's a premium built-in sound not downloaded, map it to Alarm system sound or default Notification system sound
+      if (soundPath == 'Alarm' || soundPath == 'retro_alarm' || soundPath == 'gentle_buzzer' || (isAlarm && soundPath != 'Notification')) {
+        return const UriAndroidNotificationSound('content://settings/system/alarm_alert');
+      } else if (soundPath == 'Ringtone') {
+        return const UriAndroidNotificationSound('content://settings/system/ringtone');
+      } else {
+        return const UriAndroidNotificationSound('content://settings/system/notification_sound');
+      }
+    } catch (e) {
+      log('Error getting sound for notification: $e');
+      return null;
+    }
   }
 
   static Future<void> _scheduleNotification({
@@ -193,14 +233,17 @@ class LocalNotificationService {
     required DateTime scheduledDate,
     bool playSound = true,
     AndroidNotificationSound? sound,
+    String channelId = 'sleep_tracker_channel',
+    String channelName = 'Sleep Tracker Notifications',
+    String channelDescription = 'Handles sleep reminders and alarms',
     bool enableVibration = false,
     List<AndroidNotificationAction>? actions,
   }) async {
     if (kIsWeb) return;
     final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-      'sleep_tracker_channel',
-      'Sleep Tracker Notifications',
-      channelDescription: 'Handles sleep reminders and alarms',
+      channelId,
+      channelName,
+      channelDescription: channelDescription,
       importance: Importance.max,
       priority: Priority.high,
       playSound: playSound,
@@ -290,6 +333,7 @@ class LocalNotificationService {
     required DateTime scheduledDate,
   }) async {
     if (kIsWeb) return;
+    final sound = await _getAndroidSoundForType(false); // Push sound
     final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
       'task_alerts_channel',
       'Task Alerts',
@@ -297,6 +341,7 @@ class LocalNotificationService {
       importance: Importance.max,
       priority: Priority.high,
       playSound: true,
+      sound: sound,
       enableVibration: true,
     );
 
@@ -320,13 +365,34 @@ class LocalNotificationService {
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
     );
   }
+}
+
+class SoundPlayer {
+  static final Map<String, String> _builtInSoundUrls = {
+    'lively_chime': 'https://assets.mixkit.co/active_storage/sfx/2869/2869-120.wav',
+    'sweet_melody': 'https://assets.mixkit.co/active_storage/sfx/2019/2019-120.wav',
+    'gentle_buzzer': 'https://assets.mixkit.co/active_storage/sfx/911/911-120.wav',
+    'retro_alarm': 'https://assets.mixkit.co/active_storage/sfx/903/903-120.wav',
+    'calm_bell': 'https://assets.mixkit.co/active_storage/sfx/1657/1657-120.wav',
+  };
+
+  static final AudioPlayer _appAudioPlayer = AudioPlayer();
 
   static Future<void> playNotificationSoundAndVibration({
     required String soundName,
     required double volume,
     required bool soundEnabled,
     required bool vibrationEnabled,
+    bool isAlarm = false,
   }) async {
+    // Stop any currently playing sound first
+    try {
+      await FlutterRingtonePlayer().stop();
+      await _appAudioPlayer.stop();
+    } catch (e) {
+      log('Could not stop ringtone player: $e');
+    }
+
     if (vibrationEnabled) {
       try {
         await HapticFeedback.vibrate();
@@ -334,74 +400,155 @@ class LocalNotificationService {
         log('Haptic feedback error: $e');
       }
     }
+
     if (!soundEnabled) return;
 
-    String url;
-    switch (soundName) {
-      case 'Beep':
-        url = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-600.wav';
-        break;
-      case 'Chime':
-        url = 'https://assets.mixkit.co/active_storage/sfx/911/911-600.wav';
-        break;
-      case 'Marimba':
-        url = 'https://assets.mixkit.co/active_storage/sfx/1653/1653-600.wav';
-        break;
-      case 'Bell':
-        url = 'https://assets.mixkit.co/active_storage/sfx/1987/1987-600.wav';
-        break;
-      case 'Digital':
-        url = 'https://assets.mixkit.co/active_storage/sfx/2568/2568-600.wav';
-        break;
-      default:
-        url = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-600.wav';
+    // If a custom sound URI is selected, use that.
+    if (soundName.startsWith('content://') || soundName.startsWith('file://')) {
+      // This part is for instant playback preview.
+      // The actual notification sound is handled by `_scheduleNotificationForTask`.
+      // `flutter_ringtone_player` cannot play URIs, so we'll rely on the notification itself for sound.
+      // For a quick preview, we can play a default system click.
+      await SystemSound.play(SystemSoundType.click);
+      return;
+    }
+
+    // Configure audio context based on stream type (Alarm vs Notification)
+    try {
+      if (isAlarm) {
+        await _appAudioPlayer.setAudioContext(
+          AudioContext(
+            android: AudioContextAndroid(
+              usageType: AndroidUsageType.alarm,
+              contentType: AndroidContentType.music,
+              audioFocus: AndroidAudioFocus.gainTransient,
+            ),
+            iOS: AudioContextIOS(
+              category: AVAudioSessionCategory.playback,
+              options: {
+                AVAudioSessionOptions.duckOthers,
+                AVAudioSessionOptions.defaultToSpeaker,
+              },
+            ),
+          ),
+        );
+      } else {
+        await _appAudioPlayer.setAudioContext(
+          AudioContext(
+            android: AudioContextAndroid(
+              usageType: AndroidUsageType.notification,
+              contentType: AndroidContentType.sonification,
+              audioFocus: AndroidAudioFocus.gainTransientMayDuck,
+            ),
+            iOS: AudioContextIOS(
+              category: AVAudioSessionCategory.ambient,
+              options: {
+                AVAudioSessionOptions.duckOthers,
+              },
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      log('Error setting audio context: $e');
+    }
+
+    // Try playing local downloaded custom sound file first
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final file = File('${dir.path}/$soundName.wav');
+      if (await file.exists()) {
+        await _appAudioPlayer.stop();
+        await _appAudioPlayer.setVolume(volume);
+        await _appAudioPlayer.play(DeviceFileSource(file.path));
+        log('Successfully playing local custom sound: $soundName from path: ${file.path}');
+        return;
+      }
+    } catch (e) {
+      log('Error playing local cached sound $soundName: $e. Checking online fallback.');
+    }
+
+    // Try playing built-in custom premium sound via AudioPlayer
+    if (_builtInSoundUrls.containsKey(soundName)) {
+      try {
+        final audioUrl = _builtInSoundUrls[soundName]!;
+        await _appAudioPlayer.stop();
+        await _appAudioPlayer.setVolume(volume);
+        await _appAudioPlayer.play(UrlSource(audioUrl));
+        log('Successfully playing premium sound: $soundName from URL: $audioUrl');
+        return;
+      } catch (e) {
+        log('Error playing premium sound $soundName via AudioPlayer: $e. Falling back to system default.');
+        // Fall through to standard system sounds
+      }
     }
 
     try {
-      final player = AudioPlayer();
-      await player.setVolume(volume);
-      await player.play(UrlSource(url));
+      // Using system sounds which is more reliable
+      if (isAlarm) {
+        if (soundName == 'Ringtone') {
+          await FlutterRingtonePlayer().playRingtone(volume: volume, looping: false);
+        } else {
+          await FlutterRingtonePlayer().playAlarm(volume: volume, looping: false);
+        }
+      } else {
+        // Push notification / General sounds always play via playNotification stream (shorter and quieter)
+        await FlutterRingtonePlayer().playNotification(volume: volume, looping: false);
+      }
+      log('Playing system sound: $soundName (isAlarm: $isAlarm)');
     } catch (e) {
-      log('Error playing custom notification sound: $e');
+      log('Error playing system sound: $e. Falling back to system click.');
       try {
         await SystemSound.play(SystemSoundType.click);
-      } catch (_) {}
+      } catch (fallbackError) {
+        log('Could not play system fallback sound: $fallbackError');
+      }
     }
   }
 
-  static Future<void> playCustomNotificationSound() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-
+  // Wrapper method to play Push sound
+  static Future<void> playPushNotificationSound() async {
     try {
-      final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
-      if (doc.exists && doc.data() != null) {
-        final data = doc.data()!;
-        final settings = data['notificationSettings'] as Map<String, dynamic>?;
-        if (settings != null) {
-          final bool soundEnabled = settings['soundEnabled'] as bool? ?? true;
-          final bool vibrationEnabled = settings['vibrationEnabled'] as bool? ?? true;
-          final double volume = (settings['volumeLevel'] as num?)?.toDouble() ?? 0.8;
-          final String soundName = settings['selectedSound'] as String? ?? 'Beep';
+      final prefs = await SharedPreferences.getInstance();
+      final bool soundEnabled = prefs.getBool('soundEnabled') ?? true;
+      final bool vibrationEnabled = prefs.getBool('vibrationEnabled') ?? true;
+      final double volume = prefs.getDouble('volumeLevel') ?? 0.8;
+      final String soundName = prefs.getString('selectedPushSound') ?? 'Notification';
 
-          await playNotificationSoundAndVibration(
-            soundName: soundName,
-            volume: volume,
-            soundEnabled: soundEnabled,
-            vibrationEnabled: vibrationEnabled,
-          );
-          return;
-        }
-      }
+      await playNotificationSoundAndVibration(
+        soundName: soundName,
+        volume: volume,
+        soundEnabled: soundEnabled,
+        vibrationEnabled: vibrationEnabled,
+        isAlarm: false,
+      );
     } catch (e) {
-      log('Error playing current settings sound: $e');
+      log('Error playing Push sound: $e');
     }
+  }
 
-    // Default fallback if settings fail to load
+  // Wrapper method to play Alarm sound
+  static Future<void> playAlarmNotificationSound() async {
     try {
-      await HapticFeedback.vibrate();
-      await SystemSound.play(SystemSoundType.click);
-    } catch (_) {}
+      final prefs = await SharedPreferences.getInstance();
+      final bool soundEnabled = prefs.getBool('soundEnabled') ?? true;
+      final bool vibrationEnabled = prefs.getBool('vibrationEnabled') ?? true;
+      final double volume = prefs.getDouble('volumeLevel') ?? 0.8;
+      final String soundName = prefs.getString('selectedAlarmSound') ?? 'Alarm';
+
+      await playNotificationSoundAndVibration(
+        soundName: soundName,
+        volume: volume,
+        soundEnabled: soundEnabled,
+        vibrationEnabled: vibrationEnabled,
+        isAlarm: true,
+      );
+    } catch (e) {
+      log('Error playing Alarm sound: $e');
+    }
   }
 }
 
+Future<void> playCustomNotificationSound() async {
+  await SoundPlayer.playPushNotificationSound();
+}
