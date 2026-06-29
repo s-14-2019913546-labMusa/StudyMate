@@ -547,6 +547,20 @@ class SoundPlayer {
       log('Error playing Alarm sound: $e');
     }
   }
+
+  // Stop any currently playing alarm / audio
+  static Future<void> stopAlarm() async {
+    try {
+      await _appAudioPlayer.stop();
+    } catch (e) {
+      log('Error stopping AudioPlayer: $e');
+    }
+    try {
+      await FlutterRingtonePlayer().stop();
+    } catch (e) {
+      log('Error stopping FlutterRingtonePlayer: $e');
+    }
+  }
 }
 
 Future<void> playCustomNotificationSound() async {

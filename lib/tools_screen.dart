@@ -33,6 +33,9 @@ import 'language_manager.dart';
 import 'study_folder_manager_screen.dart';
 import 'special_day_countdown_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:file_picker/file_picker.dart' as fp;
+import 'package:open_filex/open_filex.dart';
+
 class ToolsScreen extends StatelessWidget {
   final Function(List<Task>) onTasksGenerated;
   const ToolsScreen({super.key, required this.onTasksGenerated});
@@ -2971,7 +2974,19 @@ class _StudyRoomScreenState extends State<StudyRoomScreen> {
                       ),
                       title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
                       subtitle: Text('${'Code:'.tr()} $code • ${participants.length} ${'members'.tr()}'),
-                      trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.copy_rounded, size: 18),
+                            onPressed: () {
+                              Clipboard.setData(ClipboardData(text: code));
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Room code copied!'.tr())));
+                            },
+                          ),
+                          const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+                        ],
+                      ),
                       onTap: () {
                         setState(() {
                           _roomCode = code;
@@ -4153,7 +4168,7 @@ class _PartnerTasksScreenState extends State<PartnerTasksScreen> {
     );
   }
 
-  void _showAddTaskOptions() {
+  void _showAddTaskOptions(Map<String, dynamic> participantNames) {
     showModalBottomSheet(
       context: context,
       useSafeArea: true,
@@ -4176,10 +4191,10 @@ class _PartnerTasksScreenState extends State<PartnerTasksScreen> {
               ),
               ListTile(
                 leading: const Icon(Icons.import_export_rounded, color: Colors.blue),
-                title: Text('Import from My Tasks'.tr()),
+                title: Text('Import Tasks'.tr()),
                 onTap: () {
                   Navigator.pop(ctx);
-                  _showImportTasksSheet();
+                  _showImportTasksSheet(participantNames);
                 },
               ),
             ],
@@ -4229,134 +4244,16 @@ class _PartnerTasksScreenState extends State<PartnerTasksScreen> {
     );
   }
 
-  Future<void> _showImportTasksSheet() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-
-    final todayDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
-    final dayOfWeek = DateFormat('EEEE').format(DateTime.now());
-
-    // 1. Fetch Today's Daily Routine Tasks
-    List<Task> dailyTasks = [];
-    try {
-      final dailyDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .collection('dailyRoutines')
-          .doc(todayDate)
-          .get();
-
-      if (dailyDoc.exists) {
-        final data = dailyDoc.data() as Map<String, dynamic>;
-        if (data['tasks'] != null) {
-          for (var taskMap in data['tasks']) {
-            dailyTasks.add(Task.fromMap(taskMap, taskMap['id'] ?? UniqueKey().toString()));
-          }
-        }
-      }
-    } catch (e) {
-      debugPrint("Error fetching daily routine tasks: $e");
-    }
-
-    // 2. Fetch Weekly Routine Tasks for today
-    List<Task> weeklyTasks = [];
-    try {
-      final weeklySnap = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .collection('weeklyRoutines')
-          .doc(dayOfWeek)
-          .collection('tasks')
-          .get();
-
-      for (var doc in weeklySnap.docs) {
-        weeklyTasks.add(Task.fromMap(doc.data(), doc.id));
-      }
-    } catch (e) {
-      debugPrint("Error fetching weekly tasks: $e");
-    }
-
-    // Merge lists
-    final List<Task> allRoutineTasks = [...dailyTasks, ...weeklyTasks];
-
-    if (!mounted) return;
-
+  void _showImportTasksSheet(Map<String, dynamic> participantNames) {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       useSafeArea: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (ctx) {
-        if (allRoutineTasks.isEmpty) {
-          return Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Center(
-              child: Text(
-                'No tasks found in your routine for today!'.tr(),
-                style: const TextStyle(color: Colors.grey),
-              ),
-            ),
-          );
-        }
-
-        return Container(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text('Import Routine Tasks'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18), textAlign: TextAlign.center),
-              const SizedBox(height: 16),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: allRoutineTasks.length,
-                  itemBuilder: (context, index) {
-                    final t = allRoutineTasks[index];
-                    return Card(
-                      child: ListTile(
-                        leading: const Icon(Icons.task_alt_rounded, color: Colors.blue),
-                        title: Text(t.title, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text('${t.totalDurationMinutes} ${'mins'.tr()}'),
-                        trailing: ElevatedButton.icon(
-                          onPressed: () async {
-                            Navigator.pop(ctx);
-                            // Add task to shared space
-                            await FirebaseFirestore.instance
-                                .collection('partner_rooms')
-                                .doc(_roomCode)
-                                .collection('tasks')
-                                .add({
-                              'title': t.title,
-                              'totalDurationMinutes': t.totalDurationMinutes,
-                              'isCompleted': false,
-                              'createdBy': user.uid,
-                              'createdByName': user.displayName ?? 'Anonymous',
-                              'timestamp': FieldValue.serverTimestamp(),
-                              'subject': t.subject,
-                              'notes': t.notes,
-                              'topic': t.topic,
-                              'challenges': t.challenges,
-                              'category': t.category,
-                              'startTime': t.startTime != null ? Timestamp.fromDate(t.startTime!) : null,
-                              'endTime': t.endTime != null ? Timestamp.fromDate(t.endTime!) : null,
-                            });
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Imported: ${t.title}'.tr())),
-                              );
-                            }
-                          },
-                          icon: const Icon(Icons.add_circle_rounded, size: 16),
-                          label: Text('Import'.tr()),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        );
-      },
+      builder: (ctx) => MultiTaskImportSheet(
+        roomCode: _roomCode,
+        participantNames: participantNames,
+      ),
     );
   }
 
@@ -4520,7 +4417,19 @@ class _PartnerTasksScreenState extends State<PartnerTasksScreen> {
                       ),
                       title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
                       subtitle: Text('${'Code:'.tr()} $code • ${participants.length} ${'partners'.tr()}'),
-                      trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.copy_rounded, size: 18),
+                            onPressed: () {
+                              Clipboard.setData(ClipboardData(text: code));
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Space code copied!'.tr())));
+                            },
+                          ),
+                          const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+                        ],
+                      ),
                       onTap: () {
                         setState(() {
                           _roomCode = code;
@@ -4768,15 +4677,38 @@ class _PartnerTasksScreenState extends State<PartnerTasksScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text('${'Study Partners'.tr()} (${participants.length}/4)', style: const TextStyle(fontWeight: FontWeight.bold)),
-                          if (participants.length < 4)
-                            TextButton.icon(
-                              onPressed: () => _showAddPartnerSheet(participants, creatorId),
-                              icon: const Icon(Icons.person_add_rounded, size: 18),
-                              label: Text('Add'.tr()),
-                            )
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('${'Space Code:'.tr()} $_roomCode', style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                const SizedBox(height: 4),
+                                Text('${'Study Partners'.tr()} (${participants.length}/4)', style: const TextStyle(fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
+                              ],
+                            ),
+                          ),
+                          Wrap(
+                            spacing: 4,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              IconButton.filled(
+                                onPressed: () {
+                                  Clipboard.setData(ClipboardData(text: _roomCode));
+                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Space code copied!'.tr())));
+                                },
+                                icon: const Icon(Icons.copy_rounded, size: 18),
+                              ),
+                              if (participants.length < 4)
+                                TextButton.icon(
+                                  onPressed: () => _showAddPartnerSheet(participants, creatorId),
+                                  icon: const Icon(Icons.person_add_rounded, size: 18),
+                                  label: Text('Add'.tr()),
+                                )
+                            ],
+                          ),
                         ],
                       ),
+
                       const SizedBox(height: 12),
                       Wrap(
                         spacing: 12,
@@ -4919,7 +4851,7 @@ class _PartnerTasksScreenState extends State<PartnerTasksScreen> {
             ),
               floatingActionButton: isCreator
                   ? FloatingActionButton.extended(
-                      onPressed: _showAddTaskOptions,
+                      onPressed: () => _showAddTaskOptions(participantNames),
                       icon: const Icon(Icons.add),
                       label: Text('Add Task'.tr()),
                     )
@@ -5528,6 +5460,7 @@ class _StopwatchScreenState extends State<StopwatchScreen> with TickerProviderSt
   int _remainingTimerSeconds = 0;
   bool _isTimerRunning = false;
   Timer? _countdownTimer;
+  bool _alarmEnabled = true; // এলার্ম অন/অফ
 
   @override
   void initState() {
@@ -5618,15 +5551,24 @@ class _StopwatchScreenState extends State<StopwatchScreen> with TickerProviderSt
   }
 
   void _triggerAlarm() {
+    if (!_alarmEnabled) return; // এলার্ম বন্ধ থাকলে বাজাবে না
     SoundPlayer.playAlarmNotificationSound();
     showDialog(
       context: context,
+      barrierDismissible: false, // ব্যাকগ্রাউন্ডে ট্যাপ করলে বন্ধ না হওয়ার জন্য
       builder: (_) => AlertDialog(
-        title: const Text('⏰ Alarm!', textAlign: TextAlign.center),
-        content: const Text('Your countdown timer has finished.', textAlign: TextAlign.center),
+        title: const Text('⏰ Timer Finished!', textAlign: TextAlign.center),
+        content: const Text('আপনার কাউন্টডাউন টাইমার শেষ হয়েছে।', textAlign: TextAlign.center),
         actionsAlignment: MainAxisAlignment.center,
         actions: [
-          ElevatedButton(onPressed: () => Navigator.pop(context), child: const Text('Stop Alarm')),
+          ElevatedButton(
+            onPressed: () {
+              SoundPlayer.stopAlarm(); // আগে সাউন্ড বন্ধ করো
+              Navigator.pop(context);  // তারপর ডায়ালগ বন্ধ
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+            child: const Text('⏹ Stop Alarm', style: TextStyle(color: Colors.white)),
+          ),
         ],
       ),
     );
@@ -5870,47 +5812,105 @@ class _StopwatchScreenState extends State<StopwatchScreen> with TickerProviderSt
   }
 
   Widget _buildCountdownTimer() {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        if (!_isTimerRunning && _remainingTimerSeconds == 0)
-          SizedBox(
-            height: 200,
-            child: CupertinoTimerPicker(
-              mode: CupertinoTimerPickerMode.hms,
-              onTimerDurationChanged: (Duration newDuration) {
-                _selectedTimerSeconds = newDuration.inSeconds;
-              },
+    final colorScheme = Theme.of(context).colorScheme;
+    return SingleChildScrollView(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const SizedBox(height: 20),
+          // ─── এলার্ম টগল ───
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 24),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: colorScheme.outline.withValues(alpha: 0.3)),
             ),
-          )
-        else
-          Text(
-            '${(_remainingTimerSeconds ~/ 3600).toString().padLeft(2, '0')}:${((_remainingTimerSeconds % 3600) ~/ 60).toString().padLeft(2, '0')}:${(_remainingTimerSeconds % 60).toString().padLeft(2, '0')}',
-            style: const TextStyle(fontSize: 60, fontWeight: FontWeight.w300, fontFeatures: [FontFeature.tabularFigures()]),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      _alarmEnabled ? Icons.alarm_on_rounded : Icons.alarm_off_rounded,
+                      color: _alarmEnabled ? Colors.orangeAccent : colorScheme.onSurfaceVariant,
+                      size: 26,
+                    ),
+                    const SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'এলার্ম',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: colorScheme.onSurface,
+                            fontSize: 15,
+                          ),
+                        ),
+                        Text(
+                          _alarmEnabled ? 'টাইমার শেষে এলার্ম বাজবে' : 'টাইমার শেষে এলার্ম বাজবে না',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                Switch(
+                  value: _alarmEnabled,
+                  activeColor: Colors.orangeAccent,
+                  onChanged: (val) => setState(() => _alarmEnabled = val),
+                ),
+              ],
+            ),
           ),
-        const SizedBox(height: 60),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (_remainingTimerSeconds > 0)
-              FloatingActionButton(
-                heroTag: 'timer_cancel',
-                onPressed: _resetCountdown,
-                backgroundColor: Colors.grey.shade300,
-                elevation: 0,
-                child: const Icon(Icons.close_rounded, color: Colors.black87),
+          const SizedBox(height: 24),
+          // ─── টাইমার পিকার / কাউন্টডাউন ডিসপ্লে ───
+          if (!_isTimerRunning && _remainingTimerSeconds == 0)
+            SizedBox(
+              height: 200,
+              child: CupertinoTimerPicker(
+                mode: CupertinoTimerPickerMode.hms,
+                onTimerDurationChanged: (Duration newDuration) {
+                  _selectedTimerSeconds = newDuration.inSeconds;
+                },
               ),
-            if (_remainingTimerSeconds > 0) const SizedBox(width: 40),
-            FloatingActionButton.large(
-              heroTag: 'timer_start_pause',
-              onPressed: _isTimerRunning ? _stopCountdown : _startCountdown,
-              backgroundColor: _isTimerRunning ? Colors.redAccent : Colors.green.shade600,
-              elevation: 2,
-              child: Icon(_isTimerRunning ? Icons.pause_rounded : Icons.play_arrow_rounded, color: Colors.white, size: 36),
+            )
+          else
+            Text(
+              '${(_remainingTimerSeconds ~/ 3600).toString().padLeft(2, '0')}:${((_remainingTimerSeconds % 3600) ~/ 60).toString().padLeft(2, '0')}:${(_remainingTimerSeconds % 60).toString().padLeft(2, '0')}',
+              style: const TextStyle(fontSize: 60, fontWeight: FontWeight.w300, fontFeatures: [FontFeature.tabularFigures()]),
             ),
-          ],
-        ),
-      ],
+          const SizedBox(height: 48),
+          // ─── বাটনগুলো ───
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (_remainingTimerSeconds > 0)
+                FloatingActionButton(
+                  heroTag: 'timer_cancel',
+                  onPressed: _resetCountdown,
+                  backgroundColor: Colors.grey.shade300,
+                  elevation: 0,
+                  child: const Icon(Icons.close_rounded, color: Colors.black87),
+                ),
+              if (_remainingTimerSeconds > 0) const SizedBox(width: 40),
+              FloatingActionButton.large(
+                heroTag: 'timer_start_pause',
+                onPressed: _isTimerRunning ? _stopCountdown : _startCountdown,
+                backgroundColor: _isTimerRunning ? Colors.redAccent : Colors.green.shade600,
+                elevation: 2,
+                child: Icon(_isTimerRunning ? Icons.pause_rounded : Icons.play_arrow_rounded, color: Colors.white, size: 36),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+        ],
+      ),
     );
   }
 
@@ -7864,37 +7864,50 @@ class PdfReaderScreen extends StatefulWidget {
 }
 
 class _PdfReaderScreenState extends State<PdfReaderScreen> {
-  final ImagePicker _picker = ImagePicker();
   List<File> _pdfFiles = [];
   bool _isLoading = false;
 
   Future<void> _pickPdf() async {
-    // Pick image or file as a simulated PDF / Handnotes document picker
     try {
-      final XFile? pickedFile = await _picker.pickImage(source: ImageSource.gallery);
-      if (pickedFile != null) {
-        final path = pickedFile.path.toLowerCase();
-        if (!path.endsWith('.pdf')) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Error: Only PDF files (.pdf) are allowed! This is a JPG/PNG image file.'),
-              backgroundColor: Colors.redAccent,
-            ),
-          );
-          return;
-        }
+      setState(() => _isLoading = true);
+
+      // FilePicker দিয়ে শুধু PDF ফাইল ফিল্টার করে দেখানো হবে
+      final result = await fp.FilePicker.pickFiles(
+        type: fp.FileType.custom,
+        allowedExtensions: ['pdf'],
+        allowMultiple: true, // একসাথে একাধিক PDF সিলেক্ট করা যাবে
+      );
+
+      if (result != null && result.files.isNotEmpty) {
+        final newFiles = result.files
+            .where((f) => f.path != null)
+            .map((f) => File(f.path!))
+            .toList();
 
         setState(() {
-          _pdfFiles.add(File(pickedFile.path));
+          _pdfFiles.addAll(newFiles);
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Document imported successfully!')),
-        );
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${newFiles.length}টি PDF সফলভাবে ইম্পোর্ট হয়েছে!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error importing document: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('PDF ইম্পোর্টে সমস্যা হয়েছে: $e'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    } finally {
+      setState(() => _isLoading = false);
     }
   }
 
@@ -7970,36 +7983,32 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                           child: ListTile(
                             leading: const CircleAvatar(
                               backgroundColor: Colors.redAccent,
-                              child: Icon(Icons.menu_book_rounded, color: Colors.white),
+                              child: Icon(Icons.picture_as_pdf_rounded, color: Colors.white),
                             ),
                             title: Text(fileName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                            subtitle: Text('Size: ${(file.lengthSync() / 1024).toStringAsFixed(1)} KB'),
-                            trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
-                            onTap: () {
-                              // Open Viewer Simulation
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => Scaffold(
-                                    appBar: AppBar(title: Text(fileName)),
-                                    body: Center(
-                                      child: Column(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
-                                          const Icon(Icons.chrome_reader_mode_rounded, size: 100, color: Colors.blueAccent),
-                                          const SizedBox(height: 16),
-                                          Text(
-                                            'Viewing Document: $fileName',
-                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                                          ),
-                                          const SizedBox(height: 8),
-                                          const Text('Reading session started. Stay focused!', style: TextStyle(color: Colors.grey)),
-                                        ],
-                                      ),
+                            subtitle: Text('${(file.lengthSync() / 1024).toStringAsFixed(1)} KB'),
+                            trailing: IconButton(
+                              icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
+                              tooltip: 'তালিকা থেকে সরাও',
+                              onPressed: () {
+                                setState(() => _pdfFiles.removeAt(index));
+                              },
+                            ),
+                            onTap: () async {
+                              // ডিভাইসের native PDF app দিয়ে খোলো
+                              final result = await OpenFilex.open(file.path);
+                              if (result.type != ResultType.done && mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      result.type == ResultType.noAppToOpen
+                                          ? 'PDF খোলার জন্য কোনো অ্যাপ পাওয়া যায়নি। একটি PDF রিডার ইন্সটল করুন।'
+                                          : 'PDF খুলতে সমস্যা হয়েছে: ${result.message}',
                                     ),
+                                    backgroundColor: Colors.redAccent,
                                   ),
-                                ),
-                              );
+                                );
+                              }
                             },
                           ),
                         );
@@ -8012,3 +8021,219 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
     );
   }
 }
+
+class MultiTaskImportSheet extends StatefulWidget {
+  final String roomCode;
+  final Map<String, dynamic> participantNames;
+
+  const MultiTaskImportSheet({
+    super.key,
+    required this.roomCode,
+    required this.participantNames,
+  });
+
+  @override
+  State<MultiTaskImportSheet> createState() => _MultiTaskImportSheetState();
+}
+
+class _MultiTaskImportSheetState extends State<MultiTaskImportSheet> {
+  String _selectedUserId = '';
+  List<Task> _tasks = [];
+  bool _isLoading = false;
+  final Set<Task> _selectedTasks = {};
+
+  @override
+  void initState() {
+    super.initState();
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      _selectedUserId = user.uid;
+      _fetchTasksFor(_selectedUserId);
+    } else if (widget.participantNames.isNotEmpty) {
+      _selectedUserId = widget.participantNames.keys.first;
+      _fetchTasksFor(_selectedUserId);
+    }
+  }
+
+  Future<void> _fetchTasksFor(String userId) async {
+    setState(() {
+      _isLoading = true;
+      _tasks = [];
+    });
+
+    final todayDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final dayOfWeek = DateFormat('EEEE').format(DateTime.now());
+
+    List<Task> dailyTasks = [];
+    try {
+      final dailyDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('dailyRoutines')
+          .doc(todayDate)
+          .get();
+
+      if (dailyDoc.exists) {
+        final data = dailyDoc.data() as Map<String, dynamic>;
+        if (data['tasks'] != null) {
+          for (var taskMap in data['tasks']) {
+            dailyTasks.add(Task.fromMap(taskMap, taskMap['id'] ?? UniqueKey().toString()));
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching daily routine tasks: $e");
+    }
+
+    List<Task> weeklyTasks = [];
+    try {
+      final weeklySnap = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('weeklyRoutines')
+          .doc(dayOfWeek)
+          .collection('tasks')
+          .get();
+
+      for (var doc in weeklySnap.docs) {
+        weeklyTasks.add(Task.fromMap(doc.data(), doc.id));
+      }
+    } catch (e) {
+      debugPrint("Error fetching weekly tasks: $e");
+    }
+
+    if (mounted) {
+      setState(() {
+        _tasks = [...dailyTasks, ...weeklyTasks];
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _submit() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null || _selectedTasks.isEmpty) return;
+    
+    // Show confirmation dialog
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Review & Add'.tr()),
+        content: Text('Are you sure you want to add ${_selectedTasks.length} tasks to this partner space?'.tr()),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text('Cancel'.tr())),
+          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: Text('Yes, Add'.tr())),
+        ],
+      )
+    );
+    
+    if (confirm != true) return;
+
+    final batch = FirebaseFirestore.instance.batch();
+    for (final t in _selectedTasks) {
+      final docRef = FirebaseFirestore.instance
+          .collection('partner_rooms')
+          .doc(widget.roomCode)
+          .collection('tasks')
+          .doc();
+          
+      batch.set(docRef, {
+        'title': t.title,
+        'totalDurationMinutes': t.totalDurationMinutes,
+        'isCompleted': false,
+        'createdBy': user.uid,
+        'createdByName': user.displayName ?? 'Anonymous',
+        'timestamp': FieldValue.serverTimestamp(),
+        'subject': t.subject,
+        'notes': t.notes,
+        'topic': t.topic,
+        'challenges': t.challenges,
+        'category': t.category,
+        'startTime': t.startTime != null ? Timestamp.fromDate(t.startTime!) : null,
+        'endTime': t.endTime != null ? Timestamp.fromDate(t.endTime!) : null,
+      });
+    }
+    
+    await batch.commit();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Successfully added ${_selectedTasks.length} tasks!'.tr())));
+      Navigator.pop(context); // close sheet
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.8,
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('Import Tasks'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18), textAlign: TextAlign.center),
+          const SizedBox(height: 16),
+          if (widget.participantNames.isNotEmpty)
+            DropdownButtonFormField<String>(
+              value: widget.participantNames.containsKey(_selectedUserId) ? _selectedUserId : null,
+              decoration: InputDecoration(
+                labelText: 'Select Partner'.tr(),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              items: widget.participantNames.entries.map((e) {
+                return DropdownMenuItem<String>(
+                  value: e.key,
+                  child: Text(e.value),
+                );
+              }).toList(),
+              onChanged: (val) {
+                if (val != null && val != _selectedUserId) {
+                  _selectedUserId = val;
+                  _fetchTasksFor(val);
+                }
+              },
+            ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _tasks.isEmpty
+                    ? Center(child: Text('No tasks found for this user today!'.tr(), style: const TextStyle(color: Colors.grey)))
+                    : ListView.builder(
+                        itemCount: _tasks.length,
+                        itemBuilder: (context, index) {
+                          final t = _tasks[index];
+                          final isSelected = _selectedTasks.any((st) => st.id == t.id && st.title == t.title);
+                          return Card(
+                            child: CheckboxListTile(
+                              value: isSelected,
+                              onChanged: (val) {
+                                setState(() {
+                                  if (val == true) {
+                                    _selectedTasks.add(t);
+                                  } else {
+                                    _selectedTasks.removeWhere((st) => st.id == t.id && st.title == t.title);
+                                  }
+                                });
+                              },
+                              secondary: const Icon(Icons.task_alt_rounded, color: Colors.blue),
+                              title: Text(t.title, style: const TextStyle(fontWeight: FontWeight.bold)),
+                              subtitle: Text('${t.totalDurationMinutes} ${'mins'.tr()}'),
+                            ),
+                          );
+                        },
+                      ),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton.icon(
+            onPressed: _selectedTasks.isEmpty ? null : _submit,
+            icon: const Icon(Icons.check_circle_rounded),
+            label: Text('${'Review & Add'.tr()} (${_selectedTasks.length})'),
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          )
+        ],
+      ),
+    );
+  }
+}

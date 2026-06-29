@@ -360,16 +360,41 @@ class _Revision147ScreenState extends State<Revision147Screen> with SingleTicker
   }
 
   Widget _buildRevisionTab(DateTime date, Stream<DailyRoutine?> stream) {
+    // ৮ সেকেন্ডের মধ্যে ডেটা না আসলে null emit করবে → empty state দেখাবে
+    final timedStream = stream.timeout(
+      const Duration(seconds: 8),
+      onTimeout: (sink) => sink.add(null),
+    );
+
     return StreamBuilder<DailyRoutine?>(
-      stream: stream,
+      stream: timedStream,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const CircularProgressIndicator(),
+                const SizedBox(height: 16),
+                Text(
+                  'টাস্ক খোঁজা হচ্ছে...',
+                  style: TextStyle(color: Colors.grey.shade500, fontSize: 14),
+                ),
+              ],
+            ),
+          );
         }
 
         if (snapshot.hasError) {
           return Center(
-            child: Text('Error: ${snapshot.error}', style: const TextStyle(color: Colors.redAccent)),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.wifi_off_rounded, size: 48, color: Colors.redAccent),
+                const SizedBox(height: 12),
+                Text('ডেটা লোড করতে সমস্যা হয়েছে।', style: TextStyle(color: Colors.grey.shade600)),
+              ],
+            ),
           );
         }
 

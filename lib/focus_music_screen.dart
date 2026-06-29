@@ -1,7 +1,11 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
+import 'package:file_picker/file_picker.dart' as fp;
 
 class FocusMusicScreen extends StatefulWidget {
   const FocusMusicScreen({super.key});
@@ -55,6 +59,17 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
   Duration _position = Duration.zero;
   double _volume = 0.5;
 
+  // ── Offline Cache State ───────────────────────────────────────────────────
+  String? _downloadingTrackId;
+  Map<String, double> _downloadProgress = {};
+  Set<String> _cachedTrackIds = {};
+
+  // ── Custom (Device) Music State ───────────────────────────────────────────
+  /// ব্যবহারকারীর device থেকে import করা ট্র্যাকগুলো
+  final List<Map<String, String>> _customTracks = []; // {title, path}
+  bool _isCustomPlaying = false;   // কাস্টম ট্র্যাক বাজছে কি না
+  int _customTrackIndex = -1;      // কোন কাস্টম ট্র্যাক selected
+
   // Timer variables
   Timer? _countdownTimer;
   int _timerSecondsRemaining = 0;
@@ -75,10 +90,8 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
       duration: const Duration(milliseconds: 1000),
     );
 
-    // Initial setup of player configuration
     _audioPlayer.setVolume(_volume);
 
-    // Listen to audio player events
     _durationSubscription = _audioPlayer.onDurationChanged.listen((d) {
       if (mounted) setState(() => _duration = d);
     });
@@ -99,6 +112,103 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
         });
       }
     });
+
+    // app খুলতেই কোন ট্র্যাকগুলো cache এ আছে তা জানা
+    _checkCachedTracks();
+  }
+
+  // ── Cache Helpers ─────────────────────────────────────────────────────────
+
+  /// ট্র্যাকের local cache file path বের করে
+  Future<String> _getCachedFilePath(String trackId) async {
+    final dir = await getApplicationDocumentsDirectory();
+    return '${dir.path}/focus_music_$trackId.mp3';
+  }
+
+  /// কোন কোন ট্র্যাক ইতিমধ্যে cache এ আছে চেক করে
+  Future<void> _checkCachedTracks() async {
+    final Set<String> cached = {};
+    for (final track in _tracks) {
+      final path = await _getCachedFilePath(track['id']);
+      if (await File(path).exists()) {
+        cached.add(track['id']);
+      }
+    }
+    if (mounted) setState(() => _cachedTrackIds = cached);
+  }
+
+
+  /// ইন্টারনেট থেকে ট্র্যাক download করে device এ save করে
+  Future<void> _downloadAndCache(Map<String, dynamic> track, String savePath) async {
+    final trackId = track['id'] as String;
+    setState(() {
+      _downloadingTrackId = trackId;
+      _downloadProgress[trackId] = 0.0;
+    });
+
+    try {
+      final request = http.Request('GET', Uri.parse(track['url']));
+      final response = await http.Client().send(request);
+
+      final totalBytes = response.contentLength ?? 0;
+      int receivedBytes = 0;
+
+      final file = File(savePath);
+      final sink = file.openWrite();
+
+      await for (final chunk in response.stream) {
+        sink.add(chunk);
+        receivedBytes += chunk.length;
+        if (totalBytes > 0 && mounted) {
+          setState(() => _downloadProgress[trackId] = receivedBytes / totalBytes);
+        }
+      }
+      await sink.close();
+
+      if (mounted) {
+        setState(() {
+          _downloadingTrackId = null;
+          _downloadProgress[trackId] = 1.0;
+          _cachedTrackIds.add(trackId);
+        });
+        // Download সম্পন্ন → এখন local file থেকে play
+        await _audioPlayer.play(DeviceFileSource(savePath));
+        await _audioPlayer.setVolume(_volume);
+      }
+    } catch (e) {
+      // Download ব্যর্থ → সরাসরি URL থেকে stream করার চেষ্টা
+      if (mounted) {
+        setState(() => _downloadingTrackId = null);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('ডাউনলোড ব্যর্থ। ইন্টারনেট থেকে সরাসরি বাজানো হচ্ছে...'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        await _audioPlayer.play(UrlSource(track['url']));
+        await _audioPlayer.setVolume(_volume);
+      }
+    }
+  }
+
+  /// সব cache মুছে ফেলা
+  Future<void> _clearAllCache() async {
+    await _audioPlayer.stop();
+    for (final track in _tracks) {
+      final path = await _getCachedFilePath(track['id']);
+      final file = File(path);
+      if (await file.exists()) await file.delete();
+    }
+    if (mounted) {
+      setState(() {
+        _cachedTrackIds.clear();
+        _downloadProgress.clear();
+        _isPlaying = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('সব cache মুছে ফেলা হয়েছে।'), backgroundColor: Colors.blueGrey),
+      );
+    }
   }
 
   @override
@@ -114,24 +224,35 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
 
   Future<void> _playTrack(int index) async {
     try {
-      if (_selectedTrackIndex == index && _isPlaying) {
+      final track = _tracks[index];
+      final trackId = track['id'] as String;
+
+      if (!_isCustomPlaying && _selectedTrackIndex == index && _isPlaying) {
         await _audioPlayer.pause();
         return;
       }
 
       setState(() {
+        _isCustomPlaying = false;  // built-in track select করলে custom deselect
+        _customTrackIndex = -1;
         _selectedTrackIndex = index;
         _position = Duration.zero;
         _duration = Duration.zero;
       });
 
-      final track = _tracks[index];
-      await _audioPlayer.play(UrlSource(track['url']));
-      await _audioPlayer.setVolume(_volume);
+      final cachePath = await _getCachedFilePath(trackId);
+      final cacheFile = File(cachePath);
+
+      if (await cacheFile.exists()) {
+        await _audioPlayer.play(DeviceFileSource(cachePath));
+        await _audioPlayer.setVolume(_volume);
+      } else {
+        await _downloadAndCache(track, cachePath);
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error playing sound: $e')),
+          SnackBar(content: Text('সাউন্ড চালাতে সমস্যা: $e'), backgroundColor: Colors.redAccent),
         );
       }
     }
@@ -141,10 +262,98 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
     if (_isPlaying) {
       await _audioPlayer.pause();
     } else {
-      final track = _tracks[_selectedTrackIndex];
-      await _audioPlayer.play(UrlSource(track['url']));
+      if (_isCustomPlaying && _customTrackIndex >= 0) {
+        // কাস্টম ট্র্যাক resume
+        await _audioPlayer.play(DeviceFileSource(_customTracks[_customTrackIndex]['path']!));
+      } else {
+        final track = _tracks[_selectedTrackIndex];
+        final cachePath = await _getCachedFilePath(track['id']);
+        final cacheFile = File(cachePath);
+        if (await cacheFile.exists()) {
+          await _audioPlayer.play(DeviceFileSource(cachePath));
+        } else {
+          await _audioPlayer.play(UrlSource(track['url']));
+        }
+      }
       await _audioPlayer.setVolume(_volume);
     }
+  }
+
+  // ── Custom Music Methods ──────────────────────────────────────────────────
+
+  /// Device থেকে audio file pick করে list এ যোগ করে
+  Future<void> _pickCustomMusic() async {
+    try {
+      final result = await fp.FilePicker.pickFiles(
+        type: fp.FileType.custom,
+        allowedExtensions: ['mp3', 'wav', 'aac', 'm4a', 'flac', 'ogg'],
+        allowMultiple: true,
+      );
+
+      if (result != null && result.files.isNotEmpty) {
+        setState(() {
+          for (final file in result.files) {
+            if (file.path != null) {
+              // Duplicate চেক
+              final alreadyAdded = _customTracks.any((t) => t['path'] == file.path);
+              if (!alreadyAdded) {
+                _customTracks.add({'title': file.name, 'path': file.path!});
+              }
+            }
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('ফাইল খুলতে সমস্যা: $e'), backgroundColor: Colors.redAccent),
+        );
+      }
+    }
+  }
+
+  /// কাস্টম ট্র্যাক play করে
+  Future<void> _playCustomTrack(int index) async {
+    try {
+      // একই কাস্টম ট্র্যাক চলছে → pause
+      if (_isCustomPlaying && _customTrackIndex == index && _isPlaying) {
+        await _audioPlayer.pause();
+        return;
+      }
+
+      setState(() {
+        _isCustomPlaying = true;
+        _customTrackIndex = index;
+        _selectedTrackIndex = -1; // built-in deselect
+        _position = Duration.zero;
+        _duration = Duration.zero;
+      });
+
+      await _audioPlayer.play(DeviceFileSource(_customTracks[index]['path']!));
+      await _audioPlayer.setVolume(_volume);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('গান বাজাতে সমস্যা: $e'), backgroundColor: Colors.redAccent),
+        );
+      }
+    }
+  }
+
+  /// কাস্টম ট্র্যাক list থেকে সরিয়ে দেয়
+  void _removeCustomTrack(int index) {
+    if (_isCustomPlaying && _customTrackIndex == index) {
+      _audioPlayer.stop();
+      setState(() {
+        _isCustomPlaying = false;
+        _customTrackIndex = -1;
+        _selectedTrackIndex = 0;
+      });
+    }
+    setState(() {
+      _customTracks.removeAt(index);
+      if (_customTrackIndex >= _customTracks.length) _customTrackIndex = -1;
+    });
   }
 
   void _setTimer(int minutes) {
@@ -194,7 +403,14 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
 
   @override
   Widget build(BuildContext context) {
-    final activeTrack = _tracks[_selectedTrackIndex];
+    // Now playing: কাস্টম হলে custom info, না হলে built-in track info
+    final bool showingCustom = _isCustomPlaying && _customTrackIndex >= 0;
+    final Color activeColor = showingCustom
+        ? Colors.pinkAccent
+        : (_selectedTrackIndex >= 0 ? _tracks[_selectedTrackIndex]['color'] : Colors.purpleAccent);
+    final String activeTitle = showingCustom
+        ? _customTracks[_customTrackIndex]['title']!
+        : (_selectedTrackIndex >= 0 ? _tracks[_selectedTrackIndex]['title'] : 'Lo-Fi Study Beats');
 
     return Scaffold(
       body: Container(
@@ -228,7 +444,25 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
                         letterSpacing: 0.5,
                       ),
                     ),
-                    const Icon(Icons.music_note_rounded, color: Colors.indigoAccent),
+                    // Cache মুছে ফেলার বাটন
+                    IconButton(
+                      icon: const Icon(Icons.delete_sweep_rounded, color: Colors.white54),
+                      tooltip: 'Cache মুছুন',
+                      onPressed: () async {
+                        final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (_) => AlertDialog(
+                            title: const Text('Cache মুছবেন?'),
+                            content: const Text('সব ডাউনলোড করা ট্র্যাক মুছে যাবে এবং পরেরবার আবার ডাউনলোড করতে হবে।'),
+                            actions: [
+                              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('বাতিল')),
+                              TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('মুছুন', style: TextStyle(color: Colors.redAccent))),
+                            ],
+                          ),
+                        );
+                        if (confirm == true) _clearAllCache();
+                      },
+                    ),
                   ],
                 ),
               ),
@@ -246,15 +480,28 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
                 ),
               ),
 
-              // Tracks List
+              // Tracks List (Built-in + My Music)
               Expanded(
-                child: ListView.builder(
+                child: ListView(
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                  itemCount: _tracks.length,
-                  itemBuilder: (context, index) {
-                    final track = _tracks[index];
-                    final isSelected = index == _selectedTrackIndex;
-                    final isCurrentPlaying = isSelected && _isPlaying;
+                  children: [
+                    // ── Built-in Tracks ──
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Text(
+                        'Ambient Sounds',
+                        style: GoogleFonts.poppins(
+                          color: Colors.white54,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                    ),
+                    ...List.generate(_tracks.length, (index) {
+                      final track = _tracks[index];
+                      final isSelected = !_isCustomPlaying && index == _selectedTrackIndex;
+                      final isCurrentPlaying = isSelected && _isPlaying;
 
                     return Container(
                       margin: const EdgeInsets.only(bottom: 16),
@@ -295,61 +542,268 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
                       ),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(24),
-                        child: ListTile(
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                          onTap: () => _playTrack(index),
-                          leading: Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: isSelected
-                                  ? track['color'].withOpacity(0.2)
-                                  : Colors.white.withOpacity(0.05),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              track['icon'],
-                              color: isSelected ? track['color'] : Colors.white60,
-                              size: 28,
-                            ),
-                          ),
-                          title: Text(
-                            track['title'],
-                            style: GoogleFonts.poppins(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                          subtitle: Padding(
-                            padding: const EdgeInsets.only(top: 4.0),
-                            child: Text(
-                              track['subtitle'],
-                              style: GoogleFonts.poppins(
-                                color: Colors.white60,
-                                fontSize: 13,
+                        child: Column(
+                          children: [
+                            ListTile(
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                              onTap: () => _playTrack(index),
+                              leading: Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? track['color'].withOpacity(0.2)
+                                      : Colors.white.withOpacity(0.05),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  track['icon'],
+                                  color: isSelected ? track['color'] : Colors.white60,
+                                  size: 28,
+                                ),
+                              ),
+                              title: Text(
+                                track['title'],
+                                style: GoogleFonts.poppins(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 4.0, bottom: 6),
+                                    child: Text(
+                                      track['subtitle'],
+                                      style: GoogleFonts.poppins(
+                                        color: Colors.white60,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ),
+                                  // ── Cache Status Chip ──
+                                  Builder(builder: (_) {
+                                    final tid = track['id'] as String;
+                                    final isDownloading = _downloadingTrackId == tid;
+                                    final isCached = _cachedTrackIds.contains(tid);
+                                    final progress = _downloadProgress[tid] ?? 0.0;
+
+                                    if (isDownloading) {
+                                      return Row(
+                                        children: [
+                                          SizedBox(
+                                            width: 60,
+                                            child: LinearProgressIndicator(
+                                              value: progress,
+                                              backgroundColor: Colors.white12,
+                                              color: track['color'],
+                                              minHeight: 4,
+                                              borderRadius: BorderRadius.circular(2),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            '${(progress * 100).toInt()}%',
+                                            style: TextStyle(color: track['color'], fontSize: 11, fontWeight: FontWeight.bold),
+                                          ),
+                                        ],
+                                      );
+                                    }
+                                    if (isCached) {
+                                      return Row(
+                                        children: [
+                                          const Icon(Icons.offline_pin_rounded, color: Colors.greenAccent, size: 14),
+                                          const SizedBox(width: 4),
+                                          Text('অফলাইনে সেভ আছে', style: GoogleFonts.poppins(color: Colors.greenAccent, fontSize: 11)),
+                                        ],
+                                      );
+                                    }
+                                    return Row(
+                                      children: [
+                                        const Icon(Icons.cloud_download_outlined, color: Colors.white38, size: 14),
+                                        const SizedBox(width: 4),
+                                        Text('প্রথমবার ডাউনলোড হবে', style: GoogleFonts.poppins(color: Colors.white38, fontSize: 11)),
+                                      ],
+                                    );
+                                  }),
+                                ],
+                              ),
+                              trailing: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: isCurrentPlaying
+                                      ? track['color']
+                                      : Colors.white.withOpacity(0.05),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: _downloadingTrackId == track['id']
+                                    ? SizedBox(
+                                        width: 22,
+                                        height: 22,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: track['color'],
+                                        ),
+                                      )
+                                    : Icon(
+                                        isCurrentPlaying
+                                            ? Icons.pause_rounded
+                                            : Icons.play_arrow_rounded,
+                                        color: isCurrentPlaying ? Colors.white : Colors.white70,
+                                        size: 22,
+                                      ),
                               ),
                             ),
-                          ),
-                          trailing: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: isCurrentPlaying
-                                  ? track['color']
-                                  : Colors.white.withOpacity(0.05),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              isCurrentPlaying
-                                  ? Icons.pause_rounded
-                                  : Icons.play_arrow_rounded,
-                              color: isCurrentPlaying ? Colors.white : Colors.white70,
-                              size: 22,
-                            ),
-                          ),
+                          ],
                         ),
                       ),
                     );
-                  },
+                     }),
+
+                    const SizedBox(height: 8),
+
+                    // ── My Music Section ──
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'My Music',
+                          style: GoogleFonts.poppins(
+                            color: Colors.white54,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: _pickCustomMusic,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.pinkAccent.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: Colors.pinkAccent.withOpacity(0.4)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.add_rounded, color: Colors.pinkAccent, size: 16),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'গান যোগ করুন',
+                                  style: GoogleFonts.poppins(color: Colors.pinkAccent, fontSize: 12, fontWeight: FontWeight.w600),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+
+                    // কাস্টম ট্র্যাক লিস্ট
+                    if (_customTracks.isEmpty)
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.03),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: Colors.white.withOpacity(0.06)),
+                        ),
+                        child: Column(
+                          children: [
+                            Icon(Icons.library_music_rounded, color: Colors.white24, size: 36),
+                            const SizedBox(height: 8),
+                            Text(
+                              'আপনার পছন্দের গান যোগ করুন',
+                              style: GoogleFonts.poppins(color: Colors.white38, fontSize: 13),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'MP3, WAV, AAC, M4A, FLAC, OGG সাপোর্ট',
+                              style: GoogleFonts.poppins(color: Colors.white24, fontSize: 11),
+                            ),
+                          ],
+                        ),
+                      )
+                    else
+                      ...List.generate(_customTracks.length, (i) {
+                        final ct = _customTracks[i];
+                        final isSelected = _isCustomPlaying && i == _customTrackIndex;
+                        final isCurrentPlaying = isSelected && _isPlaying;
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: isSelected
+                                  ? [Colors.pinkAccent.withOpacity(0.2), Colors.pinkAccent.withOpacity(0.05)]
+                                  : [Colors.white.withOpacity(0.05), Colors.white.withOpacity(0.02)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: isSelected ? Colors.pinkAccent.withOpacity(0.5) : Colors.white.withOpacity(0.08),
+                              width: 1.5,
+                            ),
+                          ),
+                          child: ListTile(
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            onTap: () => _playCustomTrack(i),
+                            leading: Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: isSelected ? Colors.pinkAccent.withOpacity(0.2) : Colors.white.withOpacity(0.05),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.music_note_rounded,
+                                color: isSelected ? Colors.pinkAccent : Colors.white60,
+                                size: 22,
+                              ),
+                            ),
+                            title: Text(
+                              ct['title']!,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.poppins(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                              ),
+                            ),
+                            subtitle: Text(
+                              'ডিভাইস থেকে আমদানি',
+                              style: GoogleFonts.poppins(color: Colors.white38, fontSize: 11),
+                            ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: isCurrentPlaying ? Colors.pinkAccent : Colors.white.withOpacity(0.05),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    isCurrentPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                                    color: isCurrentPlaying ? Colors.white : Colors.white70,
+                                    size: 18,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                GestureDetector(
+                                  onTap: () => _removeCustomTrack(i),
+                                  child: const Icon(Icons.close_rounded, color: Colors.white38, size: 18),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }),
+                    const SizedBox(height: 8),
+                  ],
                 ),
               ),
 
@@ -388,13 +842,13 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
                                 style: GoogleFonts.poppins(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
-                                  color: Colors.indigoAccent,
+                                  color: showingCustom ? Colors.pinkAccent : Colors.indigoAccent,
                                   letterSpacing: 1.0,
                                 ),
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                activeTrack['title'],
+                                activeTitle,
                                 style: GoogleFonts.poppins(
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
@@ -428,7 +882,7 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
                                     width: 4,
                                     height: 30 * factor,
                                     decoration: BoxDecoration(
-                                      color: activeTrack['color'],
+                                      color: activeColor,
                                       borderRadius: BorderRadius.circular(2),
                                     ),
                                   );
@@ -451,7 +905,7 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
                         Expanded(
                           child: SliderTheme(
                             data: SliderTheme.of(context).copyWith(
-                              activeTrackColor: activeTrack['color'],
+                              activeTrackColor: activeColor,
                               inactiveTrackColor: Colors.white.withOpacity(0.1),
                               thumbColor: Colors.white,
                               thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
@@ -577,13 +1031,13 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               gradient: LinearGradient(
-                                colors: [activeTrack['color'], activeTrack['color'].withOpacity(0.7)],
+                                colors: [activeColor, activeColor.withOpacity(0.7)],
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: activeTrack['color'].withOpacity(0.4),
+                                  color: activeColor.withOpacity(0.4),
                                   blurRadius: 15,
                                   offset: const Offset(0, 5),
                                 )
