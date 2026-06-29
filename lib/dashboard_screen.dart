@@ -18,6 +18,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
 import 'local_notification_service.dart';
 
+class DashboardRoutineData {
+  final DailyRoutine? localRoutine;
+  final List<Task> partnerTasks;
+  DashboardRoutineData({this.localRoutine, this.partnerTasks = const []});
+}
+
 // ==========================================
 // 4. Dashboard Screen (ড্যাশবোর্ড স্ক্রিন)
 // ==========================================
@@ -32,12 +38,14 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   String get _todayDateFormatted => DateFormat('EEEE, d MMMM', LanguageManager().currentLanguage).format(DateTime.now());
   final String _todayDocId = DateFormat('yyyy-MM-dd').format(DateTime.now()); // e.g., "2023-10-27"
 
-  Stream<DailyRoutine?>? _todaysRoutineStream;
+  DailyRoutine? _currentRoutine;
+  List<Task> _partnerTasks = [];
+  bool _isLoadingRoutine = true;
   int _bottomNavIndex = 0; // বটম নেভিগেশন বারের ইনডেক্স
   int _currentStreak = 0;
   Timer? _breathingTimer;
   Timer? _missedTasksSnoozeTimer;
-  StreamSubscription<DailyRoutine?>? _routineSubscription;
+  StreamSubscription<DashboardRoutineData>? _routineSubscription;
 
   @override
   void initState() {
@@ -45,7 +53,6 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     WidgetsBinding.instance.addObserver(this);
 
     if (user != null) {
-      _todaysRoutineStream = _fetchTodaysRoutine();
       _listenToTodaysRoutine();
       _loadStreak();
       _checkMissedTasksFromYesterday();
@@ -74,10 +81,20 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
 
   void _listenToTodaysRoutine() {
     _routineSubscription?.cancel();
-    _routineSubscription = _fetchTodaysRoutine().listen((routine) {
+    _routineSubscription = _fetchCombinedRoutine().listen((data) {
       if (mounted) {
         setState(() {
-          _currentTasks = routine?.tasks ?? [];
+          _currentRoutine = data.localRoutine;
+          _partnerTasks = data.partnerTasks;
+          
+          final List<Task> allTasks = [];
+          if (data.localRoutine != null) {
+            allTasks.addAll(data.localRoutine!.tasks);
+          }
+          allTasks.addAll(data.partnerTasks);
+          _currentTasks = allTasks;
+          
+          _isLoadingRoutine = false;
         });
       }
     });
@@ -440,26 +457,33 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     // Check if 4 hours have passed since the last popup
     if (lastTime == null || now.difference(lastTime).inHours >= 4) {
       Future.delayed(const Duration(seconds: 3), () {
-        _showBreathingPopup();
+        _showBreathingPopup(isFromTimer: false);
       });
     } else {
       final remaining = const Duration(hours: 4) - now.difference(lastTime);
-      _breathingTimer = Timer(remaining, _showBreathingPopup);
+      _breathingTimer = Timer(remaining, () {
+        _showBreathingPopup(isFromTimer: true);
+      });
     }
   }
 
-  void _showBreathingPopup() async {
+  void _showBreathingPopup({bool isFromTimer = false}) async {
     if (!mounted) return;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('last_breathing_time', DateTime.now().toIso8601String());
+    
+    final String title = isFromTimer ? 'একটু বিরতি নিন' : 'মনোযোগ ধরে রাখুন';
+    final String content = isFromTimer
+        ? 'আপনি প্রায় চারঘণ্টা একাধারে কাজ করে যাচ্ছেন, একটু ব্রিথিং এক্সারসাইজ আপনার মনোযোগ বাড়াতে সাহায্য করবে।'
+        : 'পড়াশোনায় মনোযোগ বাড়াতে এবং ক্লান্তি দূর করতে চলুন একটু ব্রিথিং এক্সারসাইজ করে নিই!';
     
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) {
         return AlertDialog(
-          title: const Text('একটু বিরতি নিন'),
-          content: const Text('আপনি প্রায় চারঘণ্টা একাধারে কাজ করে যাচ্ছেন, একটু ব্রিথিং এক্সারসাইজ আপনার মনোযোগ বাড়াতে সাহায্য করবে।'),
+          title: Text(title),
+          content: Text(content),
           actions: [
             TextButton(
               onPressed: () {
@@ -484,7 +508,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     
     _breathingTimer?.cancel();
     _breathingTimer = Timer.periodic(const Duration(hours: 4), (timer) {
-      _showBreathingPopup();
+      _showBreathingPopup(isFromTimer: true);
     });
   }
 
@@ -517,6 +541,136 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       }
       return null;
     });
+  }
+
+  Stream<DashboardRoutineData> _fetchCombinedRoutine() {
+    if (user == null) {
+      return Stream.value(DashboardRoutineData());
+    }
+
+    final controller = StreamController<DashboardRoutineData>.broadcast();
+
+    StreamSubscription? localSubscription;
+    StreamSubscription? roomsSubscription;
+    Map<String, StreamSubscription> roomTasksSubscriptions = {};
+
+    DailyRoutine? localRoutine;
+    Map<String, List<Task>> partnerRoomTasks = {};
+
+    void emitCombined() {
+      if (controller.isClosed) return;
+
+      List<Task> combinedTasks = [];
+      partnerRoomTasks.forEach((roomCode, tasks) {
+        combinedTasks.addAll(tasks);
+      });
+
+      controller.add(DashboardRoutineData(
+        localRoutine: localRoutine,
+        partnerTasks: combinedTasks,
+      ));
+    }
+
+    // 1. Listen to local daily routine
+    localSubscription = FirebaseFirestore.instance
+        .collection('users')
+        .doc(user!.uid)
+        .collection('dailyRoutines')
+        .doc(_todayDocId)
+        .snapshots()
+        .listen((snapshot) {
+      if (snapshot.exists && snapshot.data() != null) {
+        localRoutine = DailyRoutine.fromMap(snapshot.data()!, snapshot.id);
+      } else {
+        localRoutine = null;
+      }
+      emitCombined();
+    }, onError: (err) {
+      debugPrint("Error listening to local routine: $err");
+    });
+
+    // 2. Listen to partner rooms user is participant in
+    roomsSubscription = FirebaseFirestore.instance
+        .collection('partner_rooms')
+        .where('participants', arrayContains: user!.uid)
+        .snapshots()
+        .listen((roomsSnap) {
+      final Map<String, String> roomCreatorMap = {};
+      final List<String> activeRoomCodes = [];
+      for (final doc in roomsSnap.docs) {
+        final roomCode = doc.id;
+        final data = doc.data() as Map<String, dynamic>;
+        final creatorId = data['creatorId'] ?? '';
+        roomCreatorMap[roomCode] = creatorId;
+        activeRoomCodes.add(roomCode);
+      }
+
+      // Cancel subscriptions for rooms user is no longer in
+      final keysToRemove = <String>[];
+      roomTasksSubscriptions.forEach((roomCode, sub) {
+        if (!activeRoomCodes.contains(roomCode)) {
+          sub.cancel();
+          keysToRemove.add(roomCode);
+        }
+      });
+      for (final key in keysToRemove) {
+        roomTasksSubscriptions.remove(key);
+        partnerRoomTasks.remove(key);
+      }
+
+      // Add subscriptions for new rooms
+      for (final roomCode in activeRoomCodes) {
+        if (!roomTasksSubscriptions.containsKey(roomCode)) {
+          final sub = FirebaseFirestore.instance
+              .collection('partner_rooms')
+              .doc(roomCode)
+              .collection('tasks')
+              .snapshots()
+              .listen((tasksSnap) {
+            final List<Task> tasksList = [];
+            final creatorId = roomCreatorMap[roomCode] ?? '';
+            final isAdmin = creatorId == user!.uid;
+
+            for (final doc in tasksSnap.docs) {
+              final tData = doc.data();
+              final completedUsers = List<String>.from(tData['completedUsers'] ?? []);
+              final oldIsCompleted = tData['isCompleted'] ?? false;
+              final oldCompletedBy = tData['completedBy'];
+              
+              final isCompletedByMe = completedUsers.contains(user!.uid) || 
+                  (oldIsCompleted && oldCompletedBy == user!.uid);
+
+              final baseTask = Task.fromMap(tData, 'partner_${roomCode}_${isAdmin ? 'admin' : 'member'}_${doc.id}');
+              final resolvedStatus = isCompletedByMe 
+                  ? 'completed' 
+                  : (baseTask.status == 'completed' ? 'pending' : baseTask.status);
+              
+              final taskWithoutSuffix = baseTask.copyWith(
+                isCompleted: isCompletedByMe,
+                status: resolvedStatus,
+              );
+              tasksList.add(taskWithoutSuffix);
+            }
+            partnerRoomTasks[roomCode] = tasksList;
+            emitCombined();
+          }, onError: (err) {
+            debugPrint("Error listening to partner room $roomCode tasks: $err");
+          });
+          roomTasksSubscriptions[roomCode] = sub;
+        }
+      }
+      emitCombined();
+    }, onError: (err) {
+      debugPrint("Error listening to partner rooms list: $err");
+    });
+
+    controller.onCancel = () {
+      localSubscription?.cancel();
+      roomsSubscription?.cancel();
+      roomTasksSubscriptions.forEach((_, sub) => sub.cancel());
+    };
+
+    return controller.stream;
   }
 
   // টাস্ক ডাটাবেজে যুক্ত করার ফাংশন
@@ -578,9 +732,62 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('AI Routine Added Successfully!'.tr())));
   }
 
-  // টাস্ক ডাটাবেজে আপডেট করার ফাংশন
   Future<void> _updateTaskInFirestore(Task updatedTask) async {
     if (user == null) return;
+
+    if (updatedTask.id.startsWith('partner_')) {
+      final parts = updatedTask.id.split('_');
+      if (parts.length >= 4) {
+        final roomCode = parts[1];
+        final docId = parts.sublist(3).join('_');
+        
+        final docRef = FirebaseFirestore.instance
+            .collection('partner_rooms')
+            .doc(roomCode)
+            .collection('tasks')
+            .doc(docId);
+            
+        final docSnap = await docRef.get();
+        if (docSnap.exists) {
+          final data = docSnap.data() as Map<String, dynamic>;
+          List<String> completedUsers = List<String>.from(data['completedUsers'] ?? []);
+          
+          final Map<String, dynamic> updateData = updatedTask.toMap();
+          updateData['id'] = docId;
+          
+          String cleanTitle = updatedTask.title;
+          final suffix = ' (${'P Task'.tr()})';
+          if (cleanTitle.endsWith(suffix)) {
+            cleanTitle = cleanTitle.substring(0, cleanTitle.length - suffix.length);
+          }
+          updateData['title'] = cleanTitle;
+          
+          updateData['completedUsers'] = completedUsers;
+          
+          if (updatedTask.isCompleted || updatedTask.status == 'completed') {
+            if (!completedUsers.contains(user!.uid)) {
+              completedUsers.add(user!.uid);
+            }
+            updateData['completedUsers'] = completedUsers;
+            updateData['isCompleted'] = false;
+            updateData['status'] = 'completed';
+            await _addPartnerTaskToLocalHistory(user!.uid, updatedTask, isCompleted: true);
+          } else {
+            if (completedUsers.contains(user!.uid)) {
+              completedUsers.remove(user!.uid);
+            }
+            updateData['completedUsers'] = completedUsers;
+            updateData['isCompleted'] = false;
+            updateData['status'] = updatedTask.status == 'completed' ? 'pending' : updatedTask.status;
+            await _addPartnerTaskToLocalHistory(user!.uid, updatedTask, isCompleted: false);
+          }
+          
+          await docRef.update(updateData);
+        }
+      }
+      return;
+    }
+
     final docRef = FirebaseFirestore.instance
         .collection('users')
         .doc(user!.uid)
@@ -606,6 +813,48 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           _loadStreak();
         }
       }
+    }
+  }
+
+  Future<void> _addPartnerTaskToLocalHistory(String userId, Task task, {required bool isCompleted}) async {
+    final docRef = FirebaseFirestore.instance
+        .collection('users')
+        .doc(userId)
+        .collection('dailyRoutines')
+        .doc(_todayDocId);
+
+    final suffix = ' (${'P Task'.tr()})';
+    String cleanTitle = task.title;
+    if (cleanTitle.endsWith(suffix)) {
+      cleanTitle = cleanTitle.substring(0, cleanTitle.length - suffix.length);
+    }
+    final historyTitle = '$cleanTitle$suffix';
+    
+    final localTask = task.copyWith(
+      title: historyTitle,
+      subject: task.subject != null ? '${task.subject}$suffix' : null,
+      isCompleted: isCompleted,
+      status: isCompleted ? 'completed' : 'pending',
+    );
+
+    final snapshot = await docRef.get();
+    if (snapshot.exists) {
+      final routine = DailyRoutine.fromMap(snapshot.data()!, snapshot.id);
+      int index = routine.tasks.indexWhere((t) => t.id == localTask.id);
+      if (index != -1) {
+        routine.tasks[index] = localTask;
+      } else {
+        routine.tasks.add(localTask);
+      }
+      await docRef.update({'tasks': routine.tasks.map((t) => t.toMap()).toList()});
+    } else {
+      final newRoutine = DailyRoutine(
+        id: _todayDocId,
+        userId: userId,
+        date: DateTime.now(),
+        tasks: [localTask],
+      );
+      await docRef.set(newRoutine.toMap());
     }
   }
 
@@ -772,6 +1021,33 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       return const ProfileScreen();
     }
 
+    final now = DateTime.now();
+    List<Task> activeTasks = [];
+    List<Task> missedTasks = [];
+    List<Task> otherTasks = [];
+    final activePartnerTasks = _partnerTasks.where((t) => t.status != 'completed' && !t.isCompleted).toList();
+
+    if (!_isLoadingRoutine && _currentRoutine != null && _currentRoutine!.tasks.isNotEmpty) {
+      for (var t in _currentRoutine!.tasks) {
+        if (t.status == 'completed') continue;
+
+        double progress = t.totalDurationMinutes > 0
+            ? (t.elapsedSeconds / (t.totalDurationMinutes * 60))
+            : 0.0;
+
+        if (t.endTime != null && t.endTime!.isBefore(now) && progress < 0.1) {
+          missedTasks.add(t);
+        } else if (t.startTime == null || t.endTime == null) {
+          otherTasks.add(t);
+        } else {
+          activeTasks.add(t);
+        }
+      }
+
+      activeTasks.sort((a, b) => (a.startTime ?? DateTime.now()).compareTo(b.startTime ?? DateTime.now()));
+      missedTasks.sort((a, b) => (a.startTime ?? DateTime.now()).compareTo(b.startTime ?? DateTime.now()));
+    }
+
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 80),
       child: TweenAnimationBuilder(
@@ -858,132 +1134,128 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             _buildTodayProgressCard(context),
             const SizedBox(height: 30),
             
-            StreamBuilder<DailyRoutine?>(
-              stream: _todaysRoutineStream,
-              builder: (context, snapshot) {
-                if (snapshot.hasData && snapshot.data != null) {
-                  _currentTasks = snapshot.data!.tasks;
-                }
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
+            if (_isLoadingRoutine)
+              const Center(child: CircularProgressIndicator())
+            else
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Today's Tasks".tr(),
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                  ),
+                  const SizedBox(height: 10),
+                  if (activeTasks.isNotEmpty) ...[
+                    ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: activeTasks.length,
+                        itemBuilder: (context, index) {
+                          return ActiveTaskCard(
+                            task: activeTasks[index], 
+                            onUpdate: _updateTaskInFirestore,
+                            showCheckbox: false,
+                          );
+                        },
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+                  if (activeTasks.isEmpty && missedTasks.isEmpty && otherTasks.isEmpty) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 20.0, top: 4.0),
+                      child: Text(
+                        "No tasks listed for today.".tr(),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            ),
+                      ),
+                    ),
+                  ],
 
-                final now = DateTime.now();
-                List<Task> activeTasks = [];
-                List<Task> missedTasks = [];
-                List<Task> otherTasks = [];
+                  if (missedTasks.isNotEmpty) ...[
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          "Missed Tasks".tr(),
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: Theme.of(context).colorScheme.error,
+                              ),
+                        ),
+                        TextButton(
+                          onPressed: () => _showAllMissedTasks(missedTasks),
+                          child: Text("See all".tr(), style: const TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: missedTasks.take(4).length,
+                        itemBuilder: (context, index) {
+                          return ActiveTaskCard(
+                            task: missedTasks[index], 
+                            onUpdate: _updateTaskInFirestore,
+                            showCheckbox: false,
+                          );
+                        },
+                    ),
+                    const SizedBox(height: 20),
+                  ],
 
-                if (snapshot.hasData && snapshot.data != null && snapshot.data!.tasks.isNotEmpty) {
-                  for (var t in snapshot.data!.tasks) {
-                    if (t.status == 'completed') continue;
-
-                    double progress = t.totalDurationMinutes > 0
-                        ? (t.elapsedSeconds / (t.totalDurationMinutes * 60))
-                        : 0.0;
-
-                    // মিসড টাস্ক এর শর্ত (সময় শেষ এবং প্রোগ্রেস ১০% এর কম)
-                    if (t.endTime != null && t.endTime!.isBefore(now) && progress < 0.1) {
-                      missedTasks.add(t);
-                    } 
-                    // উইকলি রুটিন বা অন্য টাস্ক (যাদের নির্দিষ্ট সময় নেই)
-                    else if (t.startTime == null || t.endTime == null) {
-                      otherTasks.add(t);
-                    } 
-                    // রেগুলার অ্যাক্টিভ টাস্ক
-                    else {
-                      activeTasks.add(t);
-                    }
-                  }
-
-                  // সময় অনুযায়ী সর্টিং
-                  activeTasks.sort((a, b) => a.startTime!.compareTo(b.startTime!));
-                  missedTasks.sort((a, b) => a.startTime!.compareTo(b.startTime!));
-                }
-
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+                  if (otherTasks.isNotEmpty) ...[
                     Text(
-                      "Today's Tasks".tr(),
+                      "Other Tasks".tr(),
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.bold,
                             color: Theme.of(context).colorScheme.onSurface,
                           ),
                     ),
                     const SizedBox(height: 10),
-                    if (activeTasks.isNotEmpty) ...[
-                      ListView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: activeTasks.take(5).length,
+                    ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: otherTasks.length,
                         itemBuilder: (context, index) {
-                          return ActiveTaskCard(task: activeTasks[index], onUpdate: _updateTaskInFirestore);
+                          return ActiveTaskCard(
+                            task: otherTasks[index], 
+                            onUpdate: _updateTaskInFirestore,
+                            showCheckbox: false,
+                          );
                         },
-                      ),
-                      const SizedBox(height: 20),
-                    ] else ...[
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 20.0, top: 4.0),
-                        child: Text(
-                          "No tasks listed for today.".tr(),
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                              ),
-                        ),
-                      ),
-                    ],
-
-                    if (missedTasks.isNotEmpty) ...[
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            "Missed Tasks".tr(),
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: Theme.of(context).colorScheme.error,
-                                ),
-                          ),
-                          TextButton(
-                            onPressed: () => _showAllMissedTasks(missedTasks),
-                            child: Text("See all".tr(), style: const TextStyle(fontWeight: FontWeight.bold)),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      ListView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: missedTasks.take(4).length,
-                        itemBuilder: (context, index) {
-                          return ActiveTaskCard(task: missedTasks[index], onUpdate: _updateTaskInFirestore);
-                        },
-                      ),
-                      const SizedBox(height: 20),
-                    ],
-
-                    if (otherTasks.isNotEmpty) ...[
-                      Text(
-                        "Other Tasks".tr(),
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context).colorScheme.onSurface,
-                            ),
-                      ),
-                      const SizedBox(height: 10),
-                      ListView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: otherTasks.length,
-                        itemBuilder: (context, index) {
-                          return ActiveTaskCard(task: otherTasks[index], onUpdate: _updateTaskInFirestore);
-                        },
-                      ),
-                    ],
+                    ),
                   ],
-                );
-              },
-            ),
+                  // Partner Tasks Section
+                  if (activePartnerTasks.isNotEmpty) ...[
+                    const SizedBox(height: 20),
+                    Text(
+                      "Partner Tasks".tr(),
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                    ),
+                    const SizedBox(height: 10),
+                    ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: activePartnerTasks.length,
+                      itemBuilder: (context, index) {
+                        return ActiveTaskCard(
+                          task: activePartnerTasks[index], 
+                          onUpdate: _updateTaskInFirestore,
+                          showCheckbox: true,
+                        );
+                      },
+                    ),
+                  ],
+                ],
+              ),
           ],
         ),
       ),
@@ -1052,141 +1324,130 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   }
 
   Widget _buildTodayProgressCard(BuildContext context) {
-    return StreamBuilder<DailyRoutine?>(
-      stream: _todaysRoutineStream,
-      builder: (context, snapshot) {
-        if (snapshot.hasData && snapshot.data != null) {
-          _currentTasks = snapshot.data!.tasks;
-        }
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (snapshot.hasError) {
-          return Center(child: Text('${'Error'.tr()}: ${snapshot.error}'));
-        }
+    if (_isLoadingRoutine) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
-        final DailyRoutine? routine = snapshot.data;
+    final DailyRoutine? routine = _currentRoutine;
 
-        if (routine == null || routine.tasks.isEmpty) {
-          return Container(
-            width: double.infinity,
-            margin: const EdgeInsets.symmetric(vertical: 8),
-            padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 24),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.05),
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(
-                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
-                width: 1.5,
+    if (routine == null || routine.tasks.isEmpty) {
+      return Container(
+        width: double.infinity,
+        margin: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 24),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
+            width: 1.5,
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.add_task_rounded,
+                size: 40,
+                color: Theme.of(context).colorScheme.primary,
               ),
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
+            const SizedBox(height: 20),
+            Text(
+              "No tasks set for today".tr(),
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
-                  child: Icon(
-                    Icons.add_task_rounded,
-                    size: 40,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  "No tasks set for today".tr(),
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.onSurface,
-                      ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  "Tap the 'New Task' button at the bottom of the screen to plan your study routine and stay productive!".tr(),
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        height: 1.4,
-                      ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
+              textAlign: TextAlign.center,
             ),
-          );
-        }
+            const SizedBox(height: 8),
+            Text(
+              "Tap the 'New Task' button at the bottom of the screen to plan your study routine and stay productive!".tr(),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    height: 1.4,
+                  ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+    }
 
-        // Routine exists, calculate progress
-        double progress = routine.progress;
-        int progressPercentage = (progress * 100).toInt();
+    // Routine exists, calculate progress
+    double progress = routine.progress;
+    int progressPercentage = (progress * 100).toInt();
 
-        return GestureDetector(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => TodaysTasksScreen(dailyRoutine: routine),
-              ),
-            );
-          },
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Theme.of(context).colorScheme.primary, const Color(0xFF3B82F6)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
-                  blurRadius: 20,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        "Today's Progress",
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
-                            ),
-                      ),
-                      Text(
-                        '$progressPercentage%',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.w800,
-                              color: Colors.white,
-                            ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: LinearProgressIndicator(
-                      value: progress,
-                      minHeight: 12,
-                      backgroundColor: Colors.white.withValues(alpha: 0.2),
-                      valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => TodaysTasksScreen(dailyRoutine: routine),
           ),
         );
       },
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Theme.of(context).colorScheme.primary, const Color(0xFF3B82F6)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    "Today's Progress",
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                  ),
+                  Text(
+                    '$progressPercentage%',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                        ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  minHeight: 12,
+                  backgroundColor: Colors.white.withValues(alpha: 0.2),
+                  valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -1909,8 +2170,14 @@ class _EditTaskBottomSheetState extends State<EditTaskBottomSheet> {
 class ActiveTaskCard extends StatefulWidget {
   final Task task;
   final Function(Task) onUpdate;
+  final bool showCheckbox;
 
-  const ActiveTaskCard({super.key, required this.task, required this.onUpdate});
+  const ActiveTaskCard({
+    super.key,
+    required this.task,
+    required this.onUpdate,
+    this.showCheckbox = true,
+  });
 
   @override
   State<ActiveTaskCard> createState() => _ActiveTaskCardState();
@@ -2259,6 +2526,17 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isPartnerTask = widget.task.id.startsWith('partner_');
+    final bool isRoomAdmin = widget.task.id.contains('_admin_');
+    final bool isEditDisabled = widget.task.hasBeenEdited || (isPartnerTask && !isRoomAdmin);
+
+    final double btnFontSize = isPartnerTask ? 11.0 : 13.0;
+    final double btnIconSize = isPartnerTask ? 14.0 : 18.0;
+    final double btnHeight = isPartnerTask ? 32.0 : 38.0;
+    final EdgeInsetsGeometry btnPadding = isPartnerTask
+        ? const EdgeInsets.symmetric(horizontal: 8, vertical: 0)
+        : const EdgeInsets.symmetric(horizontal: 14, vertical: 0);
+
     int totalTargetSeconds = widget.task.totalDurationMinutes * 60;
     int remainingSeconds = totalTargetSeconds - _elapsedSeconds;
     bool isOverdue = remainingSeconds < 0;
@@ -2293,10 +2571,33 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
+                if (widget.showCheckbox && widget.task.id.startsWith('partner_')) ...[
+                  SizedBox(
+                    height: 24,
+                    width: 24,
+                    child: Checkbox(
+                      value: widget.task.isCompleted,
+                      onChanged: (newValue) {
+                        widget.onUpdate(widget.task.copyWith(
+                          isCompleted: newValue == true,
+                          status: newValue == true ? 'completed' : 'pending',
+                        ));
+                      },
+                      activeColor: Colors.green,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ],
                 Expanded(
                   child: Text(
                     widget.task.subject ?? widget.task.title,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                      decoration: (widget.task.id.startsWith('partner_') && widget.task.isCompleted)
+                          ? TextDecoration.lineThrough
+                          : null,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -2327,6 +2628,80 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                     );
                   },
                   child: Icon(Icons.open_in_new_rounded, size: 18, color: Theme.of(context).colorScheme.secondary),
+                ),
+                const SizedBox(width: 12),
+                GestureDetector(
+                  onTap: () async {
+                    final isPartner = widget.task.id.startsWith('partner_');
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: Text(isPartner
+                            ? 'Delete Shared Task (শেয়ার্ড টাস্ক মুছুন)'.tr()
+                            : 'Delete Task (টাস্ক মুছুন)'.tr()),
+                        content: Text(isPartner
+                            ? 'Are you sure you want to delete this shared task?'.tr()
+                            : 'Are you sure you want to delete this task?'.tr()),
+                        actions: [
+                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text('No'.tr())),
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, true),
+                            style: TextButton.styleFrom(foregroundColor: Colors.red),
+                            child: Text('Yes, Delete'.tr()),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (confirm == true) {
+                      try {
+                        final user = FirebaseAuth.instance.currentUser;
+                        if (user != null) {
+                          // 1. Delete from user's local daily routine for today
+                          final todayDocId = DateFormat('yyyy-MM-dd').format(DateTime.now());
+                          final docRef = FirebaseFirestore.instance
+                              .collection('users')
+                              .doc(user.uid)
+                              .collection('dailyRoutines')
+                              .doc(todayDocId);
+                              
+                          final snapshot = await docRef.get();
+                          if (snapshot.exists) {
+                            DailyRoutine routine = DailyRoutine.fromMap(snapshot.data()!, snapshot.id);
+                            routine.tasks.removeWhere((t) => t.id == widget.task.id);
+                            await docRef.update({'tasks': routine.tasks.map((t) => t.toMap()).toList()});
+                          }
+                        }
+
+                        // 2. If partner task and user is admin, delete from partner room
+                        if (isPartner) {
+                          final parts = widget.task.id.split('_');
+                          if (parts.length >= 4) {
+                            final roomCode = parts[1];
+                            final role = parts[2];
+                            final docId = parts.sublist(3).join('_');
+                            
+                            if (role == 'admin') {
+                              await FirebaseFirestore.instance
+                                  .collection('partner_rooms')
+                                  .doc(roomCode)
+                                  .collection('tasks')
+                                  .doc(docId)
+                                  .delete();
+                            }
+                          }
+                        }
+                        
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Task deleted successfully.'.tr())),
+                          );
+                        }
+                      } catch (e) {
+                        debugPrint("Error deleting task: $e");
+                      }
+                    }
+                  },
+                  child: const Icon(Icons.delete_outline_rounded, size: 18, color: Colors.redAccent),
                 ),
               ],
             ),
@@ -2438,8 +2813,8 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
               children: [
                 if (_status == 'pending' || _status == 'paused')
                   ElevatedButton.icon(
-                    icon: Icon(_status == 'paused' ? Icons.play_arrow_rounded : Icons.play_circle_fill_rounded, size: 18),
-                    label: Text(_status == 'paused' ? 'Resume' : 'Start', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                    icon: Icon(_status == 'paused' ? Icons.play_arrow_rounded : Icons.play_circle_fill_rounded, size: btnIconSize),
+                    label: Text(_status == 'paused' ? 'Resume' : 'Start', style: TextStyle(fontSize: btnFontSize, fontWeight: FontWeight.bold)),
                     onPressed: () {
                       final now = DateTime.now();
                       double progress = widget.task.totalDurationMinutes > 0
@@ -2457,47 +2832,47 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                       backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                       foregroundColor: Theme.of(context).colorScheme.primary,
                       elevation: 0,
-                      minimumSize: const Size(0, 38),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
+                      minimumSize: Size(0, btnHeight),
+                      padding: btnPadding,
                     ),
                   )
                 else if (_status == 'running')
                   ElevatedButton.icon(
-                    icon: const Icon(Icons.pause_rounded, size: 18),
-                    label: const Text('Pause', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                    icon: Icon(Icons.pause_rounded, size: btnIconSize),
+                    label: Text('Pause', style: TextStyle(fontSize: btnFontSize, fontWeight: FontWeight.bold)),
                     onPressed: _pauseTimer,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFFFEF3C7), // Light Amber
                       foregroundColor: const Color(0xFFD97706), // Amber 600
                       elevation: 0,
-                      minimumSize: const Size(0, 38),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
+                      minimumSize: Size(0, btnHeight),
+                      padding: btnPadding,
                     ),
                   ),
                 
                 ElevatedButton.icon(
-                  icon: const Icon(Icons.check_circle_outline_rounded, size: 18),
-                  label: const Text('Done', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                  icon: Icon(Icons.check_circle_outline_rounded, size: btnIconSize),
+                  label: Text('Done', style: TextStyle(fontSize: btnFontSize, fontWeight: FontWeight.bold)),
                   onPressed: _showDoneDialog,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFDCFCE7), // Light Green
                     foregroundColor: const Color(0xFF16A34A), // Green 600
                     elevation: 0,
-                    minimumSize: const Size(0, 38),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
+                    minimumSize: Size(0, btnHeight),
+                    padding: btnPadding,
                   ),
                 ),
 
                 ElevatedButton.icon(
-                  icon: const Icon(Icons.edit_rounded, size: 16),
-                  label: const Text('Edit', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                  onPressed: widget.task.hasBeenEdited ? null : _editTask,
+                  icon: Icon(Icons.edit_rounded, size: btnIconSize - 2),
+                  label: Text('Edit', style: TextStyle(fontSize: btnFontSize, fontWeight: FontWeight.bold)),
+                  onPressed: isEditDisabled ? null : _editTask,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: widget.task.hasBeenEdited ? Colors.grey.shade200 : Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-                    foregroundColor: widget.task.hasBeenEdited ? Colors.grey : Theme.of(context).colorScheme.primary,
+                    backgroundColor: isEditDisabled ? Colors.grey.shade200 : Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                    foregroundColor: isEditDisabled ? Colors.grey : Theme.of(context).colorScheme.primary,
                     elevation: 0,
-                    minimumSize: const Size(0, 38),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
+                    minimumSize: Size(0, btnHeight),
+                    padding: btnPadding,
                   ),
                 ),
               ],
