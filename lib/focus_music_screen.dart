@@ -61,7 +61,7 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
 
   // ── Offline Cache State ───────────────────────────────────────────────────
   String? _downloadingTrackId;
-  Map<String, double> _downloadProgress = {};
+  final Map<String, double> _downloadProgress = {};
   Set<String> _cachedTrackIds = {};
 
   // ── Custom (Device) Music State ───────────────────────────────────────────
@@ -474,7 +474,7 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
                   'Choose your ambient sound to boost concentration and block noise.',
                   style: GoogleFonts.poppins(
                     fontSize: 14,
-                    color: Colors.white.withOpacity(0.6),
+                    color: Colors.white.withValues(alpha: 0.6),
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -517,8 +517,8 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
                               )
                             : LinearGradient(
                                 colors: [
-                                  Colors.white.withOpacity(0.05),
-                                  Colors.white.withOpacity(0.02),
+                                  Colors.white.withValues(alpha: 0.05),
+                                  Colors.white.withValues(alpha: 0.02),
                                 ],
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
@@ -527,7 +527,7 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
                         border: Border.all(
                           color: isSelected
                               ? track['color'].withOpacity(0.4)
-                              : Colors.white.withOpacity(0.08),
+                              : Colors.white.withValues(alpha: 0.08),
                           width: 1.5,
                         ),
                         boxShadow: isSelected
@@ -552,7 +552,7 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
                                 decoration: BoxDecoration(
                                   color: isSelected
                                       ? track['color'].withOpacity(0.2)
-                                      : Colors.white.withOpacity(0.05),
+                                      : Colors.white.withValues(alpha: 0.05),
                                   shape: BoxShape.circle,
                                 ),
                                 child: Icon(
@@ -634,7 +634,7 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
                                 decoration: BoxDecoration(
                                   color: isCurrentPlaying
                                       ? track['color']
-                                      : Colors.white.withOpacity(0.05),
+                                      : Colors.white.withValues(alpha: 0.05),
                                   shape: BoxShape.circle,
                                 ),
                                 child: _downloadingTrackId == track['id']
@@ -681,9 +681,9 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                             decoration: BoxDecoration(
-                              color: Colors.pinkAccent.withOpacity(0.15),
+                              color: Colors.pinkAccent.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: Colors.pinkAccent.withOpacity(0.4)),
+                              border: Border.all(color: Colors.pinkAccent.withValues(alpha: 0.4)),
                             ),
                             child: Row(
                               children: [
@@ -707,9 +707,9 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
                         margin: const EdgeInsets.only(bottom: 16),
                         padding: const EdgeInsets.all(20),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.03),
+                          color: Colors.white.withValues(alpha: 0.03),
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: Colors.white.withOpacity(0.06)),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
                         ),
                         child: Column(
                           children: [
@@ -737,14 +737,14 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
                               colors: isSelected
-                                  ? [Colors.pinkAccent.withOpacity(0.2), Colors.pinkAccent.withOpacity(0.05)]
-                                  : [Colors.white.withOpacity(0.05), Colors.white.withOpacity(0.02)],
+                                  ? [Colors.pinkAccent.withValues(alpha: 0.2), Colors.pinkAccent.withValues(alpha: 0.05)]
+                                  : [Colors.white.withValues(alpha: 0.05), Colors.white.withValues(alpha: 0.02)],
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                             ),
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
-                              color: isSelected ? Colors.pinkAccent.withOpacity(0.5) : Colors.white.withOpacity(0.08),
+                              color: isSelected ? Colors.pinkAccent.withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.08),
                               width: 1.5,
                             ),
                           ),
@@ -754,7 +754,7 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
                             leading: Container(
                               padding: const EdgeInsets.all(10),
                               decoration: BoxDecoration(
-                                color: isSelected ? Colors.pinkAccent.withOpacity(0.2) : Colors.white.withOpacity(0.05),
+                                color: isSelected ? Colors.pinkAccent.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.05),
                                 shape: BoxShape.circle,
                               ),
                               child: Icon(
@@ -783,7 +783,7 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
                                 Container(
                                   padding: const EdgeInsets.all(6),
                                   decoration: BoxDecoration(
-                                    color: isCurrentPlaying ? Colors.pinkAccent : Colors.white.withOpacity(0.05),
+                                    color: isCurrentPlaying ? Colors.pinkAccent : Colors.white.withValues(alpha: 0.05),
                                     shape: BoxShape.circle,
                                   ),
                                   child: Icon(
@@ -812,15 +812,15 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
                 margin: const EdgeInsets.all(20),
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.06),
+                  color: Colors.white.withValues(alpha: 0.06),
                   borderRadius: BorderRadius.circular(32),
                   border: Border.all(
-                    color: Colors.white.withOpacity(0.12),
+                    color: Colors.white.withValues(alpha: 0.12),
                     width: 1.5,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.3),
+                      color: Colors.black.withValues(alpha: 0.3),
                       blurRadius: 30,
                       offset: const Offset(0, 10),
                     )
@@ -906,7 +906,7 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
                           child: SliderTheme(
                             data: SliderTheme.of(context).copyWith(
                               activeTrackColor: activeColor,
-                              inactiveTrackColor: Colors.white.withOpacity(0.1),
+                              inactiveTrackColor: Colors.white.withValues(alpha: 0.1),
                               thumbColor: Colors.white,
                               thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
                               overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
@@ -955,7 +955,7 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
                           child: SliderTheme(
                             data: SliderTheme.of(context).copyWith(
                               activeTrackColor: Colors.indigoAccent,
-                              inactiveTrackColor: Colors.white.withOpacity(0.1),
+                              inactiveTrackColor: Colors.white.withValues(alpha: 0.1),
                               thumbColor: Colors.white,
                               thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
                               trackHeight: 3,
@@ -986,13 +986,13 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                             decoration: BoxDecoration(
                               color: _selectedTimerMinutes > 0
-                                  ? Colors.indigo.withOpacity(0.3)
-                                  : Colors.white.withOpacity(0.05),
+                                  ? Colors.indigo.withValues(alpha: 0.3)
+                                  : Colors.white.withValues(alpha: 0.05),
                               borderRadius: BorderRadius.circular(20),
                               border: Border.all(
                                 color: _selectedTimerMinutes > 0
-                                    ? Colors.indigoAccent.withOpacity(0.5)
-                                    : Colors.white.withOpacity(0.05),
+                                    ? Colors.indigoAccent.withValues(alpha: 0.5)
+                                    : Colors.white.withValues(alpha: 0.05),
                               ),
                             ),
                             child: Row(
@@ -1031,13 +1031,13 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               gradient: LinearGradient(
-                                colors: [activeColor, activeColor.withOpacity(0.7)],
+                                colors: [activeColor, activeColor.withValues(alpha: 0.7)],
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: activeColor.withOpacity(0.4),
+                                  color: activeColor.withValues(alpha: 0.4),
                                   blurRadius: 15,
                                   offset: const Offset(0, 5),
                                 )
@@ -1058,9 +1058,9 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
                                 child: Container(
                                   padding: const EdgeInsets.all(10),
                                   decoration: BoxDecoration(
-                                    color: Colors.red.withOpacity(0.15),
+                                    color: Colors.red.withValues(alpha: 0.15),
                                     shape: BoxShape.circle,
-                                    border: Border.all(color: Colors.redAccent.withOpacity(0.2)),
+                                    border: Border.all(color: Colors.redAccent.withValues(alpha: 0.2)),
                                   ),
                                   child: const Icon(
                                     Icons.close_rounded,
@@ -1123,7 +1123,7 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
                       Navigator.pop(context);
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white.withOpacity(0.08),
+                      backgroundColor: Colors.white.withValues(alpha: 0.08),
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       shape: RoundedRectangleBorder(
@@ -1131,7 +1131,7 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
                         side: BorderSide(
                           color: _selectedTimerMinutes == minutes
                               ? Colors.indigoAccent
-                              : Colors.white.withOpacity(0.05),
+                              : Colors.white.withValues(alpha: 0.05),
                           width: 1.5,
                         ),
                       ),

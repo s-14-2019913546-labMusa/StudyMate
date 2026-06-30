@@ -38,12 +38,58 @@ class LanguageManager extends ChangeNotifier {
   }
 
   String translate(String key) {
+    String translated;
     if (_currentLanguage == 'bn') {
-      return _enToBn[key] ?? key;
+      translated = _enToBn[key] ?? key;
     } else {
-      return _bnToEn[key] ?? key;
+      translated = _bnToEn[key] ?? key;
+    }
+    return _cleanBilingualString(translated, _currentLanguage);
+  }
+
+  String _cleanBilingualString(String input, String langCode) {
+    if (!input.contains('(') || !input.contains(')')) {
+      return input;
+    }
+
+    final openParen = input.indexOf('(');
+    final closeParen = input.indexOf(')', openParen);
+    if (closeParen == -1) return input;
+
+    final partA = input.substring(0, openParen).trim();
+    final partB = input.substring(openParen + 1, closeParen).trim();
+
+    final hasBengaliA = _containsBengali(partA);
+    final hasBengaliB = _containsBengali(partB);
+    final hasEnglishA = _containsEnglish(partA);
+    final hasEnglishB = _containsEnglish(partB);
+
+    // Check if it's actually bilingual (one part has Bengali, the other has English)
+    final isBilingual = (hasBengaliA && !hasBengaliB && hasEnglishB) ||
+                        (!hasBengaliA && hasBengaliB && hasEnglishA);
+
+    if (!isBilingual) {
+      // If both parts are Bengali or both are English, do not strip!
+      return input;
+    }
+
+    if (langCode == 'bn') {
+      return hasBengaliA ? partA : partB;
+    } else {
+      return hasEnglishA ? partA : partB;
     }
   }
+
+  bool _containsBengali(String text) {
+    final reg = RegExp(r'[\u0980-\u09ff]');
+    return reg.hasMatch(text);
+  }
+
+  bool _containsEnglish(String text) {
+    final reg = RegExp(r'[a-zA-Z]');
+    return reg.hasMatch(text);
+  }
+
 
   static const Map<String, String> _enToBn = {
     // Splash / Login / Signup
@@ -175,6 +221,12 @@ class LanguageManager extends ChangeNotifier {
     'Focus Music': 'ফোকাস মিউজিক',
     'Quick Notes': 'কুইক নোটস',
     'Notes': 'নোটস',
+    'Peak Focus Hours': 'পিক ফোকাস আওয়ার',
+    'Monthly Study Trend': 'মাসিক স্টাডি ট্রেন্ড',
+    'Study Calendar Heatmap': 'স্টাডি ক্যালেন্ডার হিটম্যাপ',
+    'Less': 'কম',
+    'More': 'বেশি',
+
     'Collaborative Studying': 'যৌথ পড়াশোনা',
     'Study Room': 'স্টাডি রুম',
     'Partner Tasks': 'পার্টনার টাস্ক',
@@ -295,6 +347,68 @@ class LanguageManager extends ChangeNotifier {
     'Save': 'সংরক্ষণ করুন',
     'Enter subject target or timeline...': 'বিষয়ের লক্ষ্য বা সময়সীমা লিখুন...',
     'Set a study target for this subject...': 'এই বিষয়ের জন্য একটি লক্ষ্য নির্ধারণ করুন...',
+    'Please select start and end time.': 'অনুগ্রহ করে শুরু ও শেষের সময় দিন',
+    'End time must be after start time.': 'শেষের সময় শুরুর সময়ের পরে হতে হবে',
+    'Failed to save task.': 'টাস্ক সেভ করতে সমস্যা হয়েছে',
+    'PDFs imported successfully!': 'টি PDF সফলভাবে ইম্পোর্ট হয়েছে!',
+    'Error importing PDF:': 'PDF ইম্পোর্টে সমস্যা হয়েছে:',
+    "Yesterday's Missed Tasks": 'গতকালের মিসড টাস্ক',
+    'You have some missed tasks from yesterday:': 'আপনার গতকালের কিছু টাস্ক বাকি আছে:',
+    'Reminder set for': 'রিমাইন্ডার সেট করা হয়েছে',
+    'Remind me later': 'পরে মনে করান',
+    'Take a Short Break': 'একটু বিরতি নিন',
+    'Stay Focused': 'মনোযোগ ধরে রাখুন',
+    'You have been working for almost 4 hours. A short breathing exercise will help boost your concentration.': 'আপনি প্রায় চারঘণ্টা একাধারে কাজ করে যাচ্ছেন, একটু ব্রিথিং এক্সারসাইজ আপনার মনোযোগ বাড়াতে সাহায্য করবে।',
+    'Let us take a short breathing exercise to improve focus and relieve fatigue!': 'পড়াশোনায় মনোযোগ বাড়াতে এবং ক্লান্তি দূর করতে চলুন একটু ব্রিথিং এক্সারসাইজ করে নিই!',
+    'Not Now': 'এখন না',
+    'Do Exercise': 'এক্সারসাইজ করুন',
+    'Confirm': 'নিশ্চিত করুন',
+    'Are you sure you want to exit the app?': 'আপনি কি সত্যিই অ্যাপ থেকে বের হতে চান?',
+    'Yes': 'হ্যাঁ',
+    'Did you face any challenges? (Notes)': 'পড়তে গিয়ে কোনো সমস্যার সম্মুখীন হয়েছেন কি? (নোট)',
+    'Write your notes here...': 'আপনার নোট লিখুন...',
+    'Add to Weekly Routine': 'উইকলি রুটিনে যুক্ত করুন',
+    'Change Password': 'পাসওয়ার্ড পরিবর্তন',
+    'Countdown': 'কাউন্টডাউন',
+    'Notification Settings': 'নোটিফিকেশন সেটিংস',
+    'Notification Configuration': 'নোটিফিকেশন কনফিগারেশন',
+    'Customize your study alerts and reminders.': 'আপনার পড়াশোনার তাগিদ ও রিমাইন্ডার কাস্টমাইজ করুন।',
+    'Global Notifications': 'গ্লোবাল নোটিফিকেশন',
+    'Keep all app notifications on or off': 'অ্যাপের সকল নোটিফিকেশন চালু বা বন্ধ রাখুন',
+    'Study Goal Reminders': 'স্টাডি গোল রিমাইন্ডার',
+    'Remind if daily study goal is not met': 'দৈনিক পড়াশোনার লক্ষ্য পূরণ না হলে মনে করিয়ে দেওয়া',
+    'Task Deadline Alerts': 'টাস্ক সময়সীমা অ্যালার্ট',
+    'Send notification before a specific task ends': 'কোনো নির্দিষ্ট কাজ শেষ হওয়ার পূর্বে নোটিফিকেশন পাঠানো',
+    'Revision Reminders': 'রিভিশন রিমাইন্ডার',
+    'Remind of revision for 1-4-7 spaced revision schedule': '১-৪-৭ স্পেসড রিভিশন শিডিউলের রিভিশন মনে করিয়ে দেওয়া',
+    'Social Notifications': 'সোশ্যাল নোটিফিকেশন',
+    'New friend requests or Social Hub update notifications': 'নতুন ফ্রেন্ড রিকোয়েস্ট বা সোশ্যাল হাবের আপডেট নোটিফিকেশন',
+    'Motivational Push': 'অনুপ্রেরণামূলক পুশ',
+    'Motivational messages to start studying every day': 'প্রতিদিন পড়াশোনা শুরু করার জন্য মোটিভেশনাল মেসেজ',
+    'Sound & Vibration Settings': 'সাউন্ড ও ভাইব্রেশন সেটিংস',
+    'Notification Sound': 'নোটিফিকেশন সাউন্ড',
+    'Play sound when receiving notifications': 'নোটিফিকেশন আসার সময়ে সাউন্ড প্লে হবে',
+    'Active (ON)': 'চালু (ON)',
+    'Disabled (OFF)': 'বন্ধ (OFF)',
+    'Vibration': 'ভাইব্রেশন',
+    'Vibrate device when receiving notifications': 'নোটিফিকেশন আসার সাথে ডিভাইস ভাইব্রেট করবে',
+    'Push Notification Sound': 'পুশ নোটিফিকেশন সাউন্ড',
+    'Test Sound': 'টেস্ট সাউন্ড',
+    'Alarm Sound': 'অ্যালার্ম সাউন্ড',
+    'Volume Level': 'সাউন্ডের মাত্রা',
+    'Special Note: The prayer time and Azan alarms for the Islamic Life feature are exempt from this global setting. To fully control prayer notifications, please go to the "Islamic Life" option.': 'বিশেষ দ্রষ্টব্য: ইসলামিক লাইফ ফিচারের নামাজের ওয়াক্ত ও আযানের অ্যালার্মগুলো এই গ্লোবাল সেটিং এর আওতামুক্ত। নামাজের নোটিফিকেশনগুলো সম্পূর্ণভাবে নিয়ন্ত্রণ করতে দয়া করে "Islamic Life" অপশনে যান।',
+    'Create your study routine for tomorrow.': 'আগামীকালের পড়ার রুটিন তৈরি করুন',
+    'Customize and update your weekly routine.': 'সাপ্তাহিক রুটিন কাস্টমাইজ ও আপডেট করুন',
+    'Choose from phone...': 'ফোন থেকে সিলেক্ট করুন',
+    'Start': 'শুরু করুন',
+    'Pause': 'বিরতি',
+    'Resume': 'আবার শুরু',
+    'Done': 'সম্পন্ন',
+    'Edit': 'সম্পাদনা',
+    'Reactions': 'রিঅ্যাকশনস',
+    'Copy Text': 'কপি করুন',
+    'Message copied to clipboard!': 'মেসেজ ক্লিপবোর্ডে কপি করা হয়েছে!',
+    'Seen': 'সিন',
   };
 
   static const Map<String, String> _bnToEn = {

@@ -29,6 +29,10 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
 
+  // Leaderboard filters
+  bool _leaderboardFriendsOnly = false;
+  String _leaderboardPeriod = 'allTime'; // 'allTime' or 'weekly'
+
   @override
   void initState() {
     super.initState();
@@ -144,9 +148,9 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
   String _getOneOnOneChatId(String userId1, String userId2) {
     // Sort the UIDs to ensure the chat ID is always the same regardless of who initiates
     if (userId1.compareTo(userId2) > 0) {
-      return '$userId2\_$userId1';
+      return '${userId2}_$userId1';
     } else {
-      return '$userId1\_$userId2';
+      return '${userId1}_$userId2';
     }
   }
 
@@ -700,6 +704,49 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
   Widget _buildLeaderboardTab() {
     if (currentUser == null) return const Center(child: Text("Please login first"));
 
+    return Column(
+      children: [
+        // Filter bar
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: Row(
+            children: [
+              // Weekly / All Time toggle
+              Expanded(
+                child: SegmentedButton<String>(
+                  segments: const [
+                    ButtonSegment(value: 'allTime', label: Text('All Time'), icon: Icon(Icons.emoji_events_rounded, size: 16)),
+                    ButtonSegment(value: 'weekly', label: Text('This Week'), icon: Icon(Icons.calendar_today_rounded, size: 16)),
+                  ],
+                  selected: {_leaderboardPeriod},
+                  onSelectionChanged: (Set<String> s) => setState(() => _leaderboardPeriod = s.first),
+                  style: const ButtonStyle(tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Friends Only toggle
+              FilterChip(
+                label: const Text('Friends', style: TextStyle(fontSize: 12)),
+                selected: _leaderboardFriendsOnly,
+                onSelected: (val) => setState(() => _leaderboardFriendsOnly = val),
+                avatar: const Icon(Icons.people_rounded, size: 16),
+                selectedColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        // Leaderboard list
+        Expanded(
+          child: _leaderboardFriendsOnly
+              ? _buildFriendsLeaderboard()
+              : _buildGlobalLeaderboard(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGlobalLeaderboard() {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance.collection('users').snapshots(),
       builder: (context, snapshot) {
@@ -710,73 +757,165 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
           return const Center(child: Text('No leaderboard data yet.'));
         }
 
+        final now = DateTime.now();
+        final weekStart = now.subtract(Duration(days: now.weekday - 1));
+
         final users = snapshot.data!.docs.map((doc) {
           final data = doc.data() as Map<String, dynamic>;
+          final int streak = data['streak'] ?? 0;
+          final int xp = data['xp'] ?? 0;
+          // Weighted combo score: streak*10 + xp (normalized)
+          final int score = streak * 10 + (xp ~/ 10);
           return {
             'uid': doc.id,
             'displayName': data['displayName'] ?? 'Study Buddy',
-            'streak': data['streak'] ?? 0,
+            'streak': streak,
+            'xp': xp,
+            'score': score,
             'email': data['email'] ?? '',
+            'weeklyXp': data['weeklyXp'] ?? 0,
+            'weeklyStreak': data['weeklyStreak'] ?? 0,
           };
         }).toList();
 
-        // Sort by streak descending
-        users.sort((a, b) => (b['streak'] as int).compareTo(a['streak'] as int));
+        if (_leaderboardPeriod == 'weekly') {
+          users.sort((a, b) => ((b['weeklyXp'] as int) + (b['weeklyStreak'] as int) * 5)
+              .compareTo((a['weeklyXp'] as int) + (a['weeklyStreak'] as int) * 5));
+        } else {
+          users.sort((a, b) => (b['score'] as int).compareTo(a['score'] as int));
+        }
 
-        return ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: users.length,
-          itemBuilder: (context, index) {
-            final userItem = users[index];
-            final rank = index + 1;
-            final isCurrentUser = userItem['uid'] == currentUser!.uid;
-            
-            String medal = '';
-            if (rank == 1) medal = '🥇 ';
-            else if (rank == 2) medal = '🥈 ';
-            else if (rank == 3) medal = '🥉 ';
+        return _buildLeaderboardList(users);
+      },
+    );
+  }
 
-            return Card(
-              color: isCurrentUser 
-                  ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.1) 
-                  : Theme.of(context).cardColor,
-              margin: const EdgeInsets.symmetric(vertical: 6),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: isCurrentUser 
-                    ? BorderSide(color: Theme.of(context).colorScheme.primary, width: 1.5)
-                    : BorderSide.none,
-              ),
-              child: ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: Colors.amber.withValues(alpha: 0.1),
-                  child: Text(
-                    medal.isEmpty ? '#$rank' : medal,
-                    style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary),
-                  ),
-                ),
-                title: Text(
-                  userItem['displayName'],
-                  style: TextStyle(
-                    fontWeight: isCurrentUser ? FontWeight.bold : FontWeight.normal,
-                    color: isCurrentUser ? Theme.of(context).colorScheme.primary : null,
-                  ),
-                ),
-                subtitle: Text(userItem['email'], style: const TextStyle(fontSize: 12)),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text('🔥', style: TextStyle(fontSize: 18)),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${userItem['streak']}',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                    ),
-                  ],
-                ),
-              ),
-            );
+  Widget _buildFriendsLeaderboard() {
+    if (currentUser == null) return const SizedBox.shrink();
+    return FutureBuilder<QuerySnapshot>(
+      future: FirebaseFirestore.instance
+          .collection('users')
+          .doc(currentUser!.uid)
+          .collection('friends')
+          .where('status', isEqualTo: 'accepted')
+          .get(),
+      builder: (context, friendSnap) {
+        if (!friendSnap.hasData) return const Center(child: CircularProgressIndicator());
+        final friendIds = [currentUser!.uid, ...friendSnap.data!.docs.map((d) => d.id)];
+
+        return StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance.collection('users').snapshots(),
+          builder: (context, snapshot) {
+            if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+
+            final users = snapshot.data!.docs
+                .where((doc) => friendIds.contains(doc.id))
+                .map((doc) {
+              final data = doc.data() as Map<String, dynamic>;
+              final int streak = data['streak'] ?? 0;
+              final int xp = data['xp'] ?? 0;
+              final int score = streak * 10 + (xp ~/ 10);
+              return {
+                'uid': doc.id,
+                'displayName': data['displayName'] ?? 'Study Buddy',
+                'streak': streak,
+                'xp': xp,
+                'score': score,
+                'email': data['email'] ?? '',
+                'weeklyXp': data['weeklyXp'] ?? 0,
+                'weeklyStreak': data['weeklyStreak'] ?? 0,
+              };
+            }).toList();
+
+            if (_leaderboardPeriod == 'weekly') {
+              users.sort((a, b) => ((b['weeklyXp'] as int) + (b['weeklyStreak'] as int) * 5)
+                  .compareTo((a['weeklyXp'] as int) + (a['weeklyStreak'] as int) * 5));
+            } else {
+              users.sort((a, b) => (b['score'] as int).compareTo(a['score'] as int));
+            }
+
+            return _buildLeaderboardList(users);
           },
+        );
+      },
+    );
+  }
+
+  Widget _buildLeaderboardList(List<Map<String, dynamic>> users) {
+    if (users.isEmpty) {
+      return const Center(child: Text('No data yet.', style: TextStyle(color: Colors.grey)));
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.all(12),
+      itemCount: users.length,
+      itemBuilder: (context, index) {
+        final userItem = users[index];
+        final rank = index + 1;
+        final isCurrentUser = userItem['uid'] == currentUser!.uid;
+        final int displayScore = _leaderboardPeriod == 'weekly'
+            ? (userItem['weeklyXp'] as int) + (userItem['weeklyStreak'] as int) * 5
+            : userItem['score'] as int;
+
+        Widget rankBadge;
+        if (rank == 1) {
+          rankBadge = const Text('👑', style: TextStyle(fontSize: 22));
+        } else if (rank == 2) {
+          rankBadge = const Text('🥈', style: TextStyle(fontSize: 20));
+        } else if (rank == 3) {
+          rankBadge = const Text('🥉', style: TextStyle(fontSize: 20));
+        } else {
+          rankBadge = Text('#$rank', style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary));
+        }
+
+        return Card(
+          color: isCurrentUser
+              ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.1)
+              : Theme.of(context).cardColor,
+          margin: const EdgeInsets.symmetric(vertical: 5),
+          elevation: isCurrentUser ? 3 : 1,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: isCurrentUser
+                ? BorderSide(color: Theme.of(context).colorScheme.primary, width: 1.5)
+                : (rank == 1 ? const BorderSide(color: Colors.amber, width: 1.5) : BorderSide.none),
+          ),
+          child: ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            leading: SizedBox(width: 36, child: Center(child: rankBadge)),
+            title: Text(
+              userItem['displayName'],
+              style: TextStyle(
+                fontWeight: isCurrentUser ? FontWeight.bold : FontWeight.w600,
+                color: isCurrentUser ? Theme.of(context).colorScheme.primary : null,
+              ),
+            ),
+            subtitle: Row(
+              children: [
+                const Text('🔥', style: TextStyle(fontSize: 12)),
+                Text(' ${userItem['streak']} Streak', style: const TextStyle(fontSize: 11)),
+                const SizedBox(width: 8),
+                const Text('⭐', style: TextStyle(fontSize: 12)),
+                Text(' ${userItem['xp']} XP', style: const TextStyle(fontSize: 11)),
+              ],
+            ),
+            trailing: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: rank == 1
+                    ? Colors.amber.withValues(alpha: 0.15)
+                    : Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                '$displayScore pts',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  color: rank == 1 ? Colors.amber.shade700 : Theme.of(context).colorScheme.primary,
+                ),
+              ),
+            ),
+          ),
         );
       },
     );
@@ -823,9 +962,9 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
   String _getOneOnOneChatId(String userId1, String userId2) {
     // Sort the UIDs to ensure the chat ID is always the same regardless of who initiates
     if (userId1.compareTo(userId2) > 0) {
-      return '$userId2\_$userId1';
+      return '${userId2}_$userId1';
     } else {
-      return '$userId1\_$userId2';
+      return '${userId1}_$userId2';
     }
   }
 
@@ -1132,7 +1271,7 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
-                                    '${progressPercentage}% ' + 'Completed'.tr(),
+                                    '$progressPercentage% ${'Completed'.tr()}',
                                     style: const TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w600,

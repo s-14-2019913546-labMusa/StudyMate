@@ -10,11 +10,11 @@ class SharedTaskForm extends StatefulWidget {
   final List<String> categories;
   final String submitButtonText;
   const SharedTaskForm({
-    Key? key,
+    super.key,
     required this.onSubmit,
     required this.categories,
     this.submitButtonText = 'Save',
-  }) : super(key: key);
+  });
 
   @override
   State<SharedTaskForm> createState() => _SharedTaskFormState();
@@ -142,10 +142,10 @@ class _SharedTaskFormState extends State<SharedTaskForm> {
               style: TextStyle(color: onSurfaceColor),
               decoration: InputDecoration(
                 hintText: 'Enter Subject Name',
-                hintStyle: TextStyle(color: onSurfaceColor.withOpacity(0.6)),
+                hintStyle: TextStyle(color: onSurfaceColor.withValues(alpha: 0.6)),
                 prefixIcon: Icon(Icons.subject, color: colorScheme.primary),
                 border: const OutlineInputBorder(),
-                enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: onSurfaceColor.withOpacity(0.3))),
+                enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: onSurfaceColor.withValues(alpha: 0.3))),
                 focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: colorScheme.primary)),
               ),
               validator: (v) => v == null || v.isEmpty ? 'Enter a subject name' : null,
@@ -159,10 +159,10 @@ class _SharedTaskFormState extends State<SharedTaskForm> {
               style: TextStyle(color: onSurfaceColor),
               decoration: InputDecoration(
                 hintText: 'Enter Topic Name',
-                hintStyle: TextStyle(color: onSurfaceColor.withOpacity(0.6)),
+                hintStyle: TextStyle(color: onSurfaceColor.withValues(alpha: 0.6)),
                 prefixIcon: Icon(Icons.title_rounded, color: colorScheme.primary),
                 border: const OutlineInputBorder(),
-                enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: onSurfaceColor.withOpacity(0.3))),
+                enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: onSurfaceColor.withValues(alpha: 0.3))),
                 focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: colorScheme.primary)),
               ),
             ),
@@ -175,10 +175,10 @@ class _SharedTaskFormState extends State<SharedTaskForm> {
               style: TextStyle(color: onSurfaceColor),
               decoration: InputDecoration(
                 hintText: 'Describe potential issues or difficulties...',
-                hintStyle: TextStyle(color: onSurfaceColor.withOpacity(0.6)),
+                hintStyle: TextStyle(color: onSurfaceColor.withValues(alpha: 0.6)),
                 prefixIcon: Icon(Icons.warning_amber_rounded, color: colorScheme.primary),
                 border: const OutlineInputBorder(),
-                enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: onSurfaceColor.withOpacity(0.3))),
+                enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: onSurfaceColor.withValues(alpha: 0.3))),
                 focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: colorScheme.primary)),
               ),
             ),
@@ -191,10 +191,10 @@ class _SharedTaskFormState extends State<SharedTaskForm> {
               style: TextStyle(color: onSurfaceColor),
               decoration: InputDecoration(
                 hintText: 'Enter notes or specific goals...',
-                hintStyle: TextStyle(color: onSurfaceColor.withOpacity(0.6)),
+                hintStyle: TextStyle(color: onSurfaceColor.withValues(alpha: 0.6)),
                 prefixIcon: Icon(Icons.notes, color: colorScheme.primary),
                 border: const OutlineInputBorder(),
-                enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: onSurfaceColor.withOpacity(0.3))),
+                enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: onSurfaceColor.withValues(alpha: 0.3))),
                 focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: colorScheme.primary)),
               ),
             ),
@@ -202,7 +202,7 @@ class _SharedTaskFormState extends State<SharedTaskForm> {
             Text('Category', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: onSurfaceColor)),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
-              value: _selectedCategory,
+              initialValue: _selectedCategory,
               items: widget.categories.map((c) => DropdownMenuItem(value: c, child: Text(c, style: TextStyle(color: onSurfaceColor)))).toList(),
               onChanged: (v) {
                 setState(() {
@@ -214,7 +214,7 @@ class _SharedTaskFormState extends State<SharedTaskForm> {
               },
               decoration: InputDecoration(
                 border: const OutlineInputBorder(),
-                enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: onSurfaceColor.withOpacity(0.3))),
+                enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: onSurfaceColor.withValues(alpha: 0.3))),
                 focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: colorScheme.primary)),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
@@ -226,12 +226,12 @@ class _SharedTaskFormState extends State<SharedTaskForm> {
               Text('Sub-category (Folder)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: onSurfaceColor)),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
-                value: _selectedSubCategory,
-                items: ['None', ..._studyFolders].toSet().map((c) => DropdownMenuItem(value: c, child: Text(c, style: TextStyle(color: onSurfaceColor)))).toList(),
+                initialValue: _selectedSubCategory,
+                items: {'None', ..._studyFolders}.map((c) => DropdownMenuItem(value: c, child: Text(c, style: TextStyle(color: onSurfaceColor)))).toList(),
                 onChanged: (v) => setState(() => _selectedSubCategory = v ?? 'None'),
                 decoration: InputDecoration(
                   border: const OutlineInputBorder(),
-                  enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: onSurfaceColor.withOpacity(0.3))),
+                  enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: onSurfaceColor.withValues(alpha: 0.3))),
                   focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: colorScheme.primary)),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 ),

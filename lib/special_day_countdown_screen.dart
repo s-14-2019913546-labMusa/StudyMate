@@ -1049,7 +1049,7 @@ class _CountdownFolderDetailScreenState extends State<CountdownFolderDetailScree
                             Switch(
                               value: isPinned,
                               onChanged: (v) => setLocalState(() => isPinned = v),
-                              activeColor: widget.folder.color,
+                              activeThumbColor: widget.folder.color,
                             ),
                             const SizedBox(width: 8),
                             const Icon(Icons.push_pin_rounded, size: 18),

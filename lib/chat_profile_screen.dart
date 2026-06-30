@@ -91,7 +91,7 @@ class _ChatProfileScreenState extends State<ChatProfileScreen> {
         setState(() {
           _receiverNickname = nicknames[widget.receiverId] as String?;
           _selectedTheme = theme;
-          _isMutedByMe = blocked[_currentUser!.uid] == true;
+          _isMutedByMe = blocked[_currentUser.uid] == true;
           _isLoading = false;
         });
       } else {
@@ -153,7 +153,7 @@ class _ChatProfileScreenState extends State<ChatProfileScreen> {
     try {
       await FirebaseFirestore.instance.collection('chats').doc(widget.chatId).set({
         'blocked': {
-          _currentUser!.uid: value,
+          _currentUser.uid: value,
         }
       }, SetOptions(merge: true));
 
@@ -420,7 +420,7 @@ class _ChatProfileScreenState extends State<ChatProfileScreen> {
                       subtitle: Text('Turn off messaging for this contact'.tr(), style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
                       value: _isMutedByMe,
                       onChanged: _toggleMute,
-                      activeColor: theme.colorScheme.primary,
+                      activeThumbColor: theme.colorScheme.primary,
                     ),
                     const Divider(height: 1),
                     ListTile(

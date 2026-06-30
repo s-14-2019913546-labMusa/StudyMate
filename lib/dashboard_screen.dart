@@ -10,9 +10,8 @@ import 'gamification_service.dart';
 import 'task_details_screen.dart'; // নতুন ফাইলটি ইমপোর্ট করা হলো
 import 'tools_screen.dart'; // Tools স্ক্রিন ইমপোর্ট
 import 'profile_screen.dart'; // Profile স্ক্রিন ইমপোর্ট
-import 'chat_screen.dart';
 import 'shared_task_form.dart';
-import 'conversations_screen.dart'; // নতুন ফাইলটি ইমপোর্ট করা হলো
+// নতুন ফাইলটি ইমপোর্ট করা হলো
 import 'social_hub_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
@@ -374,14 +373,14 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             context: context,
             builder: (context) {
               return AlertDialog(
-                title: const Text('গতকালের মিসড টাস্ক'),
+                title: Text("Yesterday's Missed Tasks".tr()),
                 content: SizedBox(
                   width: double.maxFinite,
                   height: 250,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('আপনার গতকালের কিছু টাস্ক বাকি আছে:', style: TextStyle(fontWeight: FontWeight.bold)),
+                      Text('You have some missed tasks from yesterday:'.tr(), style: const TextStyle(fontWeight: FontWeight.bold)),
                       const SizedBox(height: 10),
                       Expanded(
                         child: ListView.builder(
@@ -415,7 +414,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                           _checkMissedTasksFromYesterday();
                           if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('রিমাইন্ডার সেট করা হয়েছে ${picked.format(context)} এ')),
+                              SnackBar(content: Text('${'Reminder set for'.tr()} ${picked.format(context)}')),
                             );
                           }
                         }
@@ -424,14 +423,14 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                         await prefs.setBool(shownKey, true);
                       }
                     },
-                    child: const Text('পরে মনে করান'),
+                    child: Text('Remind me later'.tr()),
                   ),
                   TextButton(
                     onPressed: () {
                       prefs.setBool(shownKey, true);
                       Navigator.of(context).pop();
                     },
-                    child: const Text('ঠিক আছে'),
+                    child: Text('OK'.tr()),
                   ),
                 ],
               );
@@ -472,10 +471,10 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('last_breathing_time', DateTime.now().toIso8601String());
     
-    final String title = isFromTimer ? 'একটু বিরতি নিন' : 'মনোযোগ ধরে রাখুন';
+    final String title = isFromTimer ? 'Take a Short Break'.tr() : 'Stay Focused'.tr();
     final String content = isFromTimer
-        ? 'আপনি প্রায় চারঘণ্টা একাধারে কাজ করে যাচ্ছেন, একটু ব্রিথিং এক্সারসাইজ আপনার মনোযোগ বাড়াতে সাহায্য করবে।'
-        : 'পড়াশোনায় মনোযোগ বাড়াতে এবং ক্লান্তি দূর করতে চলুন একটু ব্রিথিং এক্সারসাইজ করে নিই!';
+        ? 'You have been working for almost 4 hours. A short breathing exercise will help boost your concentration.'.tr()
+        : 'Let us take a short breathing exercise to improve focus and relieve fatigue!'.tr();
     
     showDialog(
       context: context,
@@ -489,7 +488,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               onPressed: () {
                 Navigator.of(context).pop();
               },
-              child: const Text('এখন না'),
+              child: Text('Not Now'.tr()),
             ),
             ElevatedButton(
               onPressed: () {
@@ -499,7 +498,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                   phases: [4, 4, 4, 4],
                 )));
               },
-              child: const Text('এক্সারসাইজ করুন'),
+              child: Text('Do Exercise'.tr()),
             ),
           ],
         );
@@ -599,7 +598,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       final List<String> activeRoomCodes = [];
       for (final doc in roomsSnap.docs) {
         final roomCode = doc.id;
-        final data = doc.data() as Map<String, dynamic>;
+        final data = doc.data();
         final creatorId = data['creatorId'] ?? '';
         roomCreatorMap[roomCode] = creatorId;
         activeRoomCodes.add(roomCode);
@@ -701,6 +700,13 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       await LocalNotificationService.scheduleTaskNotifications(newTask);
     }
 
+    // Auto-schedule 1-4-7 revision reminders for the new task
+    await LocalNotificationService.scheduleRevisionNotifications(
+      taskTitle: newTask.title,
+      taskSubject: newTask.subject ?? newTask.title,
+      taskDate: DateTime.now(),
+    );
+
     if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Task Added Successfully!'.tr())));
   }
 
@@ -727,6 +733,12 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       if (t.alarmEnabled) {
         await LocalNotificationService.scheduleTaskNotifications(t);
       }
+      // Auto-schedule 1-4-7 revision reminders for each AI-added task
+      await LocalNotificationService.scheduleRevisionNotifications(
+        taskTitle: t.title,
+        taskSubject: t.subject ?? t.title,
+        taskDate: DateTime.now(),
+      );
     }
 
     if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('AI Routine Added Successfully!'.tr())));
@@ -920,17 +932,17 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
         final shouldExit = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('নিশ্চিত করুন'),
-            content: const Text('আপনি কি সত্যিই অ্যাপ থেকে বের হতে চান?'),
+            title: Text('Confirm'.tr()),
+            content: Text('Are you sure you want to exit the app?'.tr()),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('না'),
+                child: Text('No'.tr()),
               ),
               ElevatedButton(
                 onPressed: () => Navigator.of(context).pop(true),
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                child: const Text('হ্যাঁ', style: TextStyle(color: Colors.white)),
+                child: Text('Yes'.tr(), style: const TextStyle(color: Colors.white)),
               ),
             ],
           ),
@@ -947,8 +959,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 backgroundColor: Theme.of(context).colorScheme.surface,
                 elevation: 0,
                 scrolledUnderElevation: 0, // স্ক্রল করার সময় ডিফল্ট শ্যাডো অফ রাখার জন্য
-                titleSpacing: 20, // নিচের বডির প্যাডিংয়ের সাথে লোগোকে সমান্তরাল রাখার জন্য
+                centerTitle: true,
                 title: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(Icons.school_rounded, color: Theme.of(context).colorScheme.primary, size: 28),
                     const SizedBox(width: 8),
@@ -1419,7 +1432,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    "Today's Progress",
+                    "Today's Progress".tr(),
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.w700,
                           color: Colors.white,
@@ -1483,8 +1496,8 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
 
   TimeOfDay? _startTime;
   TimeOfDay? _endTime;
-  bool _isPrivate = false;
-  String _selectedCategory = 'Study';
+  final bool _isPrivate = false;
+  final String _selectedCategory = 'Study';
   final List<String> _categories = ['Study', 'Work', 'Sports', 'Other'];
   final List<Map<String, dynamic>> _customFolders = [];
   String? _selectedFolderSubject;
@@ -2020,8 +2033,8 @@ class _EditTaskBottomSheetState extends State<EditTaskBottomSheet> {
                 ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
-                  value: _selectedSubCategory,
-                  items: ['None', ..._customFolders.map((f) => f['name'] as String)].toSet().map((c) => DropdownMenuItem(value: c, child: Text(c, style: TextStyle(color: onSurfaceColor)))).toList(),
+                  initialValue: _selectedSubCategory,
+                  items: {'None', ..._customFolders.map((f) => f['name'] as String)}.map((c) => DropdownMenuItem(value: c, child: Text(c, style: TextStyle(color: onSurfaceColor)))).toList(),
                   onChanged: (v) {
                     setState(() {
                       _selectedSubCategory = v ?? 'None';
@@ -2138,7 +2151,7 @@ class _EditTaskBottomSheetState extends State<EditTaskBottomSheet> {
                   style: TextStyle(color: colorScheme.onSurfaceVariant),
                 ),
                 value: _isPrivate,
-                activeColor: colorScheme.primary,
+                activeThumbColor: colorScheme.primary,
                 onChanged: (val) => setState(() => _isPrivate = val),
               ),
               const SizedBox(height: 24),
@@ -2394,18 +2407,18 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
       barrierDismissible: false,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Complete Task', style: TextStyle(fontWeight: FontWeight.bold)),
+          title: Text('Complete Task'.tr(), style: const TextStyle(fontWeight: FontWeight.bold)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('পড়তে গিয়ে কোনো সমস্যার সম্মুখীন হয়েছেন কি? (নোট)'),
+              Text('Did you face any challenges? (Notes)'.tr()),
               const SizedBox(height: 10),
               TextField(
                 controller: noteController,
                 maxLines: 3,
-                decoration: const InputDecoration(
-                  hintText: 'আপনার নোট লিখুন...',
+                decoration: InputDecoration(
+                  hintText: 'Write your notes here...'.tr(),
                 ),
               ),
             ],
@@ -2808,13 +2821,16 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
             const SizedBox(height: 12),
             
             // Row 5: Control Buttons
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              alignment: WrapAlignment.spaceEvenly,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 if (_status == 'pending' || _status == 'paused')
                   ElevatedButton.icon(
                     icon: Icon(_status == 'paused' ? Icons.play_arrow_rounded : Icons.play_circle_fill_rounded, size: btnIconSize),
-                    label: Text(_status == 'paused' ? 'Resume' : 'Start', style: TextStyle(fontSize: btnFontSize, fontWeight: FontWeight.bold)),
+                    label: Text((_status == 'paused' ? 'Resume' : 'Start').tr(), style: TextStyle(fontSize: btnFontSize, fontWeight: FontWeight.bold)),
                     onPressed: () {
                       final now = DateTime.now();
                       double progress = widget.task.totalDurationMinutes > 0
@@ -2839,7 +2855,7 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                 else if (_status == 'running')
                   ElevatedButton.icon(
                     icon: Icon(Icons.pause_rounded, size: btnIconSize),
-                    label: Text('Pause', style: TextStyle(fontSize: btnFontSize, fontWeight: FontWeight.bold)),
+                    label: Text('Pause'.tr(), style: TextStyle(fontSize: btnFontSize, fontWeight: FontWeight.bold)),
                     onPressed: _pauseTimer,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFFFEF3C7), // Light Amber
@@ -2852,7 +2868,7 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                 
                 ElevatedButton.icon(
                   icon: Icon(Icons.check_circle_outline_rounded, size: btnIconSize),
-                  label: Text('Done', style: TextStyle(fontSize: btnFontSize, fontWeight: FontWeight.bold)),
+                  label: Text('Done'.tr(), style: TextStyle(fontSize: btnFontSize, fontWeight: FontWeight.bold)),
                   onPressed: _showDoneDialog,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFDCFCE7), // Light Green
@@ -2865,7 +2881,7 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
 
                 ElevatedButton.icon(
                   icon: Icon(Icons.edit_rounded, size: btnIconSize - 2),
-                  label: Text('Edit', style: TextStyle(fontSize: btnFontSize, fontWeight: FontWeight.bold)),
+                  label: Text('Edit'.tr(), style: TextStyle(fontSize: btnFontSize, fontWeight: FontWeight.bold)),
                   onPressed: isEditDisabled ? null : _editTask,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: isEditDisabled ? Colors.grey.shade200 : Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),

@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'daily_routine.dart';
+import 'local_notification_service.dart';
 
 class Revision147Screen extends StatefulWidget {
   const Revision147Screen({super.key});
@@ -461,10 +462,40 @@ class _Revision147ScreenState extends State<Revision147Screen> with SingleTicker
                     ],
                   ],
                 ),
-                trailing: Checkbox(
-                  value: isCompleted,
-                  onChanged: (bool? val) => _toggleTaskCompletion(date, task, val),
-                  activeColor: Colors.green,
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Bell icon to reschedule revision notifications from this task's date
+                    IconButton(
+                      icon: Icon(
+                        Icons.notifications_active_rounded,
+                        color: isCompleted ? Colors.green : Colors.indigo,
+                        size: 22,
+                      ),
+                      tooltip: 'রিভিশন নোটিফিকেশন সেট করুন',
+                      onPressed: () async {
+                        await LocalNotificationService.scheduleRevisionNotifications(
+                          taskTitle: task.title,
+                          taskSubject: task.subject ?? task.title,
+                          taskDate: date,
+                        );
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('"${task.title}" এর জন্য ১-৪-৭ রিভিশন নোটিফিকেশন সেট হয়েছে!'),
+                              backgroundColor: Colors.indigo,
+                              duration: const Duration(seconds: 3),
+                            ),
+                          );
+                        }
+                      },
+                    ),
+                    Checkbox(
+                      value: isCompleted,
+                      onChanged: (bool? val) => _toggleTaskCompletion(date, task, val),
+                      activeColor: Colors.green,
+                    ),
+                  ],
                 ),
               ),
             );

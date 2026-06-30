@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'islamic_service.dart';
+import 'local_notification_service.dart';
 import 'quran_reader_screen.dart';
 import 'qibla_compass_screen.dart';
 import 'tasbeeh_counter_screen.dart';
@@ -110,6 +111,7 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
         _isLoading = false;
       });
       _updateCountdown();
+      LocalNotificationService.schedulePrayerNotifications(timings, _islamicNotifSettings);
     }
   }
 
@@ -132,6 +134,7 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
         _isLoading = false;
       });
       _updateCountdown();
+      LocalNotificationService.schedulePrayerNotifications(timings, _islamicNotifSettings);
     }
   }
 
@@ -196,6 +199,9 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
       final directory = await getApplicationDocumentsDirectory();
       final file = File('${directory.path}/$_islamicNotifFile');
       await file.writeAsString(json.encode(_islamicNotifSettings));
+      if (_prayerTimes != null) {
+        await LocalNotificationService.schedulePrayerNotifications(_prayerTimes!, _islamicNotifSettings);
+      }
     } catch (e) {
       debugPrint('Error saving Islamic notif settings: $e');
     }
@@ -459,9 +465,10 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
         }
       }
 
-      // 2. 20 minutes before end
+      // 2. 20 minutes before end → only fire if prayerWarning toggle is ON
       final diffUntilEnd = end.difference(now);
-      if (diffUntilEnd.inMinutes == 20 &&
+      if ((_islamicNotifSettings['prayerWarning'] ?? true) &&
+          diffUntilEnd.inMinutes == 20 &&
           diffUntilEnd.inSeconds >= 0 &&
           diffUntilEnd.inSeconds < 3) {
         final eventId = "${todayKey}_${pKey}_end_20m";

@@ -393,7 +393,7 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
           
           // মেম্বারের নাম বের করা নোটিফিকেশনের জন্য
           final userSnap = await FirebaseFirestore.instance.collection('users').doc(nextAdminId).get();
-          final nextAdminName = (userSnap.data() as Map<String, dynamic>?)?['displayName'] ?? 'Study Buddy';
+          final nextAdminName = (userSnap.data())?['displayName'] ?? 'Study Buddy';
 
           await chatRef.update({
             'admins': FieldValue.arrayUnion([nextAdminId]),

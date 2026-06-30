@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'language_manager.dart';
@@ -354,7 +353,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
                     // Academic Year Dropdown
                     DropdownButtonFormField<String>(
-                      value: _academicYear,
+                      initialValue: _academicYear,
                       items: _academicYears.map((String y) {
                         return DropdownMenuItem<String>(
                           value: y,

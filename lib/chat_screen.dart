@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -57,7 +58,7 @@ class _ChatScreenState extends State<ChatScreen> {
         'participants': [_currentUser!.uid, widget.receiverId],
         'isGroup': false,
         'createdAt': FieldValue.serverTimestamp(),
-        'unreadCount': {_currentUser!.uid: 0, widget.receiverId!: 0},
+        'unreadCount': {_currentUser.uid: 0, widget.receiverId!: 0},
       });
     }
     _markAsRead();
@@ -73,7 +74,7 @@ class _ChatScreenState extends State<ChatScreen> {
   void _markAsRead() {
     if (_currentUser != null) {
       FirebaseFirestore.instance.collection('chats').doc(widget.chatId).update({
-        'unreadCount.${_currentUser!.uid}': 0,
+        'unreadCount.${_currentUser.uid}': 0,
       });
     }
   }
@@ -99,8 +100,8 @@ class _ChatScreenState extends State<ChatScreen> {
     final chatRef = FirebaseFirestore.instance.collection('chats').doc(widget.chatId);
 
     await chatRef.collection('messages').add({
-      'senderId': _currentUser!.uid,
-      'senderName': _currentUser!.displayName ?? 'User',
+      'senderId': _currentUser.uid,
+      'senderName': _currentUser.displayName ?? 'User',
       'content': content,
       'type': type,
       'fileName': fileName,
@@ -113,7 +114,7 @@ class _ChatScreenState extends State<ChatScreen> {
     final participants = List<String>.from(chatDoc.data()?['participants'] ?? []);
     final unreadUpdates = <String, dynamic>{};
     for (var pId in participants) {
-      if (pId != _currentUser!.uid) {
+      if (pId != _currentUser.uid) {
         unreadUpdates['unreadCount.$pId'] = FieldValue.increment(1);
       }
     }
@@ -336,11 +337,19 @@ class _ChatScreenState extends State<ChatScreen> {
                             return _SystemMessageBubble(message: data['content'] ?? '');
                           }
                           
+                          final receiverUnread = (!widget.isGroupChat && widget.receiverId != null)
+                              ? (chatData['unreadCount']?[widget.receiverId] ?? 0)
+                              : 0;
+                          final bool showSeenIndicator = index == 0 && isMe && (receiverUnread == 0);
+
                           return _MessageBubble(
                             data: data,
                             isMe: isMe,
                             isGroupChat: widget.isGroupChat,
                             themeName: themeName,
+                            messageId: message.id,
+                            chatId: widget.chatId,
+                            showSeenIndicator: showSeenIndicator,
                           );
                         },
                       );
@@ -589,12 +598,18 @@ class _MessageBubble extends StatelessWidget {
   final bool isMe;
   final bool isGroupChat;
   final String themeName;
+  final String messageId;
+  final String chatId;
+  final bool showSeenIndicator;
 
   const _MessageBubble({
     required this.data,
     required this.isMe,
     required this.isGroupChat,
     required this.themeName,
+    required this.messageId,
+    required this.chatId,
+    required this.showSeenIndicator,
   });
 
   Color _getBubbleColor(String? themeName, bool isMe, ThemeData themeData) {
@@ -626,6 +641,79 @@ class _MessageBubble extends StatelessWidget {
     return Colors.white;
   }
 
+  void _showMessageOptions(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+          child: SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Reactions'.tr(),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.grey),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: ['👍', '❤️', '😂', '😮', '😢', '🙏'].map((emoji) {
+                    return InkWell(
+                      onTap: () async {
+                        Navigator.pop(ctx);
+                        final myId = FirebaseAuth.instance.currentUser?.uid;
+                        if (myId != null) {
+                          final reactions = Map<String, dynamic>.from(data['reactions'] ?? {});
+                          if (reactions[myId] == emoji) {
+                            await FirebaseFirestore.instance
+                                .collection('chats')
+                                .doc(chatId)
+                                .collection('messages')
+                                .doc(messageId)
+                                .update({'reactions.$myId': FieldValue.delete()});
+                          } else {
+                            await FirebaseFirestore.instance
+                                .collection('chats')
+                                .doc(chatId)
+                                .collection('messages')
+                                .doc(messageId)
+                                .update({'reactions.$myId': emoji});
+                          }
+                        }
+                      },
+                      child: Text(
+                        emoji,
+                        style: const TextStyle(fontSize: 28),
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const Divider(height: 32),
+                ListTile(
+                  leading: const Icon(Icons.copy_rounded),
+                  title: Text('Copy Text'.tr()),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    Clipboard.setData(ClipboardData(text: data['content'] ?? ''));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Message copied to clipboard!'.tr())),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context); // Theme
@@ -643,9 +731,17 @@ class _MessageBubble extends StatelessWidget {
     final timestamp = (data['timestamp'] as Timestamp?)?.toDate();
     final timeString = timestamp != null ? DateFormat('h:mm a').format(timestamp) : '';
 
+    final reactionsMap = Map<String, dynamic>.from(data['reactions'] ?? {});
+    final List<String> uniqueEmojis = [];
+    reactionsMap.forEach((uid, emoji) {
+      if (!uniqueEmojis.contains(emoji)) {
+        uniqueEmojis.add(emoji);
+      }
+    });
+
     return Container(
       alignment: alignment,
-      margin: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
+      margin: const EdgeInsets.symmetric(vertical: 6.0, horizontal: 8.0),
       child: Column(
         crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
@@ -660,31 +756,91 @@ class _MessageBubble extends StatelessWidget {
                   fontWeight: FontWeight.bold),
               ),
             ),
-          Container(
-            constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
-            padding: const EdgeInsets.all(12.0),
-            decoration: BoxDecoration(
-              color: color,
-              border: (isMe || themeName != 'default') ? null : Border.all(color: theme.dividerColor.withValues(alpha: 0.5)),
-              borderRadius: BorderRadius.only(
-                topLeft: const Radius.circular(16),
-                topRight: const Radius.circular(16),
-                bottomLeft: isMe ? const Radius.circular(16) : const Radius.circular(4),
-                bottomRight: isMe ? const Radius.circular(4) : const Radius.circular(16),
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              GestureDetector(
+                onLongPress: () => _showMessageOptions(context),
+                child: Container(
+                  constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
+                  padding: const EdgeInsets.all(12.0),
+                  decoration: BoxDecoration(
+                    color: color,
+                    border: (isMe || themeName != 'default') ? null : Border.all(color: theme.dividerColor.withValues(alpha: 0.5)),
+                    borderRadius: BorderRadius.only(
+                      topLeft: const Radius.circular(16),
+                      topRight: const Radius.circular(16),
+                      bottomLeft: isMe ? const Radius.circular(16) : const Radius.circular(4),
+                      bottomRight: isMe ? const Radius.circular(4) : const Radius.circular(16),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildMessageContent(context, textColor),
+                      const SizedBox(height: 4),
+                      Text(
+                        timeString,
+                        style: TextStyle(fontSize: 10, color: textColor.withValues(alpha: 0.7)),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              if (reactionsMap.isNotEmpty)
+                Positioned(
+                  bottom: -10,
+                  right: isMe ? null : -6,
+                  left: isMe ? -6 : null,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: theme.cardColor,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.1),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          uniqueEmojis.join(''),
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                        if (reactionsMap.length > 1) ...[
+                          const SizedBox(width: 4),
+                          Text(
+                            '${reactionsMap.length}',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          if (showSeenIndicator)
+            Padding(
+              padding: const EdgeInsets.only(top: 4.0, right: 4.0),
+              child: Text(
+                'Seen'.tr(),
+                style: TextStyle(
+                  fontSize: 10,
+                  color: theme.colorScheme.primary,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildMessageContent(context, textColor),
-                const SizedBox(height: 4),
-                Text(
-                  timeString,
-                  style: TextStyle(fontSize: 10, color: textColor.withValues(alpha: 0.7)),
-                ),
-              ],
-            ),
-          ),
         ],
       ),
     );

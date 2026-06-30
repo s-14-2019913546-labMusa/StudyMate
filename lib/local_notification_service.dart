@@ -2,11 +2,8 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:path_provider/path_provider.dart';
@@ -226,6 +223,110 @@ class LocalNotificationService {
     }
   }
 
+  static Future<void> schedulePrayerNotifications(
+    Map<String, String> timings,
+    Map<String, bool> settings,
+  ) async {
+    if (kIsWeb) return;
+
+    // Cancel existing scheduled prayer notifications (range 1000 to 1100)
+    for (int id = 1000; id <= 1100; id++) {
+      await _notificationsPlugin.cancel(id: id);
+    }
+
+    final now = DateTime.now();
+    final List<String> prayerKeys = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
+    final Map<String, String> prayerNames = {
+      'Fajr': 'ফজর',
+      'Dhuhr': 'যোহর',
+      'Asr': 'আসর',
+      'Maghrib': 'মাগরিব',
+      'Isha': 'এশা'
+    };
+
+    int notificationId = 1000;
+
+    // Schedule for today and the next 6 days (total 7 days)
+    for (int dayOffset = 0; dayOffset < 7; dayOffset++) {
+      final targetDate = now.add(Duration(days: dayOffset));
+
+      for (final pKey in prayerKeys) {
+        final startStr = timings[pKey];
+        if (startStr == null) continue;
+
+        // Parse start time for target date
+        final startParts = startStr.split(':');
+        final startHour = int.parse(startParts[0]);
+        final startMin = int.parse(startParts[1]);
+        final start = DateTime(targetDate.year, targetDate.month, targetDate.day, startHour, startMin);
+
+        // Determine end time to calculate warning
+        DateTime end;
+        if (pKey == 'Fajr') {
+          final sunriseStr = timings['Sunrise'] ?? '06:00';
+          final sunriseParts = sunriseStr.split(':');
+          end = DateTime(targetDate.year, targetDate.month, targetDate.day, int.parse(sunriseParts[0]), int.parse(sunriseParts[1]));
+        } else if (pKey == 'Dhuhr') {
+          final asrStr = timings['Asr'] ?? '16:00';
+          final asrParts = asrStr.split(':');
+          end = DateTime(targetDate.year, targetDate.month, targetDate.day, int.parse(asrParts[0]), int.parse(asrParts[1]));
+        } else if (pKey == 'Asr') {
+          final maghribStr = timings['Maghrib'] ?? '18:30';
+          final maghribParts = maghribStr.split(':');
+          end = DateTime(targetDate.year, targetDate.month, targetDate.day, int.parse(maghribParts[0]), int.parse(maghribParts[1]));
+        } else if (pKey == 'Maghrib') {
+          final ishaStr = timings['Isha'] ?? '20:00';
+          final ishaParts = ishaStr.split(':');
+          end = DateTime(targetDate.year, targetDate.month, targetDate.day, int.parse(ishaParts[0]), int.parse(ishaParts[1]));
+        } else { // Isha
+          // End of Isha is Fajr of next day
+          final nextDay = targetDate.add(const Duration(days: 1));
+          final fajrStr = timings['Fajr'] ?? '04:30';
+          final fajrParts = fajrStr.split(':');
+          end = DateTime(nextDay.year, nextDay.month, nextDay.day, int.parse(fajrParts[0]), int.parse(fajrParts[1]));
+        }
+
+        // 1. 5 minutes after start
+        if (settings['prayerStart'] ?? true) {
+          final alarmTime = start.add(const Duration(minutes: 5));
+          if (alarmTime.isAfter(now)) {
+            final pName = (pKey == 'Dhuhr' && targetDate.weekday == DateTime.friday) ? 'জুমা' : prayerNames[pKey]!;
+            await _scheduleNotification(
+              id: notificationId++,
+              title: "সালাতের ওয়াক্ত",
+              body: "$pName সালাতের ওয়াক্ত শুরু হয়েছে! ৫ মিনিট অতিবাহিত হয়েছে।",
+              scheduledDate: alarmTime,
+              channelId: 'islamic_prayers_channel',
+              channelName: 'Prayer Time Alerts',
+              channelDescription: 'Reminders for daily prayer times',
+              enableVibration: true,
+              playSound: true,
+            );
+          }
+        }
+
+        // 2. 20 minutes before end
+        if (settings['prayerWarning'] ?? true) {
+          final alarmTime = end.subtract(const Duration(minutes: 20));
+          if (alarmTime.isAfter(now)) {
+            final pName = prayerNames[pKey]!;
+            await _scheduleNotification(
+              id: notificationId++,
+              title: "তাড়াতাড়ি করুন!",
+              body: "সতর্কতা: $pName নামাজের ওয়াক্ত শেষ হতে আর মাত্র ২০ মিনিট বাকি আছে!",
+              scheduledDate: alarmTime,
+              channelId: 'islamic_prayers_channel',
+              channelName: 'Prayer Time Alerts',
+              channelDescription: 'Reminders for daily prayer times',
+              enableVibration: true,
+              playSound: true,
+            );
+          }
+        }
+      }
+    }
+  }
+
   static Future<void> _scheduleNotification({
     required int id,
     required String title,
@@ -276,6 +377,66 @@ class LocalNotificationService {
   static Future<void> cancelAllNotifications() async {
     if (kIsWeb) return;
     await _notificationsPlugin.cancelAll();
+  }
+
+  // ============================================================
+  // 1-4-7 Revision Notification Methods
+  // Notification ID range: 2000 - 2999
+  // ============================================================
+
+  /// Schedule push notifications for a task on day 1, day 4, and day 7 from [taskDate].
+  /// Each unique task title uses a consistent hash-based ID range within 2000-2999.
+  static Future<void> scheduleRevisionNotifications({
+    required String taskTitle,
+    required String taskSubject,
+    required DateTime taskDate,
+  }) async {
+    if (kIsWeb) return;
+
+    final String label = taskSubject.isNotEmpty ? taskSubject : taskTitle;
+    final int baseId = 2000 + (taskTitle.hashCode.abs() % 900);
+
+    final List<int> revisionDays = [1, 4, 7];
+
+    for (int i = 0; i < revisionDays.length; i++) {
+      final int dayOffset = revisionDays[i];
+      // Schedule at 8:00 AM on the revision day
+      final DateTime revisionDate = DateTime(
+        taskDate.year,
+        taskDate.month,
+        taskDate.day + dayOffset,
+        8, // 8:00 AM
+        0,
+      );
+
+      if (revisionDate.isAfter(DateTime.now())) {
+        final int notifId = baseId + i;
+        final String dayLabel = dayOffset == 1 ? '১ দিন' : (dayOffset == 4 ? '৪ দিন' : '৭ দিন');
+
+        await _scheduleNotification(
+          id: notifId,
+          title: '📖 রিভিশনের সময়! ($dayLabel পূর্বে)',
+          body: '"$label" রিভিশন দেওয়ার এখনই সময়। ১-৪-৭ পদ্ধতিতে পড়া মনে রাখুন!',
+          scheduledDate: revisionDate,
+          channelId: 'revision_147_channel',
+          channelName: '1-4-7 Revision Reminders',
+          channelDescription: 'Reminds you to revise topics using the 1-4-7 spaced repetition method',
+          playSound: true,
+          enableVibration: true,
+        );
+        log('Scheduled 1-4-7 revision notification for "$taskTitle" on day $dayOffset at $revisionDate (id=$notifId)');
+      }
+    }
+  }
+
+  /// Cancel all revision notifications for a specific task title.
+  static Future<void> cancelRevisionNotifications(String taskTitle) async {
+    if (kIsWeb) return;
+    final int baseId = 2000 + (taskTitle.hashCode.abs() % 900);
+    for (int i = 0; i < 3; i++) {
+      await _notificationsPlugin.cancel(id: baseId + i);
+    }
+    log('Cancelled 1-4-7 revision notifications for task: $taskTitle');
   }
 
   static Future<void> scheduleTaskNotifications(Task task) async {

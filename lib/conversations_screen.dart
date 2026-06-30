@@ -21,9 +21,9 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
   // Helper to create a consistent one-on-one chat ID
   String _getOneOnOneChatId(String userId1, String userId2) {
     if (userId1.compareTo(userId2) > 0) {
-      return '$userId2\_$userId1';
+      return '${userId2}_$userId1';
     } else {
-      return '$userId1\_$userId2';
+      return '${userId1}_$userId2';
     }
   }
 
@@ -98,7 +98,7 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
 
           List<dynamic> items = snapshot.data!;
 
-          // Sort items: Pinned > Recent Chats > Friends without chats
+          // Sort items: Pinned > Unread > Recent Chats > Friends without chats
           items.sort((a, b) {
             final aData = a.data() as Map<String, dynamic>;
             final bData = b.data() as Map<String, dynamic>;
@@ -108,6 +108,12 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
 
             if (aIsPinned && !bIsPinned) return -1;
             if (!aIsPinned && bIsPinned) return 1;
+
+            final int aUnread = aData['unreadCount']?[currentUser!.uid] ?? 0;
+            final int bUnread = bData['unreadCount']?[currentUser!.uid] ?? 0;
+
+            if (aUnread > 0 && bUnread == 0) return -1;
+            if (aUnread == 0 && bUnread > 0) return 1;
 
             final Timestamp? aTimestamp = aData['lastMessageTimestamp'];
             final Timestamp? bTimestamp = bData['lastMessageTimestamp'];
@@ -173,6 +179,8 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
     final timeString = timestamp != null ? DateFormat('h:mm a').format(timestamp) : '';
     final groupPhotoUrl = chatData['groupPhotoUrl'] as String?;
     final bool isPinned = (chatData['pinnedBy'] as Map<String, dynamic>?)?[currentUser!.uid] ?? false;
+    final int unreadCount = chatData['unreadCount']?[currentUser!.uid] ?? 0;
+    final bool isUnread = unreadCount > 0;
 
     return ListTile(
       onLongPress: () => _togglePinChat(chatId, isPinned),
@@ -180,19 +188,23 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
         backgroundImage: groupPhotoUrl != null ? NetworkImage(groupPhotoUrl) : null,
         child: groupPhotoUrl == null ? const Icon(Icons.groups_rounded) : null,
       ),
-      title: Text(groupName, style: const TextStyle(fontWeight: FontWeight.bold)),
-      subtitle: Text(lastMessage, maxLines: 1, overflow: TextOverflow.ellipsis),
-      trailing: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Text(timeString, style: const TextStyle(color: Colors.grey, fontSize: 12)),
-          if (isPinned) ...[
-            const SizedBox(height: 4),
-            const Icon(Icons.push_pin_rounded, size: 16, color: Colors.amber),
-          ]
-        ],
+      title: Text(
+        groupName, 
+        style: TextStyle(
+          fontWeight: isUnread ? FontWeight.w900 : FontWeight.bold,
+          color: isUnread ? Theme.of(context).colorScheme.primary : null,
+        )
       ),
+      subtitle: Text(
+        lastMessage, 
+        maxLines: 1, 
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontWeight: isUnread ? FontWeight.bold : FontWeight.normal,
+          color: isUnread ? Theme.of(context).colorScheme.onSurface : Colors.grey,
+        ),
+      ),
+      trailing: _buildTrailingWidget(timeString, isPinned, unreadCount),
       onTap: () {
         Navigator.push(
           context,
@@ -212,6 +224,8 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
     final List<dynamic> participants = chatData['participants'] ?? [];
     final otherUserId = participants.firstWhere((id) => id != currentUser!.uid, orElse: () => '');
     final bool isPinned = (chatData['pinnedBy'] as Map<String, dynamic>?)?[currentUser!.uid] ?? false;
+    final int unreadCount = chatData['unreadCount']?[currentUser!.uid] ?? 0;
+    final bool isUnread = unreadCount > 0;
 
     if (otherUserId.isEmpty) return const SizedBox.shrink();
 
@@ -253,9 +267,23 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
                 ),
             ],
           ),
-          title: Text(receiverName, style: const TextStyle(fontWeight: FontWeight.bold)),
-          subtitle: Text(lastMessage, maxLines: 1, overflow: TextOverflow.ellipsis),
-          trailing: _buildTrailingWidget(timeString, isPinned),
+          title: Text(
+            receiverName, 
+            style: TextStyle(
+              fontWeight: isUnread ? FontWeight.w900 : FontWeight.bold,
+              color: isUnread ? Theme.of(context).colorScheme.primary : null,
+            )
+          ),
+          subtitle: Text(
+            lastMessage, 
+            maxLines: 1, 
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontWeight: isUnread ? FontWeight.bold : FontWeight.normal,
+              color: isUnread ? Theme.of(context).colorScheme.onSurface : Colors.grey,
+            ),
+          ),
+          trailing: _buildTrailingWidget(timeString, isPinned, unreadCount),
           onTap: () {
             Navigator.push(
               context,
@@ -327,14 +355,39 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
     );
   }
 
-  Widget _buildTrailingWidget(String timeString, bool isPinned) {
+  Widget _buildTrailingWidget(String timeString, bool isPinned, int unreadCount) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        Text(timeString, style: const TextStyle(color: Colors.grey, fontSize: 12)),
-        if (isPinned) const SizedBox(height: 4),
-        if (isPinned) const Icon(Icons.push_pin_rounded, size: 16, color: Colors.amber),
+        Text(
+          timeString, 
+          style: TextStyle(
+            color: unreadCount > 0 ? Theme.of(context).colorScheme.primary : Colors.grey, 
+            fontSize: 12,
+            fontWeight: unreadCount > 0 ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isPinned) const Icon(Icons.push_pin_rounded, size: 16, color: Colors.amber),
+            if (isPinned && unreadCount > 0) const SizedBox(width: 6),
+            if (unreadCount > 0)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.redAccent,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '$unreadCount',
+                  style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                ),
+              ),
+          ],
+        ),
       ],
     );
   }

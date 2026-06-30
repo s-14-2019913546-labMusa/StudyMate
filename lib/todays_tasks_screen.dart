@@ -63,8 +63,8 @@ class _TodaysTasksScreenState extends State<TodaysTasksScreen> {
                   margin: const EdgeInsets.symmetric(vertical: 8.0),
                   elevation: 5, // শ্যাডোকে স্পষ্ট করার জন্য Elevation সামান্য বাড়ানো হলো
                   shadowColor: isCompleted
-                      ? Colors.green.withOpacity(0.5) // সম্পন্ন হলে সবুজ শ্যাডো
-                      : Colors.red.withOpacity(0.4), // অসম্পূর্ণ থাকলে লাল শ্যাডো
+                      ? Colors.green.withValues(alpha: 0.5) // সম্পন্ন হলে সবুজ শ্যাডো
+                      : Colors.red.withValues(alpha: 0.4), // অসম্পূর্ণ থাকলে লাল শ্যাডো
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   color: Theme.of(context).cardColor, // Card style color
                   child: ListTile(

@@ -35,6 +35,8 @@ import 'special_day_countdown_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:file_picker/file_picker.dart' as fp;
 import 'package:open_filex/open_filex.dart';
+import 'daily_diary_screen.dart';
+import 'package:flutter_pdfview/flutter_pdfview.dart';
 
 class ToolsScreen extends StatelessWidget {
   final Function(List<Task>) onTasksGenerated;
@@ -48,14 +50,15 @@ class ToolsScreen extends StatelessWidget {
         'icon': Icons.school_rounded,
         'tools': [
           {'title': 'Calculator', 'icon': Icons.calculate_rounded, 'color': Colors.blueAccent, 'action': 'calc'},
-          {'title': 'Dictionary', 'icon': Icons.menu_book_rounded, 'color': Colors.orangeAccent, 'action': 'dict'},
-          {'title': 'Stopwatch', 'icon': Icons.timer_outlined, 'color': Colors.deepOrangeAccent, 'action': 'stopwatch'},
           {'title': 'Pomodoro', 'icon': Icons.timer_rounded, 'color': Colors.redAccent, 'action': 'pomodoro'},
+          {'title': 'Stopwatch', 'icon': Icons.timer_outlined, 'color': Colors.deepOrangeAccent, 'action': 'stopwatch'},
           {'title': 'Notes', 'icon': Icons.note_alt_rounded, 'color': Colors.amber.shade600, 'action': 'notes'},
-          {'title': '1-4-7 Revision', 'icon': Icons.published_with_changes_rounded, 'color': Colors.indigo, 'action': 'revision_147'},
           {'title': 'PDF Reader', 'icon': Icons.picture_as_pdf_rounded, 'color': Colors.redAccent, 'action': 'pdf_reader'},
+          {'title': 'Daily Diary', 'icon': Icons.book_rounded, 'color': Colors.brown, 'action': 'daily_diary'},
+          {'title': '1-4-7 Revision', 'icon': Icons.published_with_changes_rounded, 'color': Colors.indigo, 'action': 'revision_147'},
           {'title': 'Flashcards', 'icon': Icons.style_rounded, 'color': Colors.purpleAccent, 'action': 'flash'},
           {'title': 'Task History', 'icon': Icons.history_rounded, 'color': Colors.blueGrey, 'action': 'task_history'},
+          {'title': 'Dictionary', 'icon': Icons.menu_book_rounded, 'color': Colors.orangeAccent, 'action': 'dict'},
           {'title': 'Special Hub', 'icon': Icons.folder_copy_rounded, 'color': Colors.teal, 'action': 'study_folders'},
           {'title': 'Countdown', 'icon': Icons.event_note_rounded, 'color': const Color(0xFF6366F1), 'action': 'countdown'},
         ]
@@ -194,6 +197,8 @@ class ToolsScreen extends StatelessWidget {
                                   Navigator.push(context, MaterialPageRoute(builder: (_) => const SpecialDayCountdownScreen()));
                                 } else if (tool['action'] == 'islamic') {
                                   Navigator.push(context, MaterialPageRoute(builder: (_) => const IslamicLifeScreen()));
+                                } else if (tool['action'] == 'daily_diary') {
+                                  Navigator.push(context, MaterialPageRoute(builder: (_) => const DailyDiaryScreen()));
                                 } else if (tool['action'] == 'theme') {
                                   showModalBottomSheet(
                                     context: context,
@@ -382,7 +387,7 @@ class ToolsScreen extends StatelessWidget {
                 children: [
                   Text('Next-day Routine (নেক্সট ডে রুটিন)'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
                   const SizedBox(height: 2),
-                  Text('আগামীকালের পড়ার রুটিন তৈরি করুন'.tr(), style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.8))),
+                  Text('Create your study routine for tomorrow.'.tr(), style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.8))),
                 ],
               ),
             ),
@@ -437,7 +442,7 @@ class ToolsScreen extends StatelessWidget {
                 children: [
                   Text('Weekly Routine (উইকলি রুটিন)'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
                   const SizedBox(height: 2),
-                  Text('সাপ্তাহিক রুটিন কাস্টমাইজ ও আপডেট করুন'.tr(), style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.8))),
+                  Text('Customize and update your weekly routine.'.tr(), style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.8))),
                 ],
               ),
             ),
@@ -547,7 +552,7 @@ class _AddWeeklyRoutineTaskBottomSheetState extends State<AddWeeklyRoutineTaskBo
     if (!_formKey.currentState!.validate()) return;
     if (_startTime == null || _endTime == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('অনুগ্রহ করে শুরু ও শেষের সময় দিন')),
+        SnackBar(content: Text('Please select start and end time.'.tr())),
       );
       return;
     }
@@ -555,7 +560,7 @@ class _AddWeeklyRoutineTaskBottomSheetState extends State<AddWeeklyRoutineTaskBo
     final endMinutes = _endTime!.hour * 60 + _endTime!.minute;
     if (endMinutes <= startMinutes) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('শেষের সময় শুরুর সময়ের পরে হতে হবে')),
+        SnackBar(content: Text('End time must be after start time.'.tr())),
       );
       return;
     }
@@ -599,14 +604,14 @@ class _AddWeeklyRoutineTaskBottomSheetState extends State<AddWeeklyRoutineTaskBo
       if (mounted) {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$_selectedDay-এ টাস্ক যুক্ত হয়েছে!')),
+          SnackBar(content: Text('Task Added Successfully!'.tr())),
         );
       }
     } catch (e) {
       debugPrint("Error saving weekly task: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('টাস্ক সেভ করতে সমস্যা হয়েছে')),
+          SnackBar(content: Text('Failed to save task.'.tr())),
         );
       }
     }
@@ -677,7 +682,7 @@ class _AddWeeklyRoutineTaskBottomSheetState extends State<AddWeeklyRoutineTaskBo
               ),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
-                value: _selectedDay,
+                initialValue: _selectedDay,
                 decoration: InputDecoration(
                   border: const OutlineInputBorder(),
                   enabledBorder: OutlineInputBorder(
@@ -889,8 +894,8 @@ class _AddWeeklyRoutineTaskBottomSheetState extends State<AddWeeklyRoutineTaskBo
                 ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
-                  value: _selectedSubCategory,
-                  items: ['None', ..._studyFolders].toSet().map((c) => DropdownMenuItem(value: c, child: Text(c, style: TextStyle(color: onSurfaceColor)))).toList(),
+                  initialValue: _selectedSubCategory,
+                  items: {'None', ..._studyFolders}.map((c) => DropdownMenuItem(value: c, child: Text(c, style: TextStyle(color: onSurfaceColor)))).toList(),
                   onChanged: (v) {
                     setState(() {
                       _selectedSubCategory = v ?? 'None';
@@ -929,7 +934,7 @@ class _AddWeeklyRoutineTaskBottomSheetState extends State<AddWeeklyRoutineTaskBo
                   foregroundColor: colorScheme.onPrimary,
                   minimumSize: const Size.fromHeight(48),
                 ),
-                child: const Text('উইকলি রুটিনে যুক্ত করুন'),
+                child: Text('Add to Weekly Routine'.tr()),
               ),
               const SizedBox(height: 8),
                   ],
@@ -2093,7 +2098,7 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Previous Notes', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor.withOpacity(0.7))),
+                  Text('Previous Notes', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor.withValues(alpha: 0.7))),
                   TextButton(onPressed: _showPreviousNotesBottomSheet, child: const Text('View All'))
                 ],
               ),
@@ -2147,9 +2152,9 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
                                     children: [
                                       Expanded(child: Text(title, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: textColor), maxLines: 1, overflow: TextOverflow.ellipsis)),
                                       if (audioUrl != null)
-                                        Icon(Icons.mic_rounded, color: textColor.withOpacity(0.6), size: 20),
+                                        Icon(Icons.mic_rounded, color: textColor.withValues(alpha: 0.6), size: 20),
                                       if (imageUrl != null)
-                                        Padding(padding: const EdgeInsets.only(left: 4), child: Icon(Icons.image_rounded, color: textColor.withOpacity(0.6), size: 20)),
+                                        Padding(padding: const EdgeInsets.only(left: 4), child: Icon(Icons.image_rounded, color: textColor.withValues(alpha: 0.6), size: 20)),
                                     ],
                                   ),
                                   const SizedBox(height: 6),
@@ -2157,10 +2162,10 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
                                     content,
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(color: textColor.withOpacity(0.7)),
+                                    style: TextStyle(color: textColor.withValues(alpha: 0.7)),
                                   ),
                                   const SizedBox(height: 12),
-                                  Text(dateStr, style: TextStyle(fontSize: 12, color: textColor.withOpacity(0.5), fontStyle: FontStyle.italic)),
+                                  Text(dateStr, style: TextStyle(fontSize: 12, color: textColor.withValues(alpha: 0.5), fontStyle: FontStyle.italic)),
                                 ],
                               ),
                             ),
@@ -2300,9 +2305,9 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
               data: widget.content,
               styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
                 p: TextStyle(fontSize: 18, height: 1.8, color: textColor),
-                blockquote: TextStyle(fontSize: 18, fontStyle: FontStyle.italic, color: textColor.withOpacity(0.8)),
+                blockquote: TextStyle(fontSize: 18, fontStyle: FontStyle.italic, color: textColor.withValues(alpha: 0.8)),
                 blockquoteDecoration: BoxDecoration(
-                  color: Colors.grey.withOpacity(0.2),
+                  color: Colors.grey.withValues(alpha: 0.2),
                   border: Border(left: BorderSide(color: Theme.of(context).colorScheme.primary, width: 4)),
                 ),
               ),
@@ -3509,7 +3514,7 @@ class _ProofRequestBannerState extends State<ProofRequestBanner> {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.amber.shade800.withOpacity(0.95),
+        color: Colors.amber.shade800.withValues(alpha: 0.95),
         borderRadius: BorderRadius.circular(12),
         boxShadow: const [
           BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2)),
@@ -5862,7 +5867,7 @@ class _StopwatchScreenState extends State<StopwatchScreen> with TickerProviderSt
                 ),
                 Switch(
                   value: _alarmEnabled,
-                  activeColor: Colors.orangeAccent,
+                  activeThumbColor: Colors.orangeAccent,
                   onChanged: (val) => setState(() => _alarmEnabled = val),
                 ),
               ],
@@ -5955,7 +5960,6 @@ class _NeonRingPainter extends CustomPainter {
     final double radius = size.width / 2;
     final Offset center = Offset(size.width / 2, size.height / 2);
 
-    // Draw dashed circle
     const int dashCount = 40;
     const double sweepAngle = (3.1415926535 * 2) / dashCount;
     for (int i = 0; i < dashCount; i++) {
@@ -5976,7 +5980,7 @@ class _NeonRingPainter extends CustomPainter {
 }
 
 // ==========================================
-// 4. Pomodoro Timer Screen
+// 4. Pomodoro Timer Screen (Forest Edition)
 // ==========================================
 class PomodoroTimerScreen extends StatefulWidget {
   const PomodoroTimerScreen({super.key});
@@ -5985,19 +5989,74 @@ class PomodoroTimerScreen extends StatefulWidget {
   State<PomodoroTimerScreen> createState() => _PomodoroTimerScreenState();
 }
 
-class _PomodoroTimerScreenState extends State<PomodoroTimerScreen> {
+class _PomodoroTimerScreenState extends State<PomodoroTimerScreen> with WidgetsBindingObserver {
   static const int focusMinutes = 25;
   static const int shortBreakMinutes = 5;
   static const int longBreakMinutes = 15;
 
-  int _selectedDuration = focusMinutes * 60; // সেকেন্ডে কনভার্ট করা হলো
+  int _selectedDuration = focusMinutes * 60;
   int _remainingSeconds = focusMinutes * 60;
   bool _isRunning = false;
   Timer? _timer;
-  String _currentMode = 'Focus'; // Focus, Short Break, Long Break
+  String _currentMode = 'Focus';
+
+  // Forest state
+  bool _treeKilled = false;
+  int _sessionCount = 0; // total successful focus sessions ever (for display)
+
+  // App lifecycle: detect if user leaves the app mid-focus
+  bool _appWentBackground = false;
+
+  final _firestore = FirebaseFirestore.instance;
+  final _user = FirebaseAuth.instance.currentUser;
+
+  // Tree emojis representing growth stages based on progress
+  String _getTreeStage(double progress) {
+    if (progress <= 0.0) return '🌱'; // seed
+    if (progress < 0.3) return '🌿';  // sprout
+    if (progress < 0.6) return '🌳';  // small tree
+    if (progress < 0.9) return '🌲';  // growing tree
+    return '🌲';                        // full tree
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _loadSessionCount();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (_currentMode == 'Focus' && _isRunning) {
+      if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
+        // User left the app mid-focus → kill the tree
+        _appWentBackground = true;
+        _timer?.cancel();
+        setState(() {
+          _isRunning = false;
+          _treeKilled = true;
+          _remainingSeconds = _selectedDuration; // reset
+        });
+      }
+    }
+  }
+
+  Future<void> _loadSessionCount() async {
+    if (_user == null) return;
+    try {
+      final doc = await _firestore.collection('users').doc(_user!.uid).collection('pomodoroForest').doc('stats').get();
+      if (doc.exists) {
+        setState(() {
+          _sessionCount = (doc.data()?['totalTrees'] ?? 0) as int;
+        });
+      }
+    } catch (_) {}
+  }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
     super.dispose();
   }
@@ -6009,6 +6068,8 @@ class _PomodoroTimerScreenState extends State<PomodoroTimerScreen> {
       _selectedDuration = minutes * 60;
       _remainingSeconds = _selectedDuration;
       _isRunning = false;
+      _treeKilled = false;
+      _appWentBackground = false;
     });
   }
 
@@ -6017,20 +6078,28 @@ class _PomodoroTimerScreenState extends State<PomodoroTimerScreen> {
       _timer?.cancel();
       setState(() => _isRunning = false);
     } else {
-      setState(() => _isRunning = true);
+      setState(() {
+        _isRunning = true;
+        _treeKilled = false;
+        _appWentBackground = false;
+      });
       _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
         if (_remainingSeconds > 0) {
           setState(() => _remainingSeconds--);
         } else {
           _timer?.cancel();
           setState(() => _isRunning = false);
-          _onTimerComplete(); // সময় শেষ হলে অ্যালার্ম
+          _onTimerComplete();
         }
       });
     }
   }
 
   void _resetTimer() {
+    if (_isRunning && _currentMode == 'Focus') {
+      // User abandoned a running focus session → tree dies
+      setState(() => _treeKilled = true);
+    }
     _timer?.cancel();
     setState(() {
       _remainingSeconds = _selectedDuration;
@@ -6039,22 +6108,25 @@ class _PomodoroTimerScreenState extends State<PomodoroTimerScreen> {
   }
 
   void _onTimerComplete() {
-    // অ্যালার্ম সাউন্ড এবং ভাইব্রেশন
     SoundPlayer.playAlarmNotificationSound();
     if (_currentMode == 'Focus') {
-      _awardPomodoroXP();
+      _plantTreeAndAwardXP();
     }
-    
+
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('⏰ Time is up!', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(
+          _currentMode == 'Focus' ? '🌲 গাছ লাগানো হয়েছে!' : '⏰ বিরতি শেষ!',
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
         content: Text(
           _currentMode == 'Focus'
-              ? 'Great job! You have completed a 25-minute focus session. Take a break now.'
-              : 'Break is over. Ready to focus again?',
+              ? 'অসাধারণ! তুমি ২৫ মিনিট মনোযোগ ধরে রেখেছ। তোমার বাগানে একটি নতুন গাছ যোগ হয়েছে! 🌳'
+              : 'বিরতি শেষ। আবার ফোকাস করতে প্রস্তুত?',
           textAlign: TextAlign.center,
         ),
         actionsAlignment: MainAxisAlignment.center,
@@ -6063,20 +6135,34 @@ class _PomodoroTimerScreenState extends State<PomodoroTimerScreen> {
             onPressed: () {
               Navigator.pop(ctx);
               if (_currentMode == 'Focus') {
-                _setMode('Short Break', shortBreakMinutes); // ফোকাস শেষে শর্ট ব্রেক
+                _setMode('Short Break', shortBreakMinutes);
               } else {
-                _setMode('Focus', focusMinutes); // ব্রেক শেষে আবার ফোকাস
+                _setMode('Focus', focusMinutes);
               }
             },
-            child: const Text('Continue'),
+            child: Text(_currentMode == 'Focus' ? 'বিরতি নাও' : 'আবার শুরু করো'),
           )
         ],
       ),
     );
   }
 
-  Future<void> _awardPomodoroXP() async {
+  Future<void> _plantTreeAndAwardXP() async {
+    if (_user == null) return;
     try {
+      // Save tree to Firestore
+      final treeData = {
+        'plantedAt': FieldValue.serverTimestamp(),
+        'type': '🌲',
+        'sessionMinutes': focusMinutes,
+      };
+      await _firestore.collection('users').doc(_user!.uid).collection('pomodoroForest').doc('trees').collection('list').add(treeData);
+      await _firestore.collection('users').doc(_user!.uid).collection('pomodoroForest').doc('stats').set({
+        'totalTrees': FieldValue.increment(1),
+        'lastPlanted': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      // Award XP
       final res = await GamificationService.awardXP(
         GamificationService.xpPomodoroSession,
         reason: 'pomodoro_session_complete',
@@ -6084,35 +6170,44 @@ class _PomodoroTimerScreenState extends State<PomodoroTimerScreen> {
       if (mounted && res.isNotEmpty) {
         final int xpAwarded = res['xpAwarded'] ?? 0;
         final List<String> newBadges = List<String>.from(res['newBadges'] ?? []);
-        String msg = '🎉 Pomodoro Focus Completed! +$xpAwarded XP';
-        if (newBadges.isNotEmpty) {
-          msg += '\n🏆 Unlocked: ${newBadges.join(", ")}!';
-        }
+        String msg = '🌲 গাছ লাগানো হয়েছে! +$xpAwarded XP';
+        if (newBadges.isNotEmpty) msg += '\n🏆 Unlocked: ${newBadges.join(", ")}!';
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(msg, style: const TextStyle(fontWeight: FontWeight.bold)),
-            backgroundColor: Colors.redAccent,
-          ),
+          SnackBar(content: Text(msg, style: const TextStyle(fontWeight: FontWeight.bold)), backgroundColor: Colors.green.shade700),
         );
       }
+
+      setState(() => _sessionCount++);
     } catch (e) {
-      debugPrint('Error awarding XP for pomodoro: $e');
+      debugPrint('Error planting tree: $e');
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     int minutes = _remainingSeconds ~/ 60;
     int seconds = _remainingSeconds % 60;
     String timeString = '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
-    double progress = _remainingSeconds / _selectedDuration;
+    double progress = 1 - (_remainingSeconds / _selectedDuration);
+
+    final Color focusColor = Colors.green.shade700;
+    final Color breakColor = Colors.teal;
 
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surface,
+      backgroundColor: isDark ? const Color(0xFF0D1F13) : const Color(0xFFF0FAF2),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text('Pomodoro Timer', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text('Pomodoro'.tr(), style: const TextStyle(fontWeight: FontWeight.bold)),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.forest_rounded),
+            tooltip: 'আমার বাগান',
+            onPressed: () => _showForestGarden(context),
+          ),
+        ],
       ),
       body: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -6121,70 +6216,229 @@ class _PomodoroTimerScreenState extends State<PomodoroTimerScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _buildModeButton('Focus', focusMinutes),
-              _buildModeButton('Short Break', shortBreakMinutes),
-              _buildModeButton('Long Break', longBreakMinutes),
+              _buildModeButton('Focus', focusMinutes, focusColor),
+              _buildModeButton('Short Break', shortBreakMinutes, breakColor),
+              _buildModeButton('Long Break', longBreakMinutes, breakColor),
             ],
           ),
-          const SizedBox(height: 60),
-          
+          const SizedBox(height: 32),
+
+          // Tree Growth Stage Display
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 600),
+            child: _treeKilled
+                ? Column(
+                    key: const ValueKey('dead'),
+                    children: [
+                      const Text('🥀', style: TextStyle(fontSize: 80)),
+                      const SizedBox(height: 8),
+                      Text(
+                        'ওহ না! গাছটি মরে গেছে 😢\nমনোযোগ ভাঙবেন না!',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.red.shade400, fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  )
+                : Column(
+                    key: ValueKey('tree_$progress'),
+                    children: [
+                      Text(
+                        _currentMode == 'Focus' ? _getTreeStage(progress) : '☁️',
+                        style: const TextStyle(fontSize: 90),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _currentMode == 'Focus'
+                            ? (progress < 0.01 ? 'বীজ রোপণের জন্য প্রস্তুত...' : 'গাছ বড় হচ্ছে...')
+                            : 'বিশ্রাম নাও 🌤️',
+                        style: TextStyle(
+                          color: isDark ? Colors.green.shade300 : Colors.green.shade700,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
+          const SizedBox(height: 24),
+
           // Circular Timer
           Stack(
             alignment: Alignment.center,
             children: [
               SizedBox(
-                width: 250,
-                height: 250,
+                width: 220,
+                height: 220,
                 child: CircularProgressIndicator(
                   value: progress,
-                  strokeWidth: 12,
-                  backgroundColor: Colors.grey.shade200,
-                  color: _currentMode == 'Focus' ? Colors.redAccent : Colors.teal,
+                  strokeWidth: 14,
+                  backgroundColor: (isDark ? Colors.white : Colors.grey).withValues(alpha: 0.15),
+                  color: _currentMode == 'Focus' ? focusColor : breakColor,
                 ),
               ),
-              Text(
-                timeString,
-                style: const TextStyle(fontSize: 60, fontWeight: FontWeight.bold, letterSpacing: 2),
+              Column(
+                children: [
+                  Text(
+                    timeString,
+                    style: const TextStyle(fontSize: 52, fontWeight: FontWeight.bold, letterSpacing: 2),
+                  ),
+                  Text(
+                    _currentMode.tr(),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: _currentMode == 'Focus' ? focusColor : breakColor,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
-          const SizedBox(height: 60),
-          
+          const SizedBox(height: 36),
+
           // Controls
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               IconButton(
                 onPressed: _resetTimer,
-                icon: const Icon(Icons.refresh_rounded, size: 36, color: Colors.grey),
+                icon: Icon(Icons.refresh_rounded, size: 36, color: Colors.grey.shade500),
+                tooltip: 'রিসেট (গাছ মরে যাবে!)',
               ),
-              const SizedBox(width: 24),
+              const SizedBox(width: 20),
               FloatingActionButton.large(
                 onPressed: _toggleTimer,
-                backgroundColor: _currentMode == 'Focus' ? Colors.redAccent : Colors.teal,
-                elevation: 4,
+                backgroundColor: _currentMode == 'Focus' ? focusColor : breakColor,
+                elevation: 6,
                 child: Icon(_isRunning ? Icons.pause_rounded : Icons.play_arrow_rounded, color: Colors.white, size: 40),
+              ),
+              const SizedBox(width: 20),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.green.withValues(alpha: isDark ? 0.2 : 0.1),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+                ),
+                child: Column(
+                  children: [
+                    const Text('🌲', style: TextStyle(fontSize: 18)),
+                    Text('$_sessionCount', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  ],
+                ),
               ),
             ],
           ),
+          const SizedBox(height: 16),
+          if (_currentMode == 'Focus' && _isRunning)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Text(
+                '⚠️ অ্যাপ থেকে বের হলে গাছটি মরে যাবে!',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.orange.shade600, fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+            ),
         ],
       ),
     );
   }
 
-  Widget _buildModeButton(String title, int minutes) {
+  void _showForestGarden(BuildContext context) {
+    if (_user == null) return;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.65,
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF0D1F13) : const Color(0xFFF0FAF2),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            children: [
+              const SizedBox(height: 12),
+              Container(
+                width: 40, height: 4,
+                decoration: BoxDecoration(color: Colors.grey.shade400, borderRadius: BorderRadius.circular(2)),
+              ),
+              const SizedBox(height: 16),
+              Text('🌳 আমার বাগান', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: isDark ? Colors.green.shade300 : Colors.green.shade800)),
+              const SizedBox(height: 4),
+              Text('প্রতিটি গাছ = ১টি সফল ২৫ মিনিট ফোকাস সেশন', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+              const Divider(height: 24),
+              Expanded(
+                child: StreamBuilder<QuerySnapshot>(
+                  stream: _firestore
+                      .collection('users')
+                      .doc(_user!.uid)
+                      .collection('pomodoroForest')
+                      .doc('trees')
+                      .collection('list')
+                      .orderBy('plantedAt', descending: true)
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    final docs = snapshot.data?.docs ?? [];
+                    if (docs.isEmpty) {
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Text('🌱', style: TextStyle(fontSize: 60)),
+                            const SizedBox(height: 12),
+                            Text('এখনো কোনো গাছ নেই!\nপ্রথম ফোকাস সেশন শুরু করো।', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade600)),
+                          ],
+                        ),
+                      );
+                    }
+                    return GridView.builder(
+                      padding: const EdgeInsets.all(16),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 5,
+                        mainAxisSpacing: 8,
+                        crossAxisSpacing: 8,
+                      ),
+                      itemCount: docs.length,
+                      itemBuilder: (context, index) {
+                        final data = docs[index].data() as Map<String, dynamic>;
+                        final Timestamp? ts = data['plantedAt'];
+                        final String dateStr = ts != null
+                            ? '${ts.toDate().day}/${ts.toDate().month}'
+                            : '';
+                        return Tooltip(
+                          message: dateStr,
+                          child: const Text('🌲', style: TextStyle(fontSize: 28), textAlign: TextAlign.center),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildModeButton(String title, int minutes, Color activeColor) {
     bool isSelected = _currentMode == title;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4.0),
       child: ChoiceChip(
-        label: Text(title, style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+        label: Text(title.tr(), style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, fontSize: 12)),
         selected: isSelected,
         onSelected: (selected) {
           if (selected && !_isRunning) _setMode(title, minutes);
         },
-        selectedColor: (title == 'Focus' ? Colors.redAccent : Colors.teal).withValues(alpha: 0.2),
-        labelStyle: TextStyle(color: isSelected ? (title == 'Focus' ? Colors.red : Colors.teal.shade700) : Colors.grey),
-        side: BorderSide.none,
+        selectedColor: activeColor.withValues(alpha: 0.2),
+        labelStyle: TextStyle(color: isSelected ? activeColor : Colors.grey),
+        side: isSelected ? BorderSide(color: activeColor, width: 1.5) : BorderSide.none,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),
     );
@@ -6805,7 +7059,7 @@ class _RoutinePlannerBottomSheetState extends State<RoutinePlannerBottomSheet> {
   final TextEditingController _nextTaskCtrl = TextEditingController();
   final TextEditingController _weeklyTaskCtrl = TextEditingController();
   
-  List<String> _nextTasks = [];
+  final List<String> _nextTasks = [];
   String _selectedDay = 'Saturday';
   final List<String> _days = ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
   
@@ -6944,7 +7198,7 @@ class _RoutinePlannerBottomSheetState extends State<RoutinePlannerBottomSheet> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         DropdownButtonFormField<String>(
-                          value: _selectedDay,
+                          initialValue: _selectedDay,
                           items: _days.map((d) => DropdownMenuItem(value: d, child: Text(d))).toList(),
                           onChanged: (val) => setState(() => _selectedDay = val!),
                           decoration: const InputDecoration(labelText: 'Select Day'),
@@ -7854,7 +8108,7 @@ class ThemeCustomizerBottomSheet extends StatelessWidget {
 }
 
 // ==========================================
-// PDF Reader Screen (পিডিএফ রিডার ও হ্যান্ডনোটস)
+// PDF Reader Screen (ইন-অ্যাপ পিডিএফ ভিউয়ার)
 // ==========================================
 class PdfReaderScreen extends StatefulWidget {
   const PdfReaderScreen({super.key});
@@ -7864,34 +8118,59 @@ class PdfReaderScreen extends StatefulWidget {
 }
 
 class _PdfReaderScreenState extends State<PdfReaderScreen> {
-  List<File> _pdfFiles = [];
+  List<Map<String, dynamic>> _pdfFiles = []; // {path, name}
   bool _isLoading = false;
+  final _prefs = SharedPreferences.getInstance();
+  final _user = FirebaseAuth.instance.currentUser;
+
+  static const _prefsKey = 'saved_pdf_files';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedFiles();
+  }
+
+  Future<void> _loadSavedFiles() async {
+    final prefs = await _prefs;
+    final savedPaths = prefs.getStringList(_prefsKey) ?? [];
+    final validFiles = savedPaths
+        .where((p) => File(p).existsSync())
+        .map((p) => {'path': p, 'name': p.split('/').last.split('\\').last})
+        .toList();
+    setState(() => _pdfFiles = List.from(validFiles));
+  }
+
+  Future<void> _saveFileList() async {
+    final prefs = await _prefs;
+    await prefs.setStringList(_prefsKey, _pdfFiles.map((f) => f['path'] as String).toList());
+  }
 
   Future<void> _pickPdf() async {
     try {
       setState(() => _isLoading = true);
-
-      // FilePicker দিয়ে শুধু PDF ফাইল ফিল্টার করে দেখানো হবে
       final result = await fp.FilePicker.pickFiles(
         type: fp.FileType.custom,
         allowedExtensions: ['pdf'],
-        allowMultiple: true, // একসাথে একাধিক PDF সিলেক্ট করা যাবে
+        allowMultiple: true,
       );
 
       if (result != null && result.files.isNotEmpty) {
-        final newFiles = result.files
+        final newEntries = result.files
             .where((f) => f.path != null)
-            .map((f) => File(f.path!))
+            .map((f) => {
+                  'path': f.path!,
+                  'name': f.name,
+                })
             .toList();
 
-        setState(() {
-          _pdfFiles.addAll(newFiles);
-        });
+        setState(() => _pdfFiles.addAll(newEntries));
+        await _saveFileList();
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('${newFiles.length}টি PDF সফলভাবে ইম্পোর্ট হয়েছে!'),
+              content: Text('${newEntries.length} ${'PDFs imported successfully!'.tr()}'),
               backgroundColor: Colors.green,
             ),
           );
@@ -7901,7 +8180,7 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('PDF ইম্পোর্টে সমস্যা হয়েছে: $e'),
+            content: Text('${'Error importing PDF:'.tr()} $e'),
             backgroundColor: Colors.redAccent,
           ),
         );
@@ -7909,6 +8188,19 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
     } finally {
       setState(() => _isLoading = false);
     }
+  }
+
+  void _openPdf(Map<String, dynamic> fileEntry) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => InAppPdfViewerScreen(
+          filePath: fileEntry['path'] as String,
+          fileName: fileEntry['name'] as String,
+          userId: _user?.uid ?? '',
+        ),
+      ),
+    );
   }
 
   @override
@@ -7919,101 +8211,337 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
-        title: const Text('PDF Reader & Notes', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text('PDF Reader'.tr(), style: const TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.transparent,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add_to_photos_rounded),
+            tooltip: 'Import Document',
+            onPressed: _pickPdf,
+          ),
+        ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: cardDeco,
-              child: Column(
-                children: [
-                  const Icon(Icons.picture_as_pdf_rounded, size: 60, color: Colors.redAccent),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Study Handnotes & PDFs',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Import Handnotes, Books or Lecture PDFs to study inside StudyMate.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontSize: 13),
-                  ),
-                  const SizedBox(height: 20),
-                  ElevatedButton.icon(
-                    onPressed: _pickPdf,
-                    icon: const Icon(Icons.add_to_photos_rounded),
-                    label: const Text('Import Document'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: theme.colorScheme.primary,
-                      foregroundColor: Colors.white,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'My Documents',
-              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            Expanded(
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Padding(
+              padding: const EdgeInsets.all(16.0),
               child: _pdfFiles.isEmpty
                   ? Center(
-                      child: Text(
-                        'No documents imported yet.',
-                        style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(24),
+                            decoration: cardDeco,
+                            child: Column(
+                              children: [
+                                const Icon(Icons.picture_as_pdf_rounded, size: 64, color: Colors.redAccent),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'PDF Reader'.tr(),
+                                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Import Handnotes, Books or Lecture PDFs to study inside StudyMate.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+                                ),
+                                const SizedBox(height: 20),
+                                ElevatedButton.icon(
+                                  onPressed: _pickPdf,
+                                  icon: const Icon(Icons.add_to_photos_rounded),
+                                  label: const Text('Import Document'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: theme.colorScheme.primary,
+                                    foregroundColor: Colors.white,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     )
-                  : ListView.builder(
-                      itemCount: _pdfFiles.length,
-                      itemBuilder: (context, index) {
-                        final file = _pdfFiles[index];
-                        final String fileName = file.path.split('/').last.split('\\').last;
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                          child: ListTile(
-                            leading: const CircleAvatar(
-                              backgroundColor: Colors.redAccent,
-                              child: Icon(Icons.picture_as_pdf_rounded, color: Colors.white),
-                            ),
-                            title: Text(fileName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                            subtitle: Text('${(file.lengthSync() / 1024).toStringAsFixed(1)} KB'),
-                            trailing: IconButton(
-                              icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
-                              tooltip: 'তালিকা থেকে সরাও',
-                              onPressed: () {
-                                setState(() => _pdfFiles.removeAt(index));
-                              },
-                            ),
-                            onTap: () async {
-                              // ডিভাইসের native PDF app দিয়ে খোলো
-                              final result = await OpenFilex.open(file.path);
-                              if (result.type != ResultType.done && mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      result.type == ResultType.noAppToOpen
-                                          ? 'PDF খোলার জন্য কোনো অ্যাপ পাওয়া যায়নি। একটি PDF রিডার ইন্সটল করুন।'
-                                          : 'PDF খুলতে সমস্যা হয়েছে: ${result.message}',
-                                    ),
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'My Documents (${_pdfFiles.length})',
+                          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 12),
+                        Expanded(
+                          child: ListView.builder(
+                            itemCount: _pdfFiles.length,
+                            itemBuilder: (context, index) {
+                              final fileEntry = _pdfFiles[index];
+                              final file = File(fileEntry['path'] as String);
+                              final String fileName = fileEntry['name'] as String;
+                              final fileSize = file.existsSync()
+                                  ? '${(file.lengthSync() / 1024).toStringAsFixed(1)} KB'
+                                  : 'File missing';
+
+                              return Card(
+                                margin: const EdgeInsets.only(bottom: 12),
+                                elevation: 2,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                child: ListTile(
+                                  leading: const CircleAvatar(
                                     backgroundColor: Colors.redAccent,
+                                    child: Icon(Icons.picture_as_pdf_rounded, color: Colors.white),
                                   ),
-                                );
-                              }
+                                  title: Text(fileName, style: const TextStyle(fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                  subtitle: Text(fileSize),
+                                  trailing: IconButton(
+                                    icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
+                                    onPressed: () {
+                                      setState(() => _pdfFiles.removeAt(index));
+                                      _saveFileList();
+                                    },
+                                  ),
+                                  onTap: () => _openPdf(fileEntry),
+                                ),
+                              );
                             },
                           ),
-                        );
+                        ),
+                      ],
+                    ),
+            ),
+    );
+  }
+}
+
+/// In-App PDF Viewer with dark mode filter and bookmark system
+class InAppPdfViewerScreen extends StatefulWidget {
+  final String filePath;
+  final String fileName;
+  final String userId;
+
+  const InAppPdfViewerScreen({
+    super.key,
+    required this.filePath,
+    required this.fileName,
+    required this.userId,
+  });
+
+  @override
+  State<InAppPdfViewerScreen> createState() => _InAppPdfViewerScreenState();
+}
+
+class _InAppPdfViewerScreenState extends State<InAppPdfViewerScreen> {
+  PDFViewController? _pdfController;
+  int _currentPage = 0;
+  int _totalPages = 0;
+  bool _isDarkMode = false;
+  bool _showBookmarks = false;
+
+  Set<int> _bookmarkedPages = {};
+  final _firestore = FirebaseFirestore.instance;
+
+  String get _bookmarkDocId =>
+      '${widget.userId}_${widget.fileName.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBookmarks();
+  }
+
+  Future<void> _loadBookmarks() async {
+    if (widget.userId.isEmpty) return;
+    try {
+      final doc = await _firestore
+          .collection('users')
+          .doc(widget.userId)
+          .collection('pdfBookmarks')
+          .doc(_bookmarkDocId)
+          .get();
+      if (doc.exists) {
+        final pages = List<int>.from(doc.data()?['pages'] ?? []);
+        setState(() => _bookmarkedPages = pages.toSet());
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _saveBookmarks() async {
+    if (widget.userId.isEmpty) return;
+    try {
+      await _firestore
+          .collection('users')
+          .doc(widget.userId)
+          .collection('pdfBookmarks')
+          .doc(_bookmarkDocId)
+          .set({
+        'fileName': widget.fileName,
+        'pages': _bookmarkedPages.toList(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (_) {}
+  }
+
+  void _toggleBookmark() {
+    setState(() {
+      if (_bookmarkedPages.contains(_currentPage)) {
+        _bookmarkedPages.remove(_currentPage);
+      } else {
+        _bookmarkedPages.add(_currentPage);
+      }
+    });
+    _saveBookmarks();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isBookmarked = _bookmarkedPages.contains(_currentPage);
+
+    Widget pdfWidget = PDFView(
+      filePath: widget.filePath,
+      enableSwipe: true,
+      swipeHorizontal: false,
+      autoSpacing: true,
+      pageFling: true,
+      pageSnap: true,
+      defaultPage: _currentPage,
+      fitPolicy: FitPolicy.BOTH,
+      onRender: (pages) => setState(() => _totalPages = pages ?? 0),
+      onPageChanged: (page, total) => setState(() {
+        _currentPage = page ?? 0;
+        _totalPages = total ?? 0;
+      }),
+      onViewCreated: (controller) => _pdfController = controller,
+    );
+
+    if (_isDarkMode) {
+      pdfWidget = ColorFiltered(
+        colorFilter: const ColorFilter.matrix([
+          -1, 0, 0, 0, 255,
+          0, -1, 0, 0, 255,
+          0, 0, -1, 0, 255,
+          0, 0, 0, 1, 0,
+        ]),
+        child: pdfWidget,
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: _isDarkMode ? Colors.black : Colors.grey.shade100,
+      appBar: AppBar(
+        backgroundColor: _isDarkMode ? Colors.grey.shade900 : null,
+        elevation: 0,
+        title: Text(
+          widget.fileName,
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        actions: [
+          // Dark mode toggle
+          IconButton(
+            icon: Icon(_isDarkMode ? Icons.light_mode_rounded : Icons.dark_mode_rounded),
+            tooltip: _isDarkMode ? 'Light Mode' : 'Dark Mode',
+            onPressed: () => setState(() => _isDarkMode = !_isDarkMode),
+          ),
+          // Bookmark toggle
+          IconButton(
+            icon: Icon(
+              isBookmarked ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+              color: isBookmarked ? Colors.amber : null,
+            ),
+            tooltip: isBookmarked ? 'Remove Bookmark' : 'Bookmark Page ${_currentPage + 1}',
+            onPressed: _toggleBookmark,
+          ),
+          // Show bookmark list
+          if (_bookmarkedPages.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.list_rounded),
+              tooltip: 'My Bookmarks',
+              onPressed: () => _showBookmarkPanel(context),
+            ),
+        ],
+      ),
+      body: Column(
+        children: [
+          Expanded(child: pdfWidget),
+          // Page navigation bar
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: _isDarkMode ? Colors.grey.shade900 : Colors.white,
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4, offset: const Offset(0, -2))],
+            ),
+            child: Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.chevron_left_rounded),
+                  onPressed: _currentPage > 0
+                      ? () => _pdfController?.setPage(_currentPage - 1)
+                      : null,
+                ),
+                Expanded(
+                  child: Text(
+                    'পেজ ${_currentPage + 1} / $_totalPages${isBookmarked ? ' 🔖' : ''}',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.chevron_right_rounded),
+                  onPressed: _currentPage < _totalPages - 1
+                      ? () => _pdfController?.setPage(_currentPage + 1)
+                      : null,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showBookmarkPanel(BuildContext context) {
+    final sortedBookmarks = _bookmarkedPages.toList()..sort();
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('🔖 বুকমার্ক করা পেজ', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: sortedBookmarks.length,
+                itemBuilder: (context, i) {
+                  final page = sortedBookmarks[i];
+                  return ListTile(
+                    leading: const Icon(Icons.bookmark_rounded, color: Colors.amber),
+                    title: Text('পেজ ${page + 1}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
+                      onPressed: () {
+                        setState(() => _bookmarkedPages.remove(page));
+                        _saveBookmarks();
+                        Navigator.pop(ctx);
                       },
                     ),
+                    onTap: () {
+                      _pdfController?.setPage(page);
+                      Navigator.pop(ctx);
+                    },
+                  );
+                },
+              ),
             ),
           ],
         ),
@@ -8021,6 +8549,7 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
     );
   }
 }
+
 
 class MultiTaskImportSheet extends StatefulWidget {
   final String roomCode;
@@ -8173,7 +8702,7 @@ class _MultiTaskImportSheetState extends State<MultiTaskImportSheet> {
           const SizedBox(height: 16),
           if (widget.participantNames.isNotEmpty)
             DropdownButtonFormField<String>(
-              value: widget.participantNames.containsKey(_selectedUserId) ? _selectedUserId : null,
+              initialValue: widget.participantNames.containsKey(_selectedUserId) ? _selectedUserId : null,
               decoration: InputDecoration(
                 labelText: 'Select Partner'.tr(),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),

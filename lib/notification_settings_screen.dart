@@ -347,7 +347,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Notification Settings', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text('Notification Settings'.tr(), style: const TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.transparent,
         elevation: 0,
         flexibleSpace: Container(
@@ -393,7 +393,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'নোটিফিকেশন কনফিগারেশন',
+                                  'Notification Configuration'.tr(),
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold, 
                                     fontSize: 16, 
@@ -402,7 +402,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  'আপনার পড়াশোনার তাগিদ ও রিমাইন্ডার কাস্টমাইজ করুন।',
+                                  'Customize your study alerts and reminders.'.tr(),
                                   style: TextStyle(fontSize: 12, color: onSurfaceVariant),
                                 ),
                               ],
@@ -416,8 +416,8 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
 
                   // 1. Global Notification Switch
                   _buildSwitchTile(
-                    title: 'গ্লোবাল নোটিফিকেশন',
-                    subtitle: 'অ্যাপের সকল নোটিফিকেশন চালু বা বন্ধ রাখুন',
+                    title: 'Global Notifications'.tr(),
+                    subtitle: 'Keep all app notifications on or off'.tr(),
                     value: _globalNotifications,
                     icon: Icons.power_settings_new_rounded,
                     onChanged: (val) => _saveSettings('globalNotifications', val),
@@ -433,36 +433,36 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                       child: Column(
                         children: [
                           _buildSwitchTile(
-                            title: 'স্টাডি গোল রিমাইন্ডার',
-                            subtitle: 'দৈনিক পড়াশোনার লক্ষ্য পূরণ না হলে মনে করিয়ে দেওয়া',
+                            title: 'Study Goal Reminders'.tr(),
+                            subtitle: 'Remind if daily study goal is not met'.tr(),
                             value: _studyGoalReminders,
                             icon: Icons.timer_outlined,
                             onChanged: (val) => _saveSettings('studyGoalReminders', val),
                           ),
                           _buildSwitchTile(
-                            title: 'টাস্ক সময়সীমা অ্যালার্ট',
-                            subtitle: 'কোনো নির্দিষ্ট কাজ শেষ হওয়ার পূর্বে নোটিফিকেশন পাঠানো',
+                            title: 'Task Deadline Alerts'.tr(),
+                            subtitle: 'Send notification before a specific task ends'.tr(),
                             value: _taskDueWarnings,
                             icon: Icons.alarm_on_rounded,
                             onChanged: (val) => _saveSettings('taskDueWarnings', val),
                           ),
                           _buildSwitchTile(
-                            title: 'রিভিশন রিমাইন্ডার',
-                            subtitle: '১-৪-৭ স্পেসড রিভিশন শিডিউলের রিভিশন মনে করিয়ে দেওয়া',
+                            title: 'Revision Reminders'.tr(),
+                            subtitle: 'Remind of revision for 1-4-7 spaced revision schedule'.tr(),
                             value: _spacedRevisionAlerts,
                             icon: Icons.sync_problem_rounded,
                             onChanged: (val) => _saveSettings('spacedRevisionAlerts', val),
                           ),
                           _buildSwitchTile(
-                            title: 'সোশ্যাল নোটিফিকেশন',
-                            subtitle: 'নতুন ফ্রেন্ড রিকোয়েস্ট বা সোশ্যাল হাবের আপডেট নোটিফিকেশন',
+                            title: 'Social Notifications'.tr(),
+                            subtitle: 'New friend requests or Social Hub update notifications'.tr(),
                             value: _socialHubNotifications,
                             icon: Icons.people_outline_rounded,
                             onChanged: (val) => _saveSettings('socialHubNotifications', val),
                           ),
                           _buildSwitchTile(
-                            title: 'অনুপ্রেরণামূলক পুশ',
-                            subtitle: 'প্রতিদিন পড়াশোনা শুরু করার জন্য মোটিভেশনাল মেসেজ',
+                            title: 'Motivational Push'.tr(),
+                            subtitle: 'Motivational messages to start studying every day'.tr(),
                             value: _motivationalPush,
                             icon: Icons.wb_incandescent_outlined,
                             onChanged: (val) => _saveSettings('motivationalPush', val),
@@ -489,7 +489,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                               Icon(Icons.volume_up_rounded, color: primaryColor),
                               const SizedBox(width: 8),
                               Text(
-                                'সাউন্ড ও ভাইব্রেশন সেটিংস',
+                                'Sound & Vibration Settings'.tr(),
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold, 
                                   fontSize: 16, 
@@ -511,12 +511,12 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Text(
-                                        'নোটিফিকেশন সাউন্ড', 
+                                        'Notification Sound'.tr(), 
                                         style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: onSurface),
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
-                                        'নোটিফিকেশন আসার সময়ে সাউন্ড প্লে হবে', 
+                                        'Play sound when receiving notifications'.tr(), 
                                         style: TextStyle(fontSize: 11, color: onSurfaceVariant),
                                       ),
                                     ],
@@ -542,7 +542,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                                     ),
                                     const SizedBox(height: 2),
                                     Text(
-                                      _soundEnabled ? 'চালু (ON)' : 'বন্ধ (OFF)',
+                                      _soundEnabled ? 'Active (ON)'.tr() : 'Disabled (OFF)'.tr(),
                                       style: TextStyle(
                                         fontSize: 9,
                                         fontWeight: FontWeight.w800,
@@ -568,12 +568,12 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Text(
-                                        'ভাইব্রেশন', 
+                                        'Vibration'.tr(), 
                                         style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: onSurface),
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
-                                        'নোটিফিকেশন আসার সাথে ডিভাইস ভাইব্রেট করবে', 
+                                        'Vibrate device when receiving notifications'.tr(), 
                                         style: TextStyle(fontSize: 11, color: onSurfaceVariant),
                                       ),
                                     ],
@@ -599,7 +599,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                                     ),
                                     const SizedBox(height: 2),
                                     Text(
-                                      _vibrationEnabled ? 'চালু (ON)' : 'বন্ধ (OFF)',
+                                      _vibrationEnabled ? 'Active (ON)'.tr() : 'Disabled (OFF)'.tr(),
                                       style: TextStyle(
                                         fontSize: 9,
                                         fontWeight: FontWeight.w800,
@@ -620,14 +620,14 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
-                                  'পুশ নোটিফিকেশন সাউন্ড', 
+                                  'Push Notification Sound'.tr(), 
                                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: onSurface),
                                 ),
                                 TextButton.icon(
                                   onPressed: _globalNotifications ? () => _playPreview(false) : null,
                                   icon: Icon(Icons.play_circle_outline_rounded, size: 18, color: primaryColor),
                                   label: Text(
-                                    'টেস্ট সাউন্ড',
+                                    'Test Sound'.tr(),
                                     style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: primaryColor),
                                   ),
                                   style: TextButton.styleFrom(
@@ -693,7 +693,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                                               ],
                                             ),
                                           );
-                                        }).toList(),
+                                        }),
                                         if (Platform.isAndroid) const PopupMenuDivider(),
                                         if (Platform.isAndroid)
                                           const PopupMenuItem<String>(
@@ -718,14 +718,14 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
-                                  'অ্যালার্ম সাউন্ড', 
+                                  'Alarm Sound'.tr(), 
                                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: onSurface),
                                 ),
                                 TextButton.icon(
                                   onPressed: _globalNotifications ? () => _playPreview(true) : null,
                                   icon: Icon(Icons.play_circle_outline_rounded, size: 18, color: primaryColor),
                                   label: Text(
-                                    'টেস্ট সাউন্ড',
+                                    'Test Sound'.tr(),
                                     style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: primaryColor),
                                   ),
                                   style: TextButton.styleFrom(
@@ -791,7 +791,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                                               ],
                                             ),
                                           );
-                                        }).toList(),
+                                        }),
                                         if (Platform.isAndroid) const PopupMenuDivider(),
                                         if (Platform.isAndroid)
                                           const PopupMenuItem<String>(
@@ -816,7 +816,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
-                                  'সাউন্ডের মাত্রা', 
+                                  'Volume Level'.tr(), 
                                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: onSurface),
                                 ),
                                 Text(
@@ -982,7 +982,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  value ? 'চালু (ON)' : 'বন্ধ (OFF)',
+                  value ? 'Active (ON)'.tr() : 'Disabled (OFF)'.tr(),
                   style: TextStyle(
                     fontSize: 9,
                     fontWeight: FontWeight.w800,

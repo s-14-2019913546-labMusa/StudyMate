@@ -144,7 +144,7 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen> {
                 child: LinearProgressIndicator(
                   value: progress,
                   minHeight: 8,
-                  backgroundColor: Colors.white.withOpacity(0.1),
+                  backgroundColor: Colors.white.withValues(alpha: 0.1),
                   valueColor: const AlwaysStoppedAnimation<Color>(Colors.indigoAccent),
                 ),
               ),
@@ -203,15 +203,15 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen> {
       decoration: BoxDecoration(
         color: const Color(0xFF1E293B), // Slate 800
         borderRadius: BorderRadius.circular(32),
-        border: Border.all(color: Colors.white.withOpacity(0.08), width: 1.5),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08), width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.4),
+            color: Colors.black.withValues(alpha: 0.4),
             blurRadius: 30,
             offset: const Offset(0, 15),
           ),
           BoxShadow(
-            color: color.withOpacity(0.08),
+            color: color.withValues(alpha: 0.08),
             blurRadius: 15,
             spreadRadius: 2,
           )
@@ -227,9 +227,9 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.2),
+                  color: color.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: color.withOpacity(0.3)),
+                  border: Border.all(color: color.withValues(alpha: 0.3)),
                 ),
                 child: Text(
                   title,
@@ -339,10 +339,10 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen> {
       onPressed: onPressed,
       style: OutlinedButton.styleFrom(
         foregroundColor: color,
-        side: BorderSide(color: color.withOpacity(0.5), width: 1.5),
+        side: BorderSide(color: color.withValues(alpha: 0.5), width: 1.5),
         padding: const EdgeInsets.symmetric(vertical: 16),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        backgroundColor: color.withOpacity(0.05),
+        backgroundColor: color.withValues(alpha: 0.05),
       ),
       child: Text(
         label,
@@ -361,7 +361,7 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen> {
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: Colors.greenAccent.withOpacity(0.1),
+              color: Colors.greenAccent.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: const Icon(
@@ -394,7 +394,7 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen> {
             decoration: BoxDecoration(
               color: const Color(0xFF1E293B),
               borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: Colors.white.withOpacity(0.08)),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

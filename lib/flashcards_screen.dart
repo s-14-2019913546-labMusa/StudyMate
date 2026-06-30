@@ -1,10 +1,8 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:google_generative_ai/google_generative_ai.dart';
 import 'flashcard_study_screen.dart';
 import 'ai_service.dart';
 
@@ -413,7 +411,7 @@ class _FlashcardDecksScreenState extends State<FlashcardDecksScreen> {
                         borderRadius: BorderRadius.circular(24),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.04),
+                            color: Colors.black.withValues(alpha: 0.04),
                             blurRadius: 16,
                             offset: const Offset(0, 4),
                           )
@@ -444,7 +442,7 @@ class _FlashcardDecksScreenState extends State<FlashcardDecksScreen> {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                 decoration: BoxDecoration(
-                                  color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Text(
@@ -529,7 +527,7 @@ class _FlashcardDecksScreenState extends State<FlashcardDecksScreen> {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(Icons.style_rounded, size: 70, color: Theme.of(context).colorScheme.primary),
@@ -591,7 +589,7 @@ class _FlashcardDecksScreenState extends State<FlashcardDecksScreen> {
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.purple.withOpacity(0.2),
+                  color: Colors.purple.withValues(alpha: 0.2),
                   blurRadius: 30,
                   spreadRadius: 10,
                 )
