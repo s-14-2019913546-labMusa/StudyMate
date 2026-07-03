@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'daily_routine.dart';
 import 'language_manager.dart';
+import 'islamic_service.dart';
 import 'todays_tasks_screen.dart';
 import 'gamification_service.dart';
 import 'task_details_screen.dart'; // নতুন ফাইলটি ইমপোর্ট করা হলো
@@ -67,6 +68,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     if (user == null) return;
     if (state == AppLifecycleState.resumed) {
       _updateUserStatus(true);
+      LocalNotificationService.clearPastPrayerNotifications();
     } else {
       _updateUserStatus(false);
     }
@@ -1136,14 +1138,29 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               ],
             ),
             const SizedBox(height: 24),
-            Text(
-              LanguageManager.formatDate(DateTime.now()),
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w500,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    LanguageManager.formatDate(DateTime.now()),
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w500,
+                        ),
                   ),
+                ),
+                Text(
+                  IslamicService.getHijriDateBn(DateTime.now()),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Colors.teal.shade700,
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
+            _buildSpecialIslamicDayBanner(context),
             _buildTodayProgressCard(context),
             const SizedBox(height: 30),
             
@@ -1464,7 +1481,74 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     );
   }
 
+  Widget _buildSpecialIslamicDayBanner(BuildContext context) {
+    final specialDay = IslamicService.getSpecialIslamicDay(DateTime.now());
+    if (specialDay == null) return const SizedBox.shrink();
 
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xFF065F46), // Emerald 800
+            Colors.teal.shade900,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF10B981).withValues(alpha: 0.15), // Emerald
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.brightness_3_rounded,
+              color: Colors.amber,
+              size: 28,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  specialDay['title']!,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  specialDay['desc']!,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 // ==========================================

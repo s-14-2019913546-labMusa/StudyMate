@@ -11,6 +11,10 @@ import 'about_us_screen.dart';
 import 'theme_manager.dart';
 import 'gamification_service.dart';
 import 'language_manager.dart';
+import 'app_lock_service.dart';
+import 'app_lock_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'cloud_backup_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -22,6 +26,8 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   User? _user = FirebaseAuth.instance.currentUser;
   String? _photoUrl;
+  bool _autoLoginEnabled = true;
+  bool _monthlyLoginEnabled = false;
   
   String _bio = "Let's study hard together!";
   String _institution = "No Institution Set";
@@ -37,6 +43,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void initState() {
     super.initState();
     _loadProfileDetails();
+    _loadPreferences();
+  }
+
+  Future<void> _loadPreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _autoLoginEnabled = prefs.getBool('auto_login_enabled') ?? true;
+        _monthlyLoginEnabled = prefs.getBool('monthly_password_login_enabled') ?? false;
+      });
+    }
   }
 
   Future<void> _loadProfileDetails() async {
@@ -243,9 +260,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   }),
                   _buildListTile(
                     context,
-                    Icons.lock_reset_rounded,
-                    'Change Password',
-                    onTap: () => _showChangePasswordBottomSheet(context),
+                    Icons.security_rounded,
+                    'Security Settings',
+                    onTap: () => _showSecuritySettingsBottomSheet(context),
+                  ),
+                  _buildListTile(
+                    context,
+                    Icons.cloud_sync_rounded,
+                    'Cloud Backup & Sync',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const CloudBackupScreen()),
+                      );
+                    },
                   ),
                   _buildListTile(context, Icons.notifications_none_rounded, 'Notifications', onTap: () {
                     Navigator.push(
@@ -254,6 +282,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     );
                   }),
                   _buildListTile(context, Icons.dark_mode_outlined, 'Dark Mode', isToggle: true),
+
                   _buildListTile(
                     context,
                     Icons.language_rounded,
@@ -299,6 +328,190 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
     );
+  }
+
+  void _showSecuritySettingsBottomSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 48,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.security_rounded,
+                        color: Theme.of(context).colorScheme.primary,
+                        size: 28,
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Security Settings'.tr(),
+                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Change Password Button
+                  Card(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    child: ListTile(
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(Icons.lock_reset_rounded, color: Theme.of(context).colorScheme.primary),
+                      ),
+                      title: Text('Change Password'.tr(), style: const TextStyle(fontWeight: FontWeight.w600)),
+                      trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16, color: Colors.grey),
+                      onTap: () {
+                        Navigator.pop(context); // Close Security Settings sheet
+                        _showChangePasswordBottomSheet(context); // Open Change Password sheet
+                      },
+                    ),
+                  ),
+
+                  // Auto Login Switch
+                  Card(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    child: ListTile(
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(Icons.login_rounded, color: Theme.of(context).colorScheme.primary),
+                      ),
+                      title: Text('Auto Login'.tr(), style: const TextStyle(fontWeight: FontWeight.w600)),
+                      subtitle: Text('Remembers you on this device'.tr(), style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                      trailing: Switch(
+                        value: _autoLoginEnabled,
+                        onChanged: (val) async {
+                          final prefs = await SharedPreferences.getInstance();
+                          await prefs.setBool('auto_login_enabled', val);
+                          setModalState(() {
+                            _autoLoginEnabled = val;
+                          });
+                          setState(() {
+                            _autoLoginEnabled = val;
+                          });
+                        },
+                        activeThumbColor: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                  ),
+
+                  // Monthly Password Verification Switch
+                  Card(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    child: ListTile(
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: (_autoLoginEnabled ? Theme.of(context).colorScheme.primary : Colors.grey).withValues(alpha: 0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.calendar_month_rounded,
+                          color: _autoLoginEnabled ? Theme.of(context).colorScheme.primary : Colors.grey,
+                        ),
+                      ),
+                      title: Text('Monthly Password Check'.tr(), style: TextStyle(fontWeight: FontWeight.w600, color: _autoLoginEnabled ? null : Colors.grey)),
+                      subtitle: Text('Force login once a month so you do not forget your password'.tr(), style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                      trailing: Switch(
+                        value: _autoLoginEnabled && _monthlyLoginEnabled,
+                        onChanged: _autoLoginEnabled
+                            ? (val) async {
+                                final prefs = await SharedPreferences.getInstance();
+                                await prefs.setBool('monthly_password_login_enabled', val);
+                                setModalState(() {
+                                  _monthlyLoginEnabled = val;
+                                });
+                                setState(() {
+                                  _monthlyLoginEnabled = val;
+                                });
+                              }
+                            : null,
+                        activeThumbColor: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                  ),
+
+                  // App Lock Switch
+                  Card(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    child: ListTile(
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(Icons.security_rounded, color: Theme.of(context).colorScheme.primary),
+                      ),
+                      title: Text('App Lock'.tr(), style: const TextStyle(fontWeight: FontWeight.w600)),
+                      trailing: Switch(
+                        value: AppLockService().isAppLockEnabled(),
+                        onChanged: (val) async {
+                          Navigator.pop(context); // Close Security Settings sheet
+                          await _handleAppLockToggle(val); // Open App Lock sheet
+                        },
+                        activeThumbColor: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _handleAppLockToggle(bool enable) async {
+    if (enable) {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const AppLockScreen(mode: AppLockMode.setup),
+        ),
+      );
+    } else {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const AppLockScreen(mode: AppLockMode.disable),
+        ),
+      );
+    }
+    setState(() {});
   }
 
   Widget _buildStatCard(BuildContext context, String value, String label, IconData icon, Color color) {

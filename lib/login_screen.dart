@@ -4,6 +4,7 @@ import 'signup_screen.dart';
 import 'focus_mode_screen.dart';
 import 'language_manager.dart';
 import 'fcm_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // ==========================================
 // 2. Login Screen (লগইন স্ক্রিন)
@@ -45,6 +46,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
       // Sync FCM token upon successful login
       await FcmService.syncToken();
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('last_password_login_timestamp', DateTime.now().millisecondsSinceEpoch);
 
       if (mounted) {
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const FocusModeScreen()));

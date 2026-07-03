@@ -786,6 +786,33 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // Hijri date display
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'আজকের হিজরি তারিখ:',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      Text(
+                        IslamicService.getHijriDateBn(DateTime.now()),
+                        style: const TextStyle(
+                          color: goldAccent,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Special Islamic Day Info Card
+                  _buildSpecialDayCard(context, cardBg, goldAccent),
+
                   // 1. Current Prayer Timer & Countdown Hero Section
                   Container(
                     padding: const EdgeInsets.all(24),
@@ -1228,6 +1255,89 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 16),
+                  
+                  // 3d. Study Supplications Entry Card
+                  GestureDetector(
+                    onTap: () => _showStudyDuasBottomSheet(context),
+                    child: Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [
+                            Color(0xFF162D24),
+                            Color(0xFF0F1E19),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(
+                          color: goldAccent.withValues(alpha: 0.35),
+                          width: 1.5,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: goldAccent.withValues(alpha: 0.05),
+                            blurRadius: 16,
+                            spreadRadius: 2,
+                          )
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 56,
+                            height: 56,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: goldAccent.withValues(alpha: 0.12),
+                              border: Border.all(
+                                color: goldAccent.withValues(alpha: 0.3),
+                              ),
+                            ),
+                            child: const Center(
+                              child: Icon(
+                                Icons.menu_book_rounded,
+                                color: goldAccent,
+                                size: 28,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'পড়াশোনার দোয়া ও আমল',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'স্মৃতিশক্তি বৃদ্ধি • কঠিন বিষয় সহজ হওয়া • পড়াশোনা শুরুর দোয়া',
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.55),
+                                    fontSize: 12,
+                                    height: 1.4,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(
+                            Icons.arrow_forward_ios_rounded,
+                            color: goldAccent.withValues(alpha: 0.7),
+                            size: 18,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 24),
 
                   // 4. Prayer Times List
@@ -1542,6 +1652,302 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildSpecialDayCard(BuildContext context, Color cardBg, Color goldAccent) {
+    final specialDay = IslamicService.getSpecialIslamicDay(DateTime.now());
+    if (specialDay == null) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: goldAccent.withValues(alpha: 0.3), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: goldAccent.withValues(alpha: 0.05),
+            blurRadius: 15,
+            spreadRadius: 2,
+          )
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: goldAccent.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.brightness_3_rounded, color: goldAccent, size: 22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      specialDay['title']!,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const Text(
+                      'আজকের বিশেষ দিনের গুরুত্ব ও তাৎপর্য',
+                      style: TextStyle(
+                        color: Colors.white54,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const Divider(height: 24, color: Colors.white12),
+          Text(
+            specialDay['desc']!,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 13,
+              height: 1.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showStudyDuasBottomSheet(BuildContext context) {
+    const primaryBg = Color(0xFF0F1E19);
+    const cardBg = Color(0xFF162D24);
+    const goldAccent = Color(0xFFE5B842);
+    const textLight = Colors.white;
+
+    final List<Map<String, String>> studyDuas = [
+      {
+        'title': '১. জ্ঞান বৃদ্ধির দোয়া (পড়াশোনা শুরুর আগে)',
+        'arabic': 'رَّبِّ زِدْنِي عِلْمًا',
+        'pronunciation': 'উচ্চারণ: রাব্বি যিদনি ইলমা।',
+        'translation': 'অর্থ: "হে আমার পালনকর্তা! আমার জ্ঞান বৃদ্ধি করে দিন।" (সূরা তাহা: ১১৪)',
+        'note': 'পড়াশোনা শুরু করার আগে এই দোয়াটি বেশি বেশি পড়া উচিত।'
+      },
+      {
+        'title': '২. কঠিন বিষয় সহজ হওয়া ও জড়তা কাটার দোয়া',
+        'arabic': 'رَبِّ اشْرَحْ لِي صَدْرِي * وَيَسِّرْ لِي أَمْرِي * وَاحْلُلْ عُقْدَةً مِّন لِّسَانِي * يَفْقَهُوا قَوْلِي',
+        'pronunciation': 'উচ্চারণ: রাব্বিশ রাহলি সাদরি, ওয়া ইয়াসসিরলি আমরি, ওয়াহলুল উকদাতাম মিল লিসানি, ইয়াফকাহু কাওলি।',
+        'translation': 'অর্থ: "হে আমার পালনকর্তা! আমার বক্ষ প্রশস্ত করে দিন, আমার কাজ সহজ করে দিন এবং আমার জিহ্বার জড়তা দূর করে দিন যাতে তারা আমার কথা বুঝতে পারে।" (সূরা তাহা: ২৫-২৮)',
+        'note': 'পড়াশোনায় মন বসাতে বা কঠিন কোনো অধ্যায় বুঝতে এটি অত্যন্ত কার্যকর।'
+      },
+      {
+        'title': '৩. যেকোনো কঠিন কাজ সহজ করার দোয়া',
+        'arabic': 'اللَّهُمَّ لَا سَهْلَ إِلَّا مَا جَعَلْتَهُ سَهْلًا وَأَنْتَ تَجْعَلُ الْحَزْنَ إِذَا شِئْتَ سَهْلًا',
+        'pronunciation': 'উচ্চারণ: আল্লাহুম্মা লা সাহলা ইল্লা মা জা‘আলতাহু সাহলা, ওয়া আনতা তাজ‘আলুল হাযনা ইযা শি’তা সাহলা।',
+        'translation': 'অর্থ: "হে আল্লাহ! আপনি যা সহজ করেছেন তা ছাড়া কোনো কিছুই সহজ নয়। আর আপনি চাইলে কঠিন কাজকেও সহজ করে দিতে পারেন।" (সহীহ ইবনে হিব্বান)',
+        'note': 'পরীক্ষার হলে বা কঠিন প্রশ্ন দেখলে মনে মনে এই দোয়াটি পড়তে পারেন।'
+      },
+      {
+        'title': '৪. মেধা ও স্মৃতিশক্তি বৃদ্ধির দোয়া',
+        'arabic': 'اللَّهُمَّ انْفَعْنِي بِمَا عَلَّمْتَنِي وَعَلِّمْنِي مَا يَنْفَعُنِي وَزِدْنِي عِلْمًا',
+        'pronunciation': 'উচ্চারণ: আল্লাহুম্মান ফানি বিমা আল্লামতানি, ওয়া আল্লিমনি মা ইয়ানফাউনি, ওয়া যিদনি ইলমা।',
+        'translation': 'অর্থ: "হে আল্লাহ! আপনি আমাকে যা শিখিয়েছেন তা দিয়ে আমাকে উপকৃত করুন, আমার জন্য যা উপকারী তা আমাকে শেখান এবং আমার জ্ঞান বৃদ্ধি করে দিন।" (সুনানে ইবনে মাজাহ)',
+        'note': 'পড়া মনে রাখার এবং ব্রেইনের কার্যক্ষমতা বৃদ্ধির জন্য এই দোয়াটি পঠিত হয়।'
+      },
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.8,
+              decoration: const BoxDecoration(
+                color: primaryBg,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(28),
+                  topRight: Radius.circular(28),
+                ),
+              ),
+              child: Column(
+                children: [
+                  const SizedBox(height: 12),
+                  // Drag handle
+                  Container(
+                    width: 40,
+                    height: 5,
+                    decoration: const BoxDecoration(
+                      color: Colors.white24,
+                      borderRadius: BorderRadius.all(Radius.circular(10)),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // Title
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: goldAccent.withValues(alpha: 0.15),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.menu_book_rounded, color: goldAccent, size: 24),
+                        ),
+                        const SizedBox(width: 14),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'পড়াশোনার দোয়া ও আমল',
+                                style: TextStyle(
+                                  color: textLight,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Text(
+                                'পড়াশোনা শুরু ও মেধা বিকাশের দোয়া কালেকশন',
+                                style: TextStyle(
+                                  color: Colors.white54,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close_rounded, color: Colors.white54),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(color: Colors.white12, height: 24),
+                  Expanded(
+                    child: ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                      itemCount: studyDuas.length,
+                      itemBuilder: (context, index) {
+                        final dua = studyDuas[index];
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 20),
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: cardBg,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: goldAccent.withValues(alpha: 0.25),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      dua['title']!,
+                                      style: const TextStyle(
+                                        color: goldAccent,
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.copy_rounded, color: Colors.white54, size: 18),
+                                    constraints: const BoxConstraints(),
+                                    padding: EdgeInsets.zero,
+                                    onPressed: () {
+                                      Clipboard.setData(
+                                        ClipboardData(
+                                          text: "${dua['title']}\n${dua['arabic']}\n${dua['pronunciation']}\n${dua['translation']}",
+                                        ),
+                                      );
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('${dua['title']} কপি হয়েছে'),
+                                          backgroundColor: cardBg,
+                                          behavior: SnackBarBehavior.floating,
+                                          duration: const Duration(seconds: 2),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                dua['arabic']!,
+                                textAlign: TextAlign.right,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  height: 1.6,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                dua['pronunciation']!,
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                dua['translation']!,
+                                style: const TextStyle(
+                                  color: Colors.white60,
+                                  fontSize: 13,
+                                  height: 1.4,
+                                ),
+                              ),
+                              const Divider(color: Colors.white10, height: 20),
+                              Row(
+                                children: [
+                                  const Icon(Icons.info_outline_rounded, color: goldAccent, size: 14),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      dua['note']!,
+                                      style: const TextStyle(
+                                        color: goldAccent,
+                                        fontSize: 11,
+                                        fontStyle: FontStyle.italic,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

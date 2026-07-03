@@ -129,6 +129,21 @@ class LanguageManager extends ChangeNotifier {
     'The email address is already in use by another account.': 'ইমেইল এড্রেসটি ইতিমধ্যে অন্য একটি অ্যাকাউন্ট দ্বারা ব্যবহৃত হচ্ছে।',
     'Email/password accounts are not enabled.': 'ইমেল/পাসওয়ার্ড অ্যাকাউন্ট সচল নয়।',
     'Sign up failed. Please try again.': 'সাইন আপ ব্যর্থ হয়েছে। আবার চেষ্টা করুন।',
+    
+    // Cloud Backup & Sync
+    'Cloud Backup & Sync': 'ক্লাউড ব্যাকআপ এবং সিঙ্ক',
+    'Secure Your Data': 'আপনার ডেটা সুরক্ষিত করুন',
+    'Your data is automatically synced with Firebase while online. You can also create a manual backup to Firebase Storage to secure your diary, notes, flashcards, and progress across devices.': 'আপনার ডেটা অনলাইনে থাকাকালীন স্বয়ংক্রিয়ভাবে ফায়ারবেসের সাথে সিঙ্ক হয়। ডিভাইস পরিবর্তন করলেও আপনার ডায়েরি, নোট, ফ্ল্যাশকার্ড এবং প্রোগ্রেস সুরক্ষিত রাখতে আপনি ম্যানুয়ালি ব্যাকআপ নিতে পারেন।',
+    'Last Backup': 'সর্বশেষ ব্যাকআপ',
+    'No backup found': 'কোনো ব্যাকআপ পাওয়া যায়নি',
+    'Backup Now': 'এখন ব্যাকআপ নিন',
+    'Restore Data': 'ডেটা রিস্টোর করুন',
+    'Backup successful!': 'ব্যাকআপ সফল হয়েছে!',
+    'Backup failed: ': 'ব্যাকআপ ব্যর্থ হয়েছে: ',
+    'Restore Backup': 'ব্যাকআপ রিস্টোর করুন',
+    'Are you sure you want to restore your data? This will merge your backed up data with your current data.': 'আপনি কি নিশ্চিত যে আপনি আপনার ডেটা রিস্টোর করতে চান? এটি আপনার বর্তমান ডেটার সাথে ব্যাকআপ ডেটা মার্জ করবে।',
+    'Restore successful!': 'রিস্টোর সফল হয়েছে!',
+    'Restore failed: ': 'রিস্টোর ব্যর্থ হয়েছে: ',
 
     // Focus Mode
     'Focus Mode On': 'ফোকাস মোড চালু',
@@ -409,6 +424,22 @@ class LanguageManager extends ChangeNotifier {
     'Copy Text': 'কপি করুন',
     'Message copied to clipboard!': 'মেসেজ ক্লিপবোর্ডে কপি করা হয়েছে!',
     'Seen': 'সিন',
+    'Auto Login': 'অটো লগইন',
+    'Security Settings': 'নিরাপত্তা সেটিংস',
+    'Remembers you on this device': 'ডিভাইসে আপনাকে মনে রাখবে',
+    'Monthly Password Check': 'মাসে একবার পাসওয়ার্ড যাচাইকরণ',
+    'Force login once a month so you do not forget your password': 'মাসে একবার ইমেইল-পাসওয়ার্ড দিয়ে লগইন করানো হবে যাতে ভুলে না যান',
+    'Requires Internet': 'ইন্টারনেট প্রয়োজন',
+    'Biometric Unlock': 'বায়োমেট্রিক আনলক',
+    'Do you want to enable Fingerprint/Face Unlock?': 'আপনি কি ফিঙ্গারপ্রিন্ট/ফেস আনলক চালু করতে চান?',
+    'Set a 4-Digit Security PIN': 'একটি ৪-ডিজিটের পিন সেট করুন',
+    'Confirm your 4-Digit PIN': 'আপনার পিনটি নিশ্চিত করুন',
+    'Enter PIN to Unlock': 'আনলক করতে পিন দিন',
+    'Enter PIN to Disable Lock': 'লক বন্ধ করতে পিন দিন',
+    'PINs do not match. Try again.': 'পিন ম্যাচ করেনি, আবার চেষ্টা করুন।',
+    'Incorrect PIN': 'ভুল পিন',
+    'Forgot PIN?': 'পিন ভুলে গেছেন?',
+    'If you forget your PIN, you must log out and log back in to reset it. Do you want to log out now?': 'পিন ভুলে গেলে রিসেটের জন্য আপনাকে লগআউট করতে হবে। আপনি কি এখনই লগআউট করতে চান?',
   };
 
   static const Map<String, String> _bnToEn = {

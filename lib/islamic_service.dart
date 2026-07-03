@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:hijri/hijri_calendar.dart';
 
 class IslamicService {
   static final List<Map<String, String>> _verses = [
@@ -320,5 +321,88 @@ class IslamicService {
           'Isha': '08:15',
         };
     }
+  }
+
+  static final List<String> hijriMonthsBn = [
+    'মুহররম',
+    'সফর',
+    'রবিউল আউয়াল',
+    'রবিউস সানি',
+    'জুমাদাল উলা',
+    'জুমাদাস সানি',
+    'রজব',
+    'শাবান',
+    'রমজান',
+    'শাওয়াল',
+    'জিলকদ',
+    'জিলহজ'
+  ];
+
+  static String toBengaliNumbers(String input) {
+    const english = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+    const bengali = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
+    for (int i = 0; i < english.length; i++) {
+      input = input.replaceAll(english[i], bengali[i]);
+    }
+    return input;
+  }
+
+  static String getHijriDateBn(DateTime date) {
+    try {
+      final hDate = HijriCalendar.fromDate(date);
+      return _convertToBengaliHijriString(hDate);
+    } catch (e) {
+      return "হিজরি তারিখ লোড হচ্ছে...";
+    }
+  }
+
+  static String _convertToBengaliHijriString(HijriCalendar hDate) {
+    try {
+      final day = toBengaliNumbers(hDate.hDay.toString());
+      final month = hijriMonthsBn[hDate.hMonth - 1];
+      final year = toBengaliNumbers(hDate.hYear.toString());
+      return "$day $month, $year হিজরি";
+    } catch (_) {
+      return '';
+    }
+  }
+  static Map<String, String>? getSpecialIslamicDay(DateTime date) {
+    try {
+      final hDate = HijriCalendar.fromDate(date);
+      final month = hDate.hMonth;
+      final day = hDate.hDay;
+      
+      if (month == 1 && day == 1) {
+        return {'title': 'হিজরি নববর্ষ', 'desc': 'আজ হিজরি নববর্ষ (১ মুহররম)। নতুন হিজরি বছরের শুভেচ্ছা!'};
+      }
+      if (month == 1 && day == 10) {
+        return {'title': 'আশুরা', 'desc': 'আজ পবিত্র আশুরা (১০ মুহররম)। রোজা রাখা ও ইবাদতের বিশেষ ফজিলত রয়েছে।'};
+      }
+      if (month == 3 && day == 12) {
+        return {'title': 'ঈদে মিলাদুন্নবী (সা.)', 'desc': 'আজ ১২ রবিউল আউয়াল, প্রিয়নবী হযরত মুহাম্মদ (সা.)-এর জন্ম ও ওফাত দিবস।'};
+      }
+      if (month == 7 && day == 27) {
+        return {'title': 'শবে মেরাজ', 'desc': 'আজ পবিত্র শবে মেরাজ (২৭ রজব)। শবে মেরাজের রজনীতে ইবাদত-বندهগী করা অত্যন্ত পুণ্যময়।'};
+      }
+      if (month == 8 && day == 15) {
+        return {'title': 'শবে বরাত', 'desc': 'আজ পবিত্র শবে বরাত (১৫ শাবান)। ক্ষমার রজনীতে নফল ইবাদত ও দিনের বেলা রোজা রাখার ফজিলত রয়েছে।'};
+      }
+      if (month == 9 && day == 1) {
+        return {'title': 'রমজান শুরু', 'desc': 'আজ রমজান মাসের প্রথম দিন। বরকতময় সিয়াম সাধনার মাস শুরু হলো।'};
+      }
+      if (month == 9 && day == 27) {
+        return {'title': 'শবে কদর', 'desc': 'আজ পবিত্র শবে কদর (২৭ রমজান)। হাজার মাসের চেয়েও শ্রেষ্ঠ রজনীতে ইবাদতে আত্মনিয়োগ করুন।'};
+      }
+      if (month == 10 && day == 1) {
+        return {'title': 'ঈদুল ফিতর', 'desc': 'ঈদ মোবারক! আজ পবিত্র ঈদুল ফিতর (১ শাওয়াল)। আনন্দ ও উৎসবের দিন।'};
+      }
+      if (month == 12 && day == 9) {
+        return {'title': 'আরাফাহ দিবস', 'desc': 'আজ পবিত্র আরাফাহ দিবস (৯ জিলহজ)। হজের মূল দিন এবং এই দিনে নফল রোজার অশেষ ফজিলত।'};
+      }
+      if (month == 12 && day == 10) {
+        return {'title': 'ঈদুল আজহা', 'desc': 'ঈদ মোবারক! আজ পবিত্র ঈদুল আজহা (১০ জিলহজ)। ত্যাগের মহিমায় উদ্ভাসিত হোক কুরবানির দিন।'};
+      }
+    } catch (_) {}
+    return null;
   }
 }

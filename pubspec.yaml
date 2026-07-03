@@ -53,6 +53,7 @@ dependencies:
   geolocator: ^14.0.2
   http: ^1.1.2
   shared_preferences: ^2.3.2
+  local_auth: ^2.3.0
   fl_chart: ^1.2.0
   async: ^2.11.0 # StreamZip ব্যবহারের জন্য এই প্যাকেজটি যুক্ত করা হলো
   flutter_compass: ^0.8.1

@@ -58,7 +58,7 @@ class ToolsScreen extends StatelessWidget {
           {'title': '1-4-7 Revision', 'icon': Icons.published_with_changes_rounded, 'color': Colors.indigo, 'action': 'revision_147'},
           {'title': 'Flashcards', 'icon': Icons.style_rounded, 'color': Colors.purpleAccent, 'action': 'flash'},
           {'title': 'Task History', 'icon': Icons.history_rounded, 'color': Colors.blueGrey, 'action': 'task_history'},
-          {'title': 'Dictionary', 'icon': Icons.menu_book_rounded, 'color': Colors.orangeAccent, 'action': 'dict'},
+          {'title': 'Dictionary', 'icon': Icons.menu_book_rounded, 'color': Colors.orangeAccent, 'action': 'dict', 'requiresInternet': true},
           {'title': 'Special Hub', 'icon': Icons.folder_copy_rounded, 'color': Colors.teal, 'action': 'study_folders'},
           {'title': 'Countdown', 'icon': Icons.event_note_rounded, 'color': const Color(0xFF6366F1), 'action': 'countdown'},
         ]
@@ -67,17 +67,17 @@ class ToolsScreen extends StatelessWidget {
         'name': 'Focus',
         'icon': Icons.bolt_rounded,
         'tools': [
-          {'title': 'Islamic Life', 'icon': Icons.mosque_rounded, 'color': Colors.teal, 'action': 'islamic'},
+          {'title': 'Islamic Life', 'icon': Icons.mosque_rounded, 'color': Colors.teal, 'action': 'islamic', 'requiresInternet': true},
           {'title': 'Breathing Exercise', 'icon': Icons.air_rounded, 'color': Colors.lightBlueAccent, 'action': 'breath'},
-          {'title': 'Focus Music', 'icon': Icons.headphones_rounded, 'color': Colors.teal, 'action': 'music'},
+          {'title': 'Focus Music', 'icon': Icons.headphones_rounded, 'color': Colors.teal, 'action': 'music', 'requiresInternet': true},
         ]
       },
       {
         'name': 'Collaborative Studying',
         'icon': Icons.people_rounded,
         'tools': [
-          {'title': 'Study Room', 'icon': Icons.video_camera_front_rounded, 'color': Colors.deepPurpleAccent, 'action': 'study_room'},
-          {'title': 'Partner Tasks', 'icon': Icons.group_add_rounded, 'color': Colors.green, 'action': 'partner_tasks'},
+          {'title': 'Study Room', 'icon': Icons.video_camera_front_rounded, 'color': Colors.deepPurpleAccent, 'action': 'study_room', 'requiresInternet': true},
+          {'title': 'Partner Tasks', 'icon': Icons.group_add_rounded, 'color': Colors.green, 'action': 'partner_tasks', 'requiresInternet': true},
           {'title': 'Study Analytics', 'icon': Icons.analytics_rounded, 'color': Colors.teal, 'action': 'analytics'},
         ]
       },
@@ -152,95 +152,112 @@ class ToolsScreen extends StatelessWidget {
                         final cardDeco = ThemeManager.getCardDecoration(context);
                         return Container(
                           decoration: cardDeco,
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              borderRadius: cardDeco.borderRadius as BorderRadius?,
-                              onTap: () {
-                                if (tool['action'] == 'mood') {
-                                  showModalBottomSheet(context: context, isScrollControlled: true, useSafeArea: true, backgroundColor: Colors.transparent, builder: (_) => const MoodTrackerBottomSheet());
-                                } else if (tool['action'] == 'breath') {
-                                  showModalBottomSheet(context: context, isScrollControlled: true, useSafeArea: true, backgroundColor: Colors.transparent, builder: (_) => const BreathingExerciseBottomSheet());
-                                } else if (tool['action'] == 'routine') {
-                                  showModalBottomSheet(context: context, isScrollControlled: true, useSafeArea: true, backgroundColor: Colors.transparent, builder: (_) => const RoutinePlannerBottomSheet());
-                                } else if (tool['action'] == 'analytics') {
-                                  Navigator.push(context, MaterialPageRoute(builder: (_) => const StudyAnalyticsScreen()));
-                                } else if (tool['action'] == 'pdf_reader') {
-                                  Navigator.push(context, MaterialPageRoute(builder: (_) => const PdfReaderScreen()));
-                                } else if (tool['action'] == 'pomodoro') {
-                                  Navigator.push(context, MaterialPageRoute(builder: (_) => const PomodoroTimerScreen()));
-                                } else if (tool['action'] == 'stopwatch') {
-                                  Navigator.push(context, MaterialPageRoute(builder: (_) => const StopwatchScreen()));
-                                } else if (tool['action'] == 'calc') {
-                                  Navigator.push(context, MaterialPageRoute(builder: (_) => const CalculatorScreen()));
-                                } else if (tool['action'] == 'study_room') {
-                                  Navigator.push(context, MaterialPageRoute(builder: (_) => const StudyRoomScreen()));
-                                } else if (tool['action'] == 'partner_tasks') {
-                                  Navigator.push(context, MaterialPageRoute(builder: (_) => const PartnerTasksScreen()));
-                                } else if (tool['action'] == 'notes') {
-                                  Navigator.push(context, MaterialPageRoute(builder: (_) => const QuickNotesScreen()));
-                                } else if (tool['action'] == 'sleep') {
-                                  Navigator.push(context, MaterialPageRoute(builder: (_) => const SleepTrackerScreen()));
-                                } else if (tool['action'] == 'music') {
-                                  Navigator.push(context, MaterialPageRoute(builder: (_) => const FocusMusicScreen()));
-                                } else if (tool['action'] == 'flash') {
-                                  Navigator.push(context, MaterialPageRoute(builder: (_) => const FlashcardDecksScreen()));
-                                } else if (tool['action'] == 'dict') {
-                                  Navigator.push(context, MaterialPageRoute(builder: (_) => const DictionaryScreen()));
-                                } else if (tool['action'] == 'revision_147') {
-                                  Navigator.push(context, MaterialPageRoute(builder: (_) => const Revision147Screen()));
-                                } else if (tool['action'] == 'task_history') {
-                                  Navigator.push(context, MaterialPageRoute(builder: (_) => const TaskHistoryScreen()));
-                                } else if (tool['action'] == 'study_folders') {
-                                  Navigator.push(context, MaterialPageRoute(builder: (_) => const StudyFolderManagerScreen()));
-                                } else if (tool['action'] == 'countdown') {
-                                  Navigator.push(context, MaterialPageRoute(builder: (_) => const SpecialDayCountdownScreen()));
-                                } else if (tool['action'] == 'islamic') {
-                                  Navigator.push(context, MaterialPageRoute(builder: (_) => const IslamicLifeScreen()));
-                                } else if (tool['action'] == 'daily_diary') {
-                                  Navigator.push(context, MaterialPageRoute(builder: (_) => const DailyDiaryScreen()));
-                                } else if (tool['action'] == 'theme') {
-                                  showModalBottomSheet(
-                                    context: context,
-                                    isScrollControlled: true,
-                                    useSafeArea: true,
-                                    backgroundColor: Colors.transparent,
-                                    builder: (_) => const ThemeCustomizerBottomSheet(),
-                                  );
-                                } else {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('${tool['title']} is coming soon!')),
-                                  );
-                                }
-                              },
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(10),
-                                    decoration: BoxDecoration(
-                                      color: tool['color'].withValues(alpha: 0.1),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Icon(tool['icon'], size: 22, color: tool['color']),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                                    child: Text(
-                                      (tool['title'] as String).tr(),
-                                      textAlign: TextAlign.center,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
+                          child: Stack(
+                            children: [
+                              Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  borderRadius: cardDeco.borderRadius as BorderRadius?,
+                                  onTap: () {
+                                    if (tool['action'] == 'mood') {
+                                      showModalBottomSheet(context: context, isScrollControlled: true, useSafeArea: true, backgroundColor: Colors.transparent, builder: (_) => const MoodTrackerBottomSheet());
+                                    } else if (tool['action'] == 'breath') {
+                                      showModalBottomSheet(context: context, isScrollControlled: true, useSafeArea: true, backgroundColor: Colors.transparent, builder: (_) => const BreathingExerciseBottomSheet());
+                                    } else if (tool['action'] == 'routine') {
+                                      showModalBottomSheet(context: context, isScrollControlled: true, useSafeArea: true, backgroundColor: Colors.transparent, builder: (_) => const RoutinePlannerBottomSheet());
+                                    } else if (tool['action'] == 'analytics') {
+                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const StudyAnalyticsScreen()));
+                                    } else if (tool['action'] == 'pdf_reader') {
+                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const PdfReaderScreen()));
+                                    } else if (tool['action'] == 'pomodoro') {
+                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const PomodoroTimerScreen()));
+                                    } else if (tool['action'] == 'stopwatch') {
+                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const StopwatchScreen()));
+                                    } else if (tool['action'] == 'calc') {
+                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const CalculatorScreen()));
+                                    } else if (tool['action'] == 'study_room') {
+                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const StudyRoomScreen()));
+                                    } else if (tool['action'] == 'partner_tasks') {
+                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const PartnerTasksScreen()));
+                                    } else if (tool['action'] == 'notes') {
+                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const QuickNotesScreen()));
+                                    } else if (tool['action'] == 'sleep') {
+                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const SleepTrackerScreen()));
+                                    } else if (tool['action'] == 'music') {
+                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const FocusMusicScreen()));
+                                    } else if (tool['action'] == 'flash') {
+                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const FlashcardDecksScreen()));
+                                    } else if (tool['action'] == 'dict') {
+                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const DictionaryScreen()));
+                                    } else if (tool['action'] == 'revision_147') {
+                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const Revision147Screen()));
+                                    } else if (tool['action'] == 'task_history') {
+                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const TaskHistoryScreen()));
+                                    } else if (tool['action'] == 'study_folders') {
+                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const StudyFolderManagerScreen()));
+                                    } else if (tool['action'] == 'countdown') {
+                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const SpecialDayCountdownScreen()));
+                                    } else if (tool['action'] == 'islamic') {
+                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const IslamicLifeScreen()));
+                                    } else if (tool['action'] == 'daily_diary') {
+                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const DailyDiaryScreen()));
+                                    } else if (tool['action'] == 'theme') {
+                                      showModalBottomSheet(
+                                        context: context,
+                                        isScrollControlled: true,
+                                        useSafeArea: true,
+                                        backgroundColor: Colors.transparent,
+                                        builder: (_) => const ThemeCustomizerBottomSheet(),
+                                      );
+                                    } else {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text('${tool['title']} is coming soon!')),
+                                      );
+                                    }
+                                  },
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(10),
+                                        decoration: BoxDecoration(
+                                          color: tool['color'].withValues(alpha: 0.1),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Icon(tool['icon'], size: 22, color: tool['color']),
                                       ),
+                                      const SizedBox(height: 8),
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                                        child: Text(
+                                          (tool['title'] as String).tr(),
+                                          textAlign: TextAlign.center,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              if (tool['requiresInternet'] == true)
+                                Positioned(
+                                  top: 8,
+                                  right: 8,
+                                  child: Tooltip(
+                                    message: 'Requires Internet'.tr(),
+                                    child: Icon(
+                                      Icons.wifi_rounded,
+                                      size: 13,
+                                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.35),
                                     ),
                                   ),
-                                ],
-                              ),
-                            ),
+                                ),
+                            ],
                           ),
                         );
                       },
@@ -300,6 +317,25 @@ class ToolsScreen extends StatelessWidget {
                   Text('AI Study Planner'.tr(), style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: Colors.white)),
                   const SizedBox(height: 4),
                   Text('Plan your study smartly in one click!'.tr(), style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white.withValues(alpha: 0.8))),
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.wifi_rounded, color: Colors.white, size: 10),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Requires Internet'.tr(),
+                          style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w500),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),

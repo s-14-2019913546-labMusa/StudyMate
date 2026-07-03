@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'login_screen.dart';
 import 'focus_mode_screen.dart';
 import 'language_manager.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // ==========================================
 // 1. Splash Screen (স্প্ল্যাশ স্ক্রিন)
@@ -19,11 +20,43 @@ class _SplashScreenState extends State<SplashScreen> {
   void initState() {
     super.initState();
     // ২ সেকেন্ড পর স্বয়ংক্রিয়ভাবে লগইন পেইজে চলে যাবে
-    Future.delayed(const Duration(seconds: 2), () {
+    Future.delayed(const Duration(seconds: 2), () async {
       if (!mounted) return;
       
-      // চেক করবে ইউজার আগে থেকে লগইন করা আছে কিনা
+      final prefs = await SharedPreferences.getInstance();
+      final autoLoginEnabled = prefs.getBool('auto_login_enabled') ?? true;
+      final monthlyLoginEnabled = prefs.getBool('monthly_password_login_enabled') ?? false;
+      final lastLoginTime = prefs.getInt('last_password_login_timestamp') ?? 0;
+
+      bool shouldForceLogin = false;
+
       if (FirebaseAuth.instance.currentUser != null) {
+        if (!autoLoginEnabled) {
+          shouldForceLogin = true;
+          await FirebaseAuth.instance.signOut();
+        } else if (monthlyLoginEnabled) {
+          final now = DateTime.now();
+          final lastLogin = DateTime.fromMillisecondsSinceEpoch(lastLoginTime);
+          final diffInDays = now.difference(lastLogin).inDays;
+          if (diffInDays >= 30) {
+            shouldForceLogin = true;
+            await FirebaseAuth.instance.signOut();
+            
+            // Show alert message
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('আপনার মাসিক পাসওয়ার্ড রি-ভেরিফিকেশন প্রয়োজন।'),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            }
+          }
+        }
+      }
+      
+      // চেক করবে ইউজার আগে থেকে লগইন করা আছে কিনা
+      if (FirebaseAuth.instance.currentUser != null && !shouldForceLogin) {
         Navigator.pushReplacement(
           context,
           PageRouteBuilder(

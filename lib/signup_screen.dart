@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'focus_mode_screen.dart';
 import 'language_manager.dart';
 import 'fcm_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // ==========================================
 // 3. Sign Up Screen (সাইন আপ স্ক্রিন)
@@ -64,6 +65,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
       // Sync FCM token upon successful registration
       await FcmService.syncToken();
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('last_password_login_timestamp', DateTime.now().millisecondsSinceEpoch);
 
       if (mounted) {
         Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const FocusModeScreen()), (route) => false);

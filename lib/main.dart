@@ -9,9 +9,12 @@ import 'theme_manager.dart';
 import 'language_manager.dart';
 import 'local_notification_service.dart';
 import 'fcm_service.dart';
+import 'app_lock_service.dart';
+import 'app_lock_screen.dart';
 
 // Global key for context-less notifications
 final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   // Ensure that Flutter binding is initialized
@@ -69,23 +72,100 @@ void main() async {
     debugPrint("FcmService Initialization Error: $e");
   }
 
+  // Initialize App Lock Service
+  try {
+    await AppLockService().init();
+  } catch (e) {
+    debugPrint("AppLockService Initialization Error: $e");
+  }
+
   runApp(const StudyMateApp());
 }
 
-class StudyMateApp extends StatelessWidget {
+class StudyMateApp extends StatefulWidget {
   const StudyMateApp({super.key});
+
+  @override
+  State<StudyMateApp> createState() => _StudyMateAppState();
+}
+
+class _StudyMateAppState extends State<StudyMateApp> with WidgetsBindingObserver {
+  bool _isLockingScreenActive = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    
+    // Initially lock the session on fresh launch if app lock is enabled
+    if (AppLockService().isAppLockEnabled()) {
+      AppLockService().lockSession();
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final lockService = AppLockService();
+    if (!lockService.isAppLockEnabled()) return;
+
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+      lockService.markBackgroundTime();
+    } else if (state == AppLifecycleState.resumed) {
+      if (lockService.shouldLockOnResume()) {
+        _showLockScreen();
+      }
+    }
+  }
+
+  void _showLockScreen() {
+    if (_isLockingScreenActive) return;
+    _isLockingScreenActive = true;
+    
+    navigatorKey.currentState?.push(
+      MaterialPageRoute(
+        builder: (context) => AppLockScreen(
+          mode: AppLockMode.unlock,
+          onSuccess: () {
+            AppLockService().unlockSession();
+            _isLockingScreenActive = false;
+            Navigator.pop(context);
+          },
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: Listenable.merge([ThemeManager(), LanguageManager()]),
       builder: (context, _) {
+        final lockService = AppLockService();
+        final bool showLockOnStartup = lockService.isAppLockEnabled() && !lockService.isSessionUnlocked;
+
         return MaterialApp(
           title: 'StudyMate',
           debugShowCheckedModeBanner: false,
           scaffoldMessengerKey: scaffoldMessengerKey,
+          navigatorKey: navigatorKey,
           theme: ThemeManager().currentThemeData,
-          home: const SplashScreen(),
+          home: showLockOnStartup
+              ? AppLockScreen(
+                  mode: AppLockMode.unlock,
+                  onSuccess: () {
+                    lockService.unlockSession();
+                    navigatorKey.currentState?.pushReplacement(
+                      MaterialPageRoute(builder: (context) => const SplashScreen()),
+                    );
+                  },
+                )
+              : const SplashScreen(),
         );
       },
     );

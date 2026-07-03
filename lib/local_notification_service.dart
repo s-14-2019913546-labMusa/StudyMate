@@ -9,6 +9,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:developer';
 import 'dart:io';
+import 'dart:convert';
 import 'daily_routine.dart';
 
 @pragma('vm:entry-point')
@@ -97,6 +98,9 @@ class LocalNotificationService {
         await androidPlugin.requestNotificationsPermission();
         await androidPlugin.requestExactAlarmsPermission();
       }
+
+      // Clear past notifications right away on initialization
+      await clearPastPrayerNotifications();
     } catch (e) {
       log('Error initializing local notifications: $e');
     }
@@ -243,8 +247,13 @@ class LocalNotificationService {
       'Maghrib': 'মাগরিব',
       'Isha': 'এশা'
     };
-
-    int notificationId = 1000;
+    final Map<String, int> prayerIndices = {
+      'Fajr': 0,
+      'Dhuhr': 1,
+      'Asr': 2,
+      'Maghrib': 3,
+      'Isha': 4
+    };
 
     // Schedule for today and the next 6 days (total 7 days)
     for (int dayOffset = 0; dayOffset < 7; dayOffset++) {
@@ -286,13 +295,18 @@ class LocalNotificationService {
           end = DateTime(nextDay.year, nextDay.month, nextDay.day, int.parse(fajrParts[0]), int.parse(fajrParts[1]));
         }
 
+        final pIndex = prayerIndices[pKey]!;
+        // Deterministic IDs: 1000 + (dayOffset * 10) + (pIndex * 2) + type
+        final int startId = 1000 + (dayOffset * 10) + (pIndex * 2) + 0;
+        final int endId = 1000 + (dayOffset * 10) + (pIndex * 2) + 1;
+
         // 1. 5 minutes after start
         if (settings['prayerStart'] ?? true) {
           final alarmTime = start.add(const Duration(minutes: 5));
           if (alarmTime.isAfter(now)) {
             final pName = (pKey == 'Dhuhr' && targetDate.weekday == DateTime.friday) ? 'জুমা' : prayerNames[pKey]!;
             await _scheduleNotification(
-              id: notificationId++,
+              id: startId,
               title: "সালাতের ওয়াক্ত",
               body: "$pName সালাতের ওয়াক্ত শুরু হয়েছে! ৫ মিনিট অতিবাহিত হয়েছে।",
               scheduledDate: alarmTime,
@@ -311,7 +325,7 @@ class LocalNotificationService {
           if (alarmTime.isAfter(now)) {
             final pName = prayerNames[pKey]!;
             await _scheduleNotification(
-              id: notificationId++,
+              id: endId,
               title: "তাড়াতাড়ি করুন!",
               body: "সতর্কতা: $pName নামাজের ওয়াক্ত শেষ হতে আর মাত্র ২০ মিনিট বাকি আছে!",
               scheduledDate: alarmTime,
@@ -324,6 +338,73 @@ class LocalNotificationService {
           }
         }
       }
+    }
+  }
+
+  static Future<void> clearPastPrayerNotifications() async {
+    if (kIsWeb) return;
+    try {
+      final now = DateTime.now();
+      // Load cached prayer times to know the timings
+      final directory = await getApplicationDocumentsDirectory();
+      final file = File('${directory.path}/prayer_times_cache.json');
+      if (!await file.exists()) return;
+
+      final data = json.decode(await file.readAsString());
+      final timings = Map<String, String>.from(data['timings']);
+      
+      final List<String> prayerKeys = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
+      final Map<String, int> prayerIndices = {
+        'Fajr': 0,
+        'Dhuhr': 1,
+        'Asr': 2,
+        'Maghrib': 3,
+        'Isha': 4
+      };
+
+      for (final pKey in prayerKeys) {
+        // Determine end time
+        DateTime end;
+        if (pKey == 'Fajr') {
+          final sunriseStr = timings['Sunrise'] ?? '06:00';
+          final sunriseParts = sunriseStr.split(':');
+          end = DateTime(now.year, now.month, now.day, int.parse(sunriseParts[0]), int.parse(sunriseParts[1]));
+        } else if (pKey == 'Dhuhr') {
+          final asrStr = timings['Asr'] ?? '16:00';
+          final asrParts = asrStr.split(':');
+          end = DateTime(now.year, now.month, now.day, int.parse(asrParts[0]), int.parse(asrParts[1]));
+        } else if (pKey == 'Asr') {
+          final maghribStr = timings['Maghrib'] ?? '18:30';
+          final maghribParts = maghribStr.split(':');
+          end = DateTime(now.year, now.month, now.day, int.parse(maghribParts[0]), int.parse(maghribParts[1]));
+        } else if (pKey == 'Maghrib') {
+          final ishaStr = timings['Isha'] ?? '20:00';
+          final ishaParts = ishaStr.split(':');
+          end = DateTime(now.year, now.month, now.day, int.parse(ishaParts[0]), int.parse(ishaParts[1]));
+        } else { // Isha
+          final nextDay = now.add(const Duration(days: 1));
+          final fajrStr = timings['Fajr'] ?? '04:30';
+          final fajrParts = fajrStr.split(':');
+          end = DateTime(nextDay.year, nextDay.month, nextDay.day, int.parse(fajrParts[0]), int.parse(fajrParts[1]));
+          
+          // If we are currently after midnight but before Fajr, the Isha start and end are from yesterday
+          if (now.hour < 12 && now.isBefore(end.subtract(const Duration(days: 1)))) {
+            end = end.subtract(const Duration(days: 1));
+          }
+        }
+
+        // If the current time is past the end time of this prayer, cancel its notifications
+        if (now.isAfter(end)) {
+          final pIndex = prayerIndices[pKey]!;
+          final int startId = 1000 + (0 * 10) + (pIndex * 2) + 0;
+          final int endId = 1000 + (0 * 10) + (pIndex * 2) + 1;
+          await _notificationsPlugin.cancel(id: startId);
+          await _notificationsPlugin.cancel(id: endId);
+          log('Cleared past prayer notifications for $pKey (IDs: $startId, $endId)');
+        }
+      }
+    } catch (e) {
+      log('Error clearing past prayer notifications: $e');
     }
   }
 
