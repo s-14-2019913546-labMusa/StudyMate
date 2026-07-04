@@ -38,9 +38,46 @@ import 'package:open_filex/open_filex.dart';
 import 'daily_diary_screen.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
 
-class ToolsScreen extends StatelessWidget {
+import 'package:connectivity_plus/connectivity_plus.dart';
+
+class ToolsScreen extends StatefulWidget {
   final Function(List<Task>) onTasksGenerated;
   const ToolsScreen({super.key, required this.onTasksGenerated});
+
+  @override
+  State<ToolsScreen> createState() => _ToolsScreenState();
+}
+
+class _ToolsScreenState extends State<ToolsScreen> {
+  bool _isOffline = false;
+  late final StreamSubscription _connectivitySubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkConnectivity();
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen((result) {
+      if (!mounted) return;
+      setState(() {
+        _isOffline = result.contains(ConnectivityResult.none);
+      });
+    });
+  }
+
+  Future<void> _checkConnectivity() async {
+    final result = await Connectivity().checkConnectivity();
+    if (mounted) {
+      setState(() {
+        _isOffline = result.contains(ConnectivityResult.none);
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _connectivitySubscription.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -153,6 +190,7 @@ class ToolsScreen extends StatelessWidget {
                         return Container(
                           decoration: cardDeco,
                           child: Stack(
+                            fit: StackFit.expand,
                             children: [
                               Material(
                                 color: Colors.transparent,
@@ -244,16 +282,16 @@ class ToolsScreen extends StatelessWidget {
                                   ),
                                 ),
                               ),
-                              if (tool['requiresInternet'] == true)
+                              if (tool['requiresInternet'] == true && _isOffline)
                                 Positioned(
                                   top: 8,
                                   right: 8,
                                   child: Tooltip(
-                                    message: 'Requires Internet'.tr(),
-                                    child: Icon(
-                                      Icons.wifi_rounded,
+                                    message: 'Offline - Requires Internet'.tr(),
+                                    child: const Icon(
+                                      Icons.wifi_off_rounded,
                                       size: 13,
-                                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.35),
+                                      color: Colors.redAccent,
                                     ),
                                   ),
                                 ),
@@ -281,7 +319,7 @@ class ToolsScreen extends StatelessWidget {
           useSafeArea: true,
           backgroundColor: Colors.transparent,
           builder: (context) => AIStudyPlannerBottomSheet(
-            onTasksGenerated: onTasksGenerated,
+            onTasksGenerated: widget.onTasksGenerated,
           ),
         );
       },
@@ -318,24 +356,25 @@ class ToolsScreen extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text('Plan your study smartly in one click!'.tr(), style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white.withValues(alpha: 0.8))),
                   const SizedBox(height: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(10),
+                  if (_isOffline)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.redAccent.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.wifi_off_rounded, color: Colors.redAccent, size: 10),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Offline - Requires Internet'.tr(),
+                            style: const TextStyle(color: Colors.redAccent, fontSize: 10, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.wifi_rounded, color: Colors.white, size: 10),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Requires Internet'.tr(),
-                          style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w500),
-                        ),
-                      ],
-                    ),
-                  ),
                 ],
               ),
             ),
@@ -5617,10 +5656,56 @@ class _StopwatchScreenState extends State<StopwatchScreen> with TickerProviderSt
 
   // --- UI Builders ---
   Widget _buildClassicStopwatch() {
+    final isRunning = _stopwatch.isRunning;
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Column(
       children: [
-        const SizedBox(height: 60),
-        Text(_formatStopwatchTime(_stopwatch.elapsedMilliseconds), style: const TextStyle(fontSize: 60, fontWeight: FontWeight.w300, fontFeatures: [FontFeature.tabularFigures()])),
+        const SizedBox(height: 40),
+        AnimatedBuilder(
+          animation: _pulseController,
+          builder: (context, child) {
+            return Container(
+              width: 250,
+              height: 250,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Theme.of(context).cardColor,
+                boxShadow: [
+                  if (isRunning)
+                    BoxShadow(
+                      color: colorScheme.primary.withValues(alpha: 0.15 + 0.15 * _pulseController.value),
+                      blurRadius: 40,
+                      spreadRadius: 10 * _pulseController.value,
+                    )
+                  else
+                    BoxShadow(
+                      color: colorScheme.onSurface.withValues(alpha: 0.05),
+                      blurRadius: 20,
+                    ),
+                ],
+                border: Border.all(
+                  color: isRunning 
+                      ? colorScheme.primary.withValues(alpha: 0.5 + 0.5 * _pulseController.value)
+                      : colorScheme.outline.withValues(alpha: 0.3),
+                  width: isRunning ? 4 : 2,
+                ),
+              ),
+              child: Center(
+                child: Text(
+                  _formatStopwatchTime(_stopwatch.elapsedMilliseconds),
+                  style: TextStyle(
+                    fontSize: 52,
+                    fontWeight: FontWeight.w300,
+                    color: isRunning ? colorScheme.primary : colorScheme.onSurface,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                    shadows: isRunning ? [Shadow(color: colorScheme.primary.withValues(alpha: 0.5), blurRadius: 10)] : null,
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
         const SizedBox(height: 40),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -5922,9 +6007,54 @@ class _StopwatchScreenState extends State<StopwatchScreen> with TickerProviderSt
               ),
             )
           else
-            Text(
-              '${(_remainingTimerSeconds ~/ 3600).toString().padLeft(2, '0')}:${((_remainingTimerSeconds % 3600) ~/ 60).toString().padLeft(2, '0')}:${(_remainingTimerSeconds % 60).toString().padLeft(2, '0')}',
-              style: const TextStyle(fontSize: 60, fontWeight: FontWeight.w300, fontFeatures: [FontFeature.tabularFigures()]),
+            AnimatedBuilder(
+              animation: _pulseController,
+              builder: (context, child) {
+                final double progress = _selectedTimerSeconds > 0 
+                    ? _remainingTimerSeconds / _selectedTimerSeconds 
+                    : 0.0;
+                
+                return SizedBox(
+                  width: 250,
+                  height: 250,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      CircularProgressIndicator(
+                        value: progress,
+                        strokeWidth: 12,
+                        backgroundColor: colorScheme.surfaceContainerHighest,
+                        color: _isTimerRunning ? Colors.orangeAccent : Colors.orangeAccent.withValues(alpha: 0.5),
+                      ),
+                      if (_isTimerRunning)
+                        Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.orangeAccent.withValues(alpha: 0.15 + 0.15 * _pulseController.value),
+                                blurRadius: 40,
+                                spreadRadius: 10 * _pulseController.value,
+                              )
+                            ],
+                          ),
+                        ),
+                      Center(
+                        child: Text(
+                          '${(_remainingTimerSeconds ~/ 3600).toString().padLeft(2, '0')}:${((_remainingTimerSeconds % 3600) ~/ 60).toString().padLeft(2, '0')}:${(_remainingTimerSeconds % 60).toString().padLeft(2, '0')}',
+                          style: TextStyle(
+                            fontSize: 48, 
+                            fontWeight: FontWeight.w300, 
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                            color: _isTimerRunning ? colorScheme.onSurface : colorScheme.onSurfaceVariant,
+                            shadows: _isTimerRunning ? [Shadow(color: Colors.orangeAccent.withValues(alpha: 0.5), blurRadius: 10)] : null,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
             ),
           const SizedBox(height: 48),
           // ─── বাটনগুলো ───
@@ -8035,6 +8165,7 @@ class ThemeCustomizerBottomSheet extends StatelessWidget {
                     _buildLayoutOptionCard(context, themeManager, AppLayoutStyle.glassmorphism, 'Glassmorphism', Icons.blur_on_rounded),
                     _buildLayoutOptionCard(context, themeManager, AppLayoutStyle.neumorphic, 'Neumorphic Soft', Icons.filter_hdr_outlined),
                     _buildLayoutOptionCard(context, themeManager, AppLayoutStyle.neon, 'Neon Glow', Icons.lightbulb_outline_rounded),
+                    _buildLayoutOptionCard(context, themeManager, AppLayoutStyle.iosGlassy, 'iOS Premium', Icons.phone_iphone_rounded),
                   ],
                 ),
               ],

@@ -20,6 +20,40 @@ class CloudSyncService {
     'notes'
   ];
 
+  dynamic _encodeData(dynamic data) {
+    if (data is Timestamp) {
+      return {
+        '_type': 'Timestamp',
+        'seconds': data.seconds,
+        'nanoseconds': data.nanoseconds,
+      };
+    } else if (data is DateTime) {
+      return {
+        '_type': 'DateTime',
+        'iso': data.toIso8601String(),
+      };
+    } else if (data is Map) {
+      return data.map((key, value) => MapEntry(key, _encodeData(value)));
+    } else if (data is List) {
+      return data.map((value) => _encodeData(value)).toList();
+    }
+    return data;
+  }
+
+  dynamic _decodeData(dynamic data) {
+    if (data is Map) {
+      if (data['_type'] == 'Timestamp') {
+        return Timestamp(data['seconds'], data['nanoseconds']);
+      } else if (data['_type'] == 'DateTime') {
+        return DateTime.parse(data['iso']);
+      }
+      return data.map((key, value) => MapEntry(key, _decodeData(value)));
+    } else if (data is List) {
+      return data.map((value) => _decodeData(value)).toList();
+    }
+    return data;
+  }
+
   Future<DateTime?> getLastBackupTime() async {
     final user = _auth.currentUser;
     if (user == null) return null;
@@ -33,7 +67,7 @@ class CloudSyncService {
     }
   }
 
-  Future<void> createBackup() async {
+  Future<String> generateBackupJsonString() async {
     final user = _auth.currentUser;
     if (user == null) throw Exception("User not logged in");
 
@@ -52,25 +86,23 @@ class CloudSyncService {
       List<Map<String, dynamic>> collectionData = [];
       for (var doc in snapshot.docs) {
         final data = doc.data();
-        // Convert Timestamps to ISO strings for JSON serialization
-        data.forEach((key, value) {
-          if (value is Timestamp) {
-            data[key] = {
-              '_type': 'Timestamp',
-              'seconds': value.seconds,
-              'nanoseconds': value.nanoseconds,
-            };
-          }
-        });
+        final encodedData = _encodeData(data);
         collectionData.add({
           'id': doc.id,
-          'data': data,
+          'data': encodedData,
         });
       }
       backupData[collectionName] = collectionData;
     }
 
-    final jsonString = jsonEncode(backupData);
+    return jsonEncode(backupData);
+  }
+
+  Future<void> createBackup() async {
+    final user = _auth.currentUser;
+    if (user == null) throw Exception("User not logged in");
+
+    final jsonString = await generateBackupJsonString();
     final backupDataBytes = utf8.encode(jsonString);
 
     // Upload to Firebase Storage
@@ -81,17 +113,11 @@ class CloudSyncService {
     );
   }
 
-  Future<void> restoreBackup() async {
+  Future<void> restoreFromJsonString(String jsonString) async {
     final user = _auth.currentUser;
     if (user == null) throw Exception("User not logged in");
 
-    final ref = _storage.ref().child('backups/${user.uid}/backup.json');
-    
     try {
-      final data = await ref.getData();
-      if (data == null) throw Exception("No backup data found");
-
-      final jsonString = utf8.decode(data);
       final Map<String, dynamic> backupData = jsonDecode(jsonString);
 
       if (backupData['uid'] != user.uid) {
@@ -106,14 +132,7 @@ class CloudSyncService {
           
           for (var item in collectionDataList) {
             final String docId = item['id'];
-            final Map<String, dynamic> docData = item['data'];
-
-            // Convert back to Timestamp
-            docData.forEach((key, value) {
-              if (value is Map && value['_type'] == 'Timestamp') {
-                docData[key] = Timestamp(value['seconds'], value['nanoseconds']);
-              }
-            });
+            final Map<String, dynamic> docData = _decodeData(item['data']);
 
             final docRef = _firestore
                 .collection('users')
@@ -129,7 +148,25 @@ class CloudSyncService {
 
       await batch.commit();
     } catch (e) {
-      debugPrint("Error restoring backup: $e");
+      debugPrint("Error parsing or restoring from JSON: $e");
+      rethrow;
+    }
+  }
+
+  Future<void> restoreBackup() async {
+    final user = _auth.currentUser;
+    if (user == null) throw Exception("User not logged in");
+
+    final ref = _storage.ref().child('backups/${user.uid}/backup.json');
+    
+    try {
+      final data = await ref.getData();
+      if (data == null) throw Exception("No backup data found");
+
+      final jsonString = utf8.decode(data);
+      await restoreFromJsonString(jsonString);
+    } catch (e) {
+      debugPrint("Error restoring backup from Firebase: $e");
       rethrow;
     }
   }

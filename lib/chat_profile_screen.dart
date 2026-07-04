@@ -4,7 +4,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'social_hub_screen.dart';
 import 'task_history_screen.dart';
-import 'language_manager.dart';
+import 'package:easy_localization/easy_localization.dart';
+import 'chat_theme_manager.dart';
 
 class ChatProfileScreen extends StatefulWidget {
   final String chatId;
@@ -31,39 +32,6 @@ class _ChatProfileScreenState extends State<ChatProfileScreen> {
   bool _isMutedByMe = false;
 
   Map<String, dynamic> _receiverUserData = {};
-
-  final List<Map<String, dynamic>> _themesList = [
-    {
-      'id': 'default',
-      'name': 'Classic (Default)',
-      'colors': [Colors.grey, Colors.grey],
-    },
-    {
-      'id': 'sunset',
-      'name': 'Sunset Glow',
-      'colors': [Color(0xFFFF7E5F), Color(0xFFFEB47B)],
-    },
-    {
-      'id': 'forest',
-      'name': 'Forest Green',
-      'colors': [Color(0xFF11998E), Color(0xFF38EF7D)],
-    },
-    {
-      'id': 'ocean',
-      'name': 'Ocean Breeze',
-      'colors': [Color(0xFF02AABD), Color(0xFF00CDAC)],
-    },
-    {
-      'id': 'midnight',
-      'name': 'Midnight Star',
-      'colors': [Color(0xFF0F2027), Color(0xFF203A43), Color(0xFF2C5364)],
-    },
-    {
-      'id': 'lavender',
-      'name': 'Lavender Dream',
-      'colors': [Color(0xFFE0C3FC), Color(0xFF8EC5FC)],
-    },
-  ];
 
   @override
   void initState() {
@@ -215,97 +183,6 @@ class _ChatProfileScreenState extends State<ChatProfileScreen> {
     );
   }
 
-  void _showThemeSelector() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) {
-        final theme = Theme.of(ctx);
-        return Container(
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surface,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-          ),
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Center(
-                child: Container(
-                  width: 48,
-                  height: 5,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                'Choose Chat Theme'.tr(),
-                style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                height: 120,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: _themesList.length,
-                  itemBuilder: (context, index) {
-                    final th = _themesList[index];
-                    final isSelected = th['id'] == _selectedTheme;
-                    return GestureDetector(
-                      onTap: () {
-                        _updateTheme(th['id']);
-                        Navigator.pop(ctx);
-                      },
-                      child: Container(
-                        margin: const EdgeInsets.only(right: 16),
-                        child: Column(
-                          children: [
-                            Container(
-                              width: 60,
-                              height: 60,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: isSelected ? theme.colorScheme.primary : Colors.transparent,
-                                  width: 3,
-                                ),
-                                gradient: LinearGradient(
-                                  colors: List<Color>.from(th['colors']),
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                              ),
-                              child: isSelected
-                                  ? const Icon(Icons.check, color: Colors.white, size: 28)
-                                  : null,
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              (th['name'] as String).tr(),
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -395,7 +272,7 @@ class _ChatProfileScreenState extends State<ChatProfileScreen> {
                       title: Text('Change Theme'.tr(), style: const TextStyle(fontWeight: FontWeight.w500)),
                       subtitle: Text(_selectedTheme.toUpperCase().tr(), style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
                       trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
-                      onTap: _showThemeSelector,
+                      onTap: () => ChatThemeManager.showThemeSelector(context, _selectedTheme, _updateTheme),
                     ),
                   ],
                 ),

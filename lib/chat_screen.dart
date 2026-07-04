@@ -13,6 +13,7 @@ import 'package:path_provider/path_provider.dart';
 import 'group_details_screen.dart';
 import 'chat_profile_screen.dart';
 import 'language_manager.dart';
+import 'chat_theme_manager.dart';
 
 class ChatScreen extends StatefulWidget {
   final String chatId;
@@ -39,6 +40,11 @@ class _ChatScreenState extends State<ChatScreen> {
 
   bool _isUploading = false;
 
+  // Mentions State
+  bool _isTypingMention = false;
+  String _mentionQuery = '';
+  List<Map<String, dynamic>> _groupMembers = [];
+
   @override
   void initState() {
     super.initState();
@@ -47,6 +53,93 @@ class _ChatScreenState extends State<ChatScreen> {
       _ensureChatDocumentExists();
     } else {
       _markAsRead();
+    }
+    
+    if (widget.isGroupChat) {
+      _fetchGroupMembers();
+    }
+    _messageController.addListener(_onTextChanged);
+  }
+
+  Future<void> _fetchGroupMembers() async {
+    try {
+      final chatDoc = await FirebaseFirestore.instance.collection('chats').doc(widget.chatId).get();
+      if (chatDoc.exists) {
+        final participants = List<String>.from(chatDoc.data()?['participants'] ?? []);
+        List<Map<String, dynamic>> members = [];
+        // Fetch up to 30 members individually (avoid whereIn 10 item limit)
+        for (String pId in participants.take(30)) {
+          final uDoc = await FirebaseFirestore.instance.collection('users').doc(pId).get();
+          if (uDoc.exists) {
+            members.add({
+              'uid': uDoc.id,
+              'name': uDoc.data()?['displayName'] ?? 'Study Buddy',
+              'photoUrl': uDoc.data()?['photoUrl'] ?? '',
+            });
+          }
+        }
+        if (mounted) {
+          setState(() {
+            _groupMembers = members;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching members: $e');
+    }
+  }
+
+  void _onTextChanged() {
+    if (!widget.isGroupChat) return;
+
+    final text = _messageController.text;
+    final selection = _messageController.selection;
+    if (selection.baseOffset <= 0) {
+      if (_isTypingMention) setState(() => _isTypingMention = false);
+      return;
+    }
+
+    final textBeforeCursor = text.substring(0, selection.baseOffset);
+    final lastAtSignIndex = textBeforeCursor.lastIndexOf('@');
+    
+    if (lastAtSignIndex != -1) {
+      if (lastAtSignIndex == 0 || textBeforeCursor[lastAtSignIndex - 1] == ' ' || textBeforeCursor[lastAtSignIndex - 1] == '\n') {
+        final query = textBeforeCursor.substring(lastAtSignIndex + 1);
+        if (!query.contains(' ') && !query.contains('\n')) {
+          if (!_isTypingMention || _mentionQuery != query) {
+            setState(() {
+              _isTypingMention = true;
+              _mentionQuery = query.toLowerCase();
+            });
+          }
+          return;
+        }
+      }
+    }
+    if (_isTypingMention) {
+      setState(() => _isTypingMention = false);
+    }
+  }
+
+  void _insertMention(String name) {
+    final text = _messageController.text;
+    final selection = _messageController.selection;
+    final textBeforeCursor = text.substring(0, selection.baseOffset);
+    final textAfterCursor = text.substring(selection.baseOffset);
+    
+    final lastAtSignIndex = textBeforeCursor.lastIndexOf('@');
+    if (lastAtSignIndex != -1) {
+      final newTextBefore = textBeforeCursor.substring(0, lastAtSignIndex);
+      final mentionText = '@$name ';
+      
+      _messageController.value = TextEditingValue(
+        text: newTextBefore + mentionText + textAfterCursor,
+        selection: TextSelection.collapsed(offset: newTextBefore.length + mentionText.length),
+      );
+      setState(() {
+        _isTypingMention = false;
+        _mentionQuery = '';
+      });
     }
   }
 
@@ -190,59 +283,7 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  BoxDecoration _getThemeDecoration(String? themeName, bool isDark) {
-    if (themeName == null || themeName == 'default') {
-      return BoxDecoration(
-        color: isDark ? Colors.grey[900] : Colors.grey[50],
-      );
-    }
-    switch (themeName) {
-      case 'sunset':
-        return const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFFFF7E5F), Color(0xFFFEB47B)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        );
-      case 'forest':
-        return const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF11998E), Color(0xFF38EF7D)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        );
-      case 'ocean':
-        return const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF02AABD), Color(0xFF00CDAC)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        );
-      case 'midnight':
-        return const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF0F2027), Color(0xFF203A43), Color(0xFF2C5364)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        );
-      case 'lavender':
-        return const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFFE0C3FC), Color(0xFF8EC5FC)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        );
-      default:
-        return BoxDecoration(
-          color: isDark ? Colors.grey[900] : Colors.grey[50],
-        );
-    }
-  }
+  // _getThemeDecoration moved to ChatThemeManager
 
   @override
   Widget build(BuildContext context) {
@@ -297,7 +338,7 @@ class _ChatScreenState extends State<ChatScreen> {
             ],
           ),
           body: Container(
-            decoration: _getThemeDecoration(themeName, isDark),
+            decoration: ChatThemeManager.getThemeDecoration(themeName, isDark),
             child: Column( // Body with messages and input
               children: [
                 Expanded(
@@ -361,12 +402,58 @@ class _ChatScreenState extends State<ChatScreen> {
                     padding: EdgeInsets.all(8.0),
                     child: LinearProgressIndicator(),
                   ),
+                _buildMentionList(),
                 _buildMessageInput(theme, isBlocked, isMutedByMe),
               ],
             ),
           ),
         );
       }
+    );
+  }
+
+  Widget _buildMentionList() {
+    if (!_isTypingMention || _groupMembers.isEmpty) return const SizedBox.shrink();
+
+    final filteredMembers = _groupMembers.where((m) {
+      final name = (m['name'] as String).toLowerCase();
+      return name.startsWith(_mentionQuery) || name.contains(' $_mentionQuery');
+    }).toList();
+
+    if (filteredMembers.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      constraints: const BoxConstraints(maxHeight: 150),
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 10,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: ListView.builder(
+        shrinkWrap: true,
+        padding: EdgeInsets.zero,
+        itemCount: filteredMembers.length,
+        itemBuilder: (context, index) {
+          final member = filteredMembers[index];
+          final photoUrl = member['photoUrl'] as String;
+          return ListTile(
+            leading: CircleAvatar(
+              radius: 14,
+              backgroundImage: photoUrl.isNotEmpty ? NetworkImage(photoUrl) : null,
+              child: photoUrl.isEmpty ? const Icon(Icons.person, size: 14) : null,
+            ),
+            title: Text(member['name'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+            onTap: () => _insertMention(member['name']),
+          );
+        },
+      ),
     );
   }
 
@@ -874,8 +961,44 @@ class _MessageBubble extends StatelessWidget {
         );
       case 'text':
       default:
-        return Text(content, style: TextStyle(color: textColor, fontSize: 15));
+        return _buildHighlightedText(context, content, textColor);
     }
+  }
+
+  Widget _buildHighlightedText(BuildContext context, String text, Color textColor) {
+    if (!text.contains('@')) {
+      return Text(text, style: TextStyle(color: textColor, fontSize: 15));
+    }
+
+    final words = text.split(' ');
+    List<TextSpan> spans = [];
+
+    for (int i = 0; i < words.length; i++) {
+      final word = words[i];
+      if (word.startsWith('@') && word.length > 1) {
+        spans.add(
+          TextSpan(
+            text: '$word ',
+            style: TextStyle(
+              color: isMe ? Colors.white : Theme.of(context).colorScheme.primary,
+              fontWeight: FontWeight.bold,
+              fontSize: 15,
+            ),
+          ),
+        );
+      } else {
+        spans.add(
+          TextSpan(
+            text: '$word ',
+            style: TextStyle(color: textColor, fontSize: 15),
+          ),
+        );
+      }
+    }
+
+    return RichText(
+      text: TextSpan(children: spans),
+    );
   }
 
   void _showFullScreenImage(BuildContext context, String imageUrl) {

@@ -23,7 +23,8 @@ enum AppLayoutStyle {
   classic,      // Classic Vintage (Current layout style)
   glassmorphism,// Glassmorphic Mirror (Aesthetic translucent)
   neumorphic,   // Neumorphic Soft (Soft 3D physical look)
-  neon          // Futuristic Neon (Glowing borders & shadows)
+  neon,         // Futuristic Neon (Glowing borders & shadows)
+  iosGlassy     // iOS Premium Glassy (Apple-like frosted look)
 }
 
 class ThemeManager extends ChangeNotifier {
@@ -378,6 +379,46 @@ class ThemeManager extends ChangeNotifier {
         );
         break;
 
+      case AppLayoutStyle.iosGlassy:
+        final iosCardColor = brightness == Brightness.light
+            ? Colors.white.withValues(alpha: 0.8)
+            : const Color(0xFF1C1C1E).withValues(alpha: 0.8);
+        final iosBorderColor = brightness == Brightness.light
+            ? Colors.white.withValues(alpha: 0.9)
+            : Colors.white.withValues(alpha: 0.1);
+
+        cardTheme = CardThemeData(
+          elevation: 0,
+          color: iosCardColor,
+          shape: RoundedRectangleBorder(
+            borderRadius: const BorderRadius.all(Radius.circular(20)),
+            side: BorderSide(color: iosBorderColor, width: 0.5),
+          ),
+        );
+        elevatedButtonTheme = ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: colorScheme.primary,
+            foregroundColor: colorScheme.onPrimary,
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+            elevation: 0, // Flat iOS style
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            textStyle: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600, letterSpacing: 0.2),
+          ),
+        );
+        inputDecorationTheme = InputDecorationTheme(
+          border: OutlineInputBorder(
+            borderRadius: const BorderRadius.all(Radius.circular(12.0)),
+            borderSide: BorderSide(color: iosBorderColor, width: 0.5),
+          ),
+          filled: true,
+          fillColor: brightness == Brightness.light ? Colors.white.withValues(alpha: 0.6) : Colors.black.withValues(alpha: 0.4),
+          labelStyle: TextStyle(color: colorScheme.onSurfaceVariant),
+          hintStyle: TextStyle(color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7)),
+        );
+        break;
+
       case AppLayoutStyle.neumorphic:
         final shadowColorDark = brightness == Brightness.light ? Colors.grey.shade300 : Colors.black.withValues(alpha: 0.8);
         
@@ -503,6 +544,25 @@ class ThemeManager extends ChangeNotifier {
           color: glassColor,
           borderRadius: BorderRadius.circular(24),
           border: Border.all(color: glassBorderColor, width: 1.5),
+        );
+      case AppLayoutStyle.iosGlassy:
+        final iosColor = isDark
+            ? const Color(0xFF1C1C1E).withValues(alpha: 0.75)
+            : Colors.white.withValues(alpha: 0.75);
+        final iosBorder = isDark
+            ? Colors.white.withValues(alpha: 0.1)
+            : Colors.white.withValues(alpha: 0.8);
+        return BoxDecoration(
+          color: iosColor,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: iosBorder, width: 0.5),
+          boxShadow: [
+            BoxShadow(
+              color: isDark ? Colors.black.withValues(alpha: 0.2) : Colors.black.withValues(alpha: 0.04),
+              blurRadius: 16,
+              offset: const Offset(0, 4),
+            )
+          ],
         );
       case AppLayoutStyle.neumorphic:
         final shadowColorDark = isDark ? Colors.black.withValues(alpha: 0.8) : Colors.grey.shade300;

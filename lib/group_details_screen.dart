@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'chat_theme_manager.dart';
 import 'social_hub_screen.dart';
 
 class GroupDetailsScreen extends StatefulWidget {
@@ -436,6 +437,22 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
     }
   }
 
+  Future<void> _updateTheme(String themeId) async {
+    try {
+      await FirebaseFirestore.instance.collection('chats').doc(widget.groupId).set({
+        'theme': themeId,
+      }, SetOptions(merge: true));
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Group theme updated!')),
+        );
+      }
+    } catch (e) {
+      debugPrint("Error updating theme: $e");
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (currentUser == null) {
@@ -539,6 +556,23 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
                 ),
 
                 const SizedBox(height: 8),
+
+                // Group Settings
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Text('Group Settings', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: theme.colorScheme.primary)),
+                ),
+                ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: theme.colorScheme.secondary.withValues(alpha: 0.1),
+                    child: Icon(Icons.palette_rounded, color: theme.colorScheme.secondary),
+                  ),
+                  title: const Text('Group Theme', style: TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: const Text('Change chat background for everyone'),
+                  trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+                  onTap: () => ChatThemeManager.showThemeSelector(context, data['theme'] ?? 'default', _updateTheme),
+                ),
+                const Divider(height: 16, thickness: 0.5),
 
                 // Admin Action Menu
                 if (isAdmin) ...[

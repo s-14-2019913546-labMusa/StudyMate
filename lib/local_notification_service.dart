@@ -101,6 +101,9 @@ class LocalNotificationService {
 
       // Clear past notifications right away on initialization
       await clearPastPrayerNotifications();
+      
+      // Schedule daily special day countdown reminder
+      await scheduleDailySpecialDayCountdownReminder();
     } catch (e) {
       log('Error initializing local notifications: $e');
     }
@@ -420,6 +423,7 @@ class LocalNotificationService {
     String channelDescription = 'Handles sleep reminders and alarms',
     bool enableVibration = false,
     List<AndroidNotificationAction>? actions,
+    DateTimeComponents? matchDateTimeComponents,
   }) async {
     if (kIsWeb) return;
     final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
@@ -452,12 +456,42 @@ class LocalNotificationService {
       scheduledDate: tz.TZDateTime.from(scheduledDate, tz.local),
       notificationDetails: platformDetails,
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      matchDateTimeComponents: matchDateTimeComponents,
     );
   }
 
   static Future<void> cancelAllNotifications() async {
     if (kIsWeb) return;
     await _notificationsPlugin.cancelAll();
+  }
+
+  // ============================================================
+  // Special Day Countdown Notification Method
+  // Notification ID: 1500 (reserved for this daily reminder)
+  // ============================================================
+  static Future<void> scheduleDailySpecialDayCountdownReminder() async {
+    if (kIsWeb) return;
+
+    final now = DateTime.now();
+    // Schedule for 11:00 PM today
+    DateTime scheduledDate = DateTime(now.year, now.month, now.day, 23, 0);
+
+    // If it's already past 11 PM today, schedule for 11 PM tomorrow
+    if (now.isAfter(scheduledDate)) {
+      scheduledDate = scheduledDate.add(const Duration(days: 1));
+    }
+
+    await _scheduleNotification(
+      id: 1500, // Fixed ID for the daily countdown reminder
+      title: 'Special Day Countdown ⏳',
+      body: 'চেক করুন স্পেশাল ডে কাউন্টডাউন। আপনার ইভেন্টগুলোর আর কতদিন বাকি দেখে নিন!',
+      scheduledDate: scheduledDate,
+      channelId: 'special_day_channel',
+      channelName: 'Special Day Reminders',
+      channelDescription: 'Daily reminders to check your special day countdowns',
+      matchDateTimeComponents: DateTimeComponents.time, // Repeats daily at the same time
+    );
+    log('Scheduled daily Special Day Countdown reminder at 11:00 PM.');
   }
 
   // ============================================================
@@ -610,14 +644,6 @@ class LocalNotificationService {
 }
 
 class SoundPlayer {
-  static final Map<String, String> _builtInSoundUrls = {
-    'lively_chime': 'https://assets.mixkit.co/active_storage/sfx/2869/2869-120.wav',
-    'sweet_melody': 'https://assets.mixkit.co/active_storage/sfx/2019/2019-120.wav',
-    'gentle_buzzer': 'https://assets.mixkit.co/active_storage/sfx/911/911-120.wav',
-    'retro_alarm': 'https://assets.mixkit.co/active_storage/sfx/903/903-120.wav',
-    'calm_bell': 'https://assets.mixkit.co/active_storage/sfx/1657/1657-120.wav',
-  };
-
   static final AudioPlayer _appAudioPlayer = AudioPlayer();
 
   static Future<void> playNotificationSoundAndVibration({
@@ -645,97 +671,38 @@ class SoundPlayer {
 
     if (!soundEnabled) return;
 
-    // If a custom sound URI is selected, use that.
+    // If a custom sound URI is selected, use AudioPlayer to play it.
     if (soundName.startsWith('content://') || soundName.startsWith('file://')) {
-      // This part is for instant playback preview.
-      // The actual notification sound is handled by `_scheduleNotificationForTask`.
-      // `flutter_ringtone_player` cannot play URIs, so we'll rely on the notification itself for sound.
-      // For a quick preview, we can play a default system click.
-      await SystemSound.play(SystemSoundType.click);
+      try {
+        final path = soundName.replaceFirst('file://', '');
+        await _appAudioPlayer.setVolume(volume);
+        await _appAudioPlayer.play(DeviceFileSource(path));
+        log('Playing custom local sound: $soundName');
+      } catch (e) {
+        log('Error playing custom local sound: $e');
+      }
       return;
     }
 
-    // Configure audio context based on stream type (Alarm vs Notification)
     try {
-      if (isAlarm) {
-        await _appAudioPlayer.setAudioContext(
-          AudioContext(
-            android: AudioContextAndroid(
-              usageType: AndroidUsageType.alarm,
-              contentType: AndroidContentType.music,
-              audioFocus: AndroidAudioFocus.gainTransient,
-            ),
-            iOS: AudioContextIOS(
-              category: AVAudioSessionCategory.playback,
-              options: {
-                AVAudioSessionOptions.duckOthers,
-                AVAudioSessionOptions.defaultToSpeaker,
-              },
-            ),
-          ),
-        );
-      } else {
-        await _appAudioPlayer.setAudioContext(
-          AudioContext(
-            android: AudioContextAndroid(
-              usageType: AndroidUsageType.notification,
-              contentType: AndroidContentType.sonification,
-              audioFocus: AndroidAudioFocus.gainTransientMayDuck,
-            ),
-            iOS: AudioContextIOS(
-              category: AVAudioSessionCategory.ambient,
-              options: {
-                AVAudioSessionOptions.duckOthers,
-              },
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      log('Error setting audio context: $e');
-    }
-
-    // Try playing local downloaded custom sound file first
-    try {
-      final dir = await getApplicationDocumentsDirectory();
-      final file = File('${dir.path}/$soundName.wav');
-      if (await file.exists()) {
-        await _appAudioPlayer.stop();
-        await _appAudioPlayer.setVolume(volume);
-        await _appAudioPlayer.play(DeviceFileSource(file.path));
-        log('Successfully playing local custom sound: $soundName from path: ${file.path}');
-        return;
-      }
-    } catch (e) {
-      log('Error playing local cached sound $soundName: $e. Checking online fallback.');
-    }
-
-    // Try playing built-in custom premium sound via AudioPlayer
-    if (_builtInSoundUrls.containsKey(soundName)) {
-      try {
-        final audioUrl = _builtInSoundUrls[soundName]!;
-        await _appAudioPlayer.stop();
-        await _appAudioPlayer.setVolume(volume);
-        await _appAudioPlayer.play(UrlSource(audioUrl));
-        log('Successfully playing premium sound: $soundName from URL: $audioUrl');
-        return;
-      } catch (e) {
-        log('Error playing premium sound $soundName via AudioPlayer: $e. Falling back to system default.');
-        // Fall through to standard system sounds
-      }
-    }
-
-    try {
-      // Using system sounds which is more reliable
+      // Using system sounds which is reliable offline
       if (isAlarm) {
         if (soundName == 'Ringtone') {
           await FlutterRingtonePlayer().playRingtone(volume: volume, looping: false);
+        } else if (soundName == 'Notification') {
+          await FlutterRingtonePlayer().playNotification(volume: volume, looping: false);
         } else {
           await FlutterRingtonePlayer().playAlarm(volume: volume, looping: false);
         }
       } else {
-        // Push notification / General sounds always play via playNotification stream (shorter and quieter)
-        await FlutterRingtonePlayer().playNotification(volume: volume, looping: false);
+        // Push notification / General sounds
+        if (soundName == 'Alarm') {
+          await FlutterRingtonePlayer().playAlarm(volume: volume, looping: false);
+        } else if (soundName == 'Ringtone') {
+          await FlutterRingtonePlayer().playRingtone(volume: volume, looping: false);
+        } else {
+          await FlutterRingtonePlayer().playNotification(volume: volume, looping: false);
+        }
       }
       log('Playing system sound: $soundName (isAlarm: $isAlarm)');
     } catch (e) {

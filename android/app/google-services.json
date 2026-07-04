@@ -12,7 +12,20 @@
           "package_name": "com.abumusa.studymate"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "36423587341-i6p22ohfc2se115482k6l182rafi1gva.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.abumusa.studymate",
+            "certificate_hash": "f72d8fdec8f5777c1f0ef59c054a637fc2e5710d"
+          }
+        },
+        {
+          "client_id": "36423587341-islisvk237s7vmjt3ktr5hgqosj9vb37.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyBJr_09KB2bQTX6Iz6Bnq58mhVNWqPjVn4"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "36423587341-islisvk237s7vmjt3ktr5hgqosj9vb37.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

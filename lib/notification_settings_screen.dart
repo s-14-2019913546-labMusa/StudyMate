@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'local_notification_service.dart';
 import 'package:file_picker/file_picker.dart' as fp;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'language_manager.dart';
@@ -38,139 +39,21 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
   String _selectedAlarmSound = 'Alarm';
   String _selectedAlarmSoundName = 'Alarm';
 
-  // Default and built-in premium sounds map
+  // Default built-in sounds map
   final Map<String, String> _builtInSounds = {
     'Notification': 'System Default Notification',
     'Alarm': 'System Default Alarm',
     'Ringtone': 'System Default Ringtone',
-    'lively_chime': 'Lively Chime (ডিজিটাল চাইম)',
-    'sweet_melody': 'Sweet Chimes (মিষ্টি সুর)',
-    'gentle_buzzer': 'Gentle Buzzer (মৃদু বাজার)',
-    'retro_alarm': 'Retro Alarm (রেট্রো এলার্ম)',
-    'calm_bell': 'Calm Game Bell (শান্ত ঘণ্টা)',
   };
 
-  final Map<String, String> _builtInSoundUrls = {
-    'lively_chime': 'https://assets.mixkit.co/active_storage/sfx/2869/2869-120.wav',
-    'sweet_melody': 'https://assets.mixkit.co/active_storage/sfx/2019/2019-120.wav',
-    'gentle_buzzer': 'https://assets.mixkit.co/active_storage/sfx/911/911-120.wav',
-    'retro_alarm': 'https://assets.mixkit.co/active_storage/sfx/903/903-120.wav',
-    'calm_bell': 'https://assets.mixkit.co/active_storage/sfx/1657/1657-120.wav',
-  };
-
-  Map<String, bool> _isSoundDownloaded = {};
+  // User's custom added sounds (up to 4 for each type)
+  Map<String, String> _customPushSounds = {};
+  Map<String, String> _customAlarmSounds = {};
 
   @override
   void initState() {
     super.initState();
     _loadNotificationSettings();
-    _checkDownloadedSounds();
-  }
-
-  Future<void> _checkDownloadedSounds() async {
-    try {
-      final dir = await getApplicationDocumentsDirectory();
-      final Map<String, bool> downloaded = {};
-      
-      downloaded['Notification'] = true;
-      downloaded['Alarm'] = true;
-      downloaded['Ringtone'] = true;
-
-      for (final soundKey in _builtInSoundUrls.keys) {
-        final file = File('${dir.path}/$soundKey.wav');
-        downloaded[soundKey] = await file.exists();
-      }
-
-      if (mounted) {
-        setState(() {
-          _isSoundDownloaded = downloaded;
-        });
-      }
-    } catch (e) {
-      debugPrint("Error checking downloaded sounds: $e");
-    }
-  }
-
-  Future<bool> _downloadAndSaveSound(String soundKey) async {
-    if (!_builtInSoundUrls.containsKey(soundKey)) return true;
-
-    // Show loading dialog
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        content: Row(
-          children: [
-            const CircularProgressIndicator(),
-            const SizedBox(width: 20),
-            Expanded(
-              child: Text(
-                'Downloading sound...'.tr(),
-                style: const TextStyle(fontWeight: FontWeight.w500),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-
-    try {
-      final url = _builtInSoundUrls[soundKey]!;
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36',
-          'Accept': '*/*',
-        },
-      ).timeout(const Duration(seconds: 15));
-      
-      if (response.statusCode == 200) {
-        final dir = await getApplicationDocumentsDirectory();
-        final file = File('${dir.path}/$soundKey.wav');
-        await file.writeAsBytes(response.bodyBytes);
-        
-        // Close dialog
-        if (mounted) Navigator.pop(context);
-        
-        setState(() {
-          _isSoundDownloaded[soundKey] = true;
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Sound downloaded and saved locally!'.tr())),
-        );
-        return true;
-      } else {
-        throw Exception('Server returned status code: ${response.statusCode}');
-      }
-    } catch (e) {
-      // Close dialog
-      if (mounted) Navigator.pop(context);
-      
-      debugPrint("Error downloading sound: $e");
-      
-      // Show warning/workaround dialog
-      if (mounted) {
-        showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            title: Text('Download Failed'.tr(), style: const TextStyle(fontWeight: FontWeight.bold)),
-            content: Text(
-              'ডাউনলোড করা যায়নি। আপনি ইন্টারনেট থেকে যেকোনো ওয়েবসাইট (যেমন Mixkit বা Pixabay) থেকে আপনার পছন্দের নোটিফিকেশন সাউন্ড ডাউনলোড করে নিচে থাকা "Choose from phone..." অপশনটি ব্যবহার করে তা সেট করে নিতে পারেন।'.tr(),
-            ),
-            actions: [
-              ElevatedButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: Text('OK'.tr()),
-              ),
-            ],
-          ),
-        );
-      }
-      return false;
-    }
   }
 
   Future<void> _loadNotificationSettings() async {
@@ -200,12 +83,20 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
             _selectedAlarmSound = settings['selectedAlarmSound'] as String? ?? 'Alarm';
             _selectedAlarmSoundName = settings['selectedAlarmSoundName'] as String? ?? 'Alarm';
 
+            final customPushSoundsRaw = settings['customPushSounds'] as Map<String, dynamic>? ?? {};
+            _customPushSounds = customPushSoundsRaw.map((key, value) => MapEntry(key, value.toString()));
+
+            final customAlarmSoundsRaw = settings['customAlarmSounds'] as Map<String, dynamic>? ?? {};
+            _customAlarmSounds = customAlarmSoundsRaw.map((key, value) => MapEntry(key, value.toString()));
+
             // Validate saved sound
             if (!_selectedPushSound.startsWith('content://') && !_selectedPushSound.startsWith('file://') && !_builtInSounds.containsKey(_selectedPushSound)) {
               _selectedPushSound = 'Notification';
               _selectedPushSoundName = _builtInSounds['Notification']!;
             } else if (_builtInSounds.containsKey(_selectedPushSound)) {
               _selectedPushSoundName = _builtInSounds[_selectedPushSound]!;
+            } else if (_customPushSounds.containsKey(_selectedPushSound)) {
+              _selectedPushSoundName = _customPushSounds[_selectedPushSound]!;
             }
             
             if (!_selectedAlarmSound.startsWith('content://') && !_selectedAlarmSound.startsWith('file://') && !_builtInSounds.containsKey(_selectedAlarmSound)) {
@@ -213,6 +104,8 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
               _selectedAlarmSoundName = _builtInSounds['Alarm']!;
             } else if (_builtInSounds.containsKey(_selectedAlarmSound)) {
               _selectedAlarmSoundName = _builtInSounds[_selectedAlarmSound]!;
+            } else if (_customAlarmSounds.containsKey(_selectedAlarmSound)) {
+              _selectedAlarmSoundName = _customAlarmSounds[_selectedAlarmSound]!;
             }
           });
         }
@@ -272,7 +165,6 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
         'selectedAlarmSoundName': _selectedAlarmSoundName,
       };
 
-      // Write to local SharedPreferences for background service sync
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('soundEnabled', _soundEnabled);
       await prefs.setBool('vibrationEnabled', _vibrationEnabled);
@@ -303,7 +195,23 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
       volume: _volumeLevel,
       soundEnabled: _soundEnabled,
       vibrationEnabled: _vibrationEnabled,
+      isAlarm: isAlarm,
     );
+  }
+
+  Future<void> _saveCustomSounds() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('customPushSounds', jsonEncode(_customPushSounds));
+    await prefs.setString('customAlarmSounds', jsonEncode(_customAlarmSounds));
+    
+    if (_currentUser != null) {
+      await FirebaseFirestore.instance.collection('users').doc(_currentUser.uid).set({
+        'notificationSettings': {
+          'customPushSounds': _customPushSounds,
+          'customAlarmSounds': _customAlarmSounds,
+        }
+      }, SetOptions(merge: true));
+    }
   }
 
   Future<void> _pickRingtone(bool isAlarm) async {
@@ -311,6 +219,15 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     if (!Platform.isAndroid) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('This feature is available on Android only.')),
+      );
+      return;
+    }
+
+    final targetList = isAlarm ? _customAlarmSounds : _customPushSounds;
+
+    if (targetList.length >= 4) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Maximum 4 custom sounds allowed. Please remove one first.'.tr())),
       );
       return;
     }
@@ -323,16 +240,20 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
 
     if (result != null && result.files.single.path != null) {
       final file = result.files.single;
-      // On Android, the path is what we need for the notification sound.
-      // The name can be used for display.
       final soundUri = 'file://${file.path}'; // URI format for sounds
-      if (isAlarm) {
-        await _saveSettings('selectedAlarmSound', soundUri);
-        await _saveSettings('selectedAlarmSoundName', file.name);
-      } else {
-        await _saveSettings('selectedPushSound', soundUri);
-        await _saveSettings('selectedPushSoundName', file.name);
-      }
+      
+      setState(() {
+        if (isAlarm) {
+          _customAlarmSounds[soundUri] = file.name;
+        } else {
+          _customPushSounds[soundUri] = file.name;
+        }
+      });
+      await _saveCustomSounds();
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Sound added to your list!'.tr())),
+      );
     }
   }
 
@@ -659,50 +580,84 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                                   PopupMenuButton<String>(
                                     icon: const Icon(Icons.arrow_drop_down_rounded),
                                     onSelected: (String value) async {
+                                      if (value.startsWith('delete_')) {
+                                        final keyToRemove = value.substring(7);
+                                        setState(() {
+                                          _customPushSounds.remove(keyToRemove);
+                                          if (_selectedPushSound == keyToRemove) {
+                                            _selectedPushSound = 'Notification';
+                                            _selectedPushSoundName = _builtInSounds['Notification']!;
+                                          }
+                                        });
+                                        await _saveCustomSounds();
+                                        await _saveSettings('selectedPushSound', _selectedPushSound);
+                                        await _saveSettings('selectedPushSoundName', _selectedPushSoundName);
+                                        return;
+                                      }
                                       if (value == 'pick_custom') {
                                         _pickRingtone(false);
                                       } else {
-                                        if (value != 'Notification' && value != 'Alarm' && value != 'Ringtone') {
-                                          final isCached = _isSoundDownloaded[value] == true;
-                                          if (!isCached) {
-                                            final success = await _downloadAndSaveSound(value);
-                                            if (!success) return; // Stop if download failed
-                                          }
-                                        }
                                         _saveSettings('selectedPushSound', value);
-                                        _saveSettings('selectedPushSoundName', _builtInSounds[value] ?? value);
+                                        _saveSettings('selectedPushSoundName', _builtInSounds[value] ?? _customPushSounds[value] ?? value);
                                       }
                                     },
                                     itemBuilder: (BuildContext context) {
                                       return [
                                         ..._builtInSounds.entries.map((entry) {
-                                          final isSystem = entry.key == 'Notification' || entry.key == 'Alarm' || entry.key == 'Ringtone';
-                                          final isDownloaded = isSystem || (_isSoundDownloaded[entry.key] == true);
+                                          final isSelected = entry.key == _selectedPushSound;
                                           return PopupMenuItem<String>(
                                             value: entry.key,
                                             child: Row(
                                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                               children: [
                                                 Expanded(child: Text(entry.value)),
-                                                const SizedBox(width: 8),
-                                                Icon(
-                                                  isDownloaded ? Icons.check_circle_rounded : Icons.cloud_download_outlined,
-                                                  size: 18,
-                                                  color: isDownloaded ? Colors.green : Colors.grey,
+                                                if (isSelected)
+                                                  const Icon(Icons.check_circle_rounded, size: 18, color: Colors.green),
+                                              ],
+                                            ),
+                                          );
+                                        }),
+                                        if (_customPushSounds.isNotEmpty) const PopupMenuDivider(),
+                                        ..._customPushSounds.entries.map((entry) {
+                                          final isSelected = entry.key == _selectedPushSound;
+                                          return PopupMenuItem<String>(
+                                            value: entry.key,
+                                            child: Row(
+                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                              children: [
+                                                Expanded(
+                                                  child: Row(
+                                                    children: [
+                                                      Icon(Icons.music_note, size: 16, color: onSurfaceVariant),
+                                                      const SizedBox(width: 8),
+                                                      Expanded(child: Text(entry.value, overflow: TextOverflow.ellipsis)),
+                                                    ],
+                                                  ),
+                                                ),
+                                                if (isSelected)
+                                                  const Icon(Icons.check_circle_rounded, size: 18, color: Colors.green),
+                                                GestureDetector(
+                                                  onTap: () {
+                                                    Navigator.pop(context, 'delete_${entry.key}');
+                                                  },
+                                                  child: const Padding(
+                                                    padding: EdgeInsets.only(left: 12.0, right: 4.0),
+                                                    child: Icon(Icons.delete_outline, size: 20, color: Colors.red),
+                                                  ),
                                                 ),
                                               ],
                                             ),
                                           );
                                         }),
                                         if (Platform.isAndroid) const PopupMenuDivider(),
-                                        if (Platform.isAndroid)
+                                        if (Platform.isAndroid && _customPushSounds.length < 4)
                                           const PopupMenuItem<String>(
                                             value: 'pick_custom',
                                             child: Row(
                                               children: [
-                                                Icon(Icons.music_note_rounded, size: 18),
+                                                Icon(Icons.add_circle_outline, size: 18),
                                                 SizedBox(width: 8),
-                                                Text('Choose from phone...'),
+                                                Text('Add custom sound...'),
                                               ],
                                             ),
                                           ),
@@ -757,50 +712,84 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                                   PopupMenuButton<String>(
                                     icon: const Icon(Icons.arrow_drop_down_rounded),
                                     onSelected: (String value) async {
+                                      if (value.startsWith('delete_')) {
+                                        final keyToRemove = value.substring(7);
+                                        setState(() {
+                                          _customAlarmSounds.remove(keyToRemove);
+                                          if (_selectedAlarmSound == keyToRemove) {
+                                            _selectedAlarmSound = 'Alarm';
+                                            _selectedAlarmSoundName = _builtInSounds['Alarm']!;
+                                          }
+                                        });
+                                        await _saveCustomSounds();
+                                        await _saveSettings('selectedAlarmSound', _selectedAlarmSound);
+                                        await _saveSettings('selectedAlarmSoundName', _selectedAlarmSoundName);
+                                        return;
+                                      }
                                       if (value == 'pick_custom') {
                                         _pickRingtone(true);
                                       } else {
-                                        if (value != 'Notification' && value != 'Alarm' && value != 'Ringtone') {
-                                          final isCached = _isSoundDownloaded[value] == true;
-                                          if (!isCached) {
-                                            final success = await _downloadAndSaveSound(value);
-                                            if (!success) return; // Stop if download failed
-                                          }
-                                        }
                                         _saveSettings('selectedAlarmSound', value);
-                                        _saveSettings('selectedAlarmSoundName', _builtInSounds[value] ?? value);
+                                        _saveSettings('selectedAlarmSoundName', _builtInSounds[value] ?? _customAlarmSounds[value] ?? value);
                                       }
                                     },
                                     itemBuilder: (BuildContext context) {
                                       return [
                                         ..._builtInSounds.entries.map((entry) {
-                                          final isSystem = entry.key == 'Notification' || entry.key == 'Alarm' || entry.key == 'Ringtone';
-                                          final isDownloaded = isSystem || (_isSoundDownloaded[entry.key] == true);
+                                          final isSelected = entry.key == _selectedAlarmSound;
                                           return PopupMenuItem<String>(
                                             value: entry.key,
                                             child: Row(
                                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                               children: [
                                                 Expanded(child: Text(entry.value)),
-                                                const SizedBox(width: 8),
-                                                Icon(
-                                                  isDownloaded ? Icons.check_circle_rounded : Icons.cloud_download_outlined,
-                                                  size: 18,
-                                                  color: isDownloaded ? Colors.green : Colors.grey,
+                                                if (isSelected)
+                                                  const Icon(Icons.check_circle_rounded, size: 18, color: Colors.green),
+                                              ],
+                                            ),
+                                          );
+                                        }),
+                                        if (_customAlarmSounds.isNotEmpty) const PopupMenuDivider(),
+                                        ..._customAlarmSounds.entries.map((entry) {
+                                          final isSelected = entry.key == _selectedAlarmSound;
+                                          return PopupMenuItem<String>(
+                                            value: entry.key,
+                                            child: Row(
+                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                              children: [
+                                                Expanded(
+                                                  child: Row(
+                                                    children: [
+                                                      Icon(Icons.music_note, size: 16, color: onSurfaceVariant),
+                                                      const SizedBox(width: 8),
+                                                      Expanded(child: Text(entry.value, overflow: TextOverflow.ellipsis)),
+                                                    ],
+                                                  ),
+                                                ),
+                                                if (isSelected)
+                                                  const Icon(Icons.check_circle_rounded, size: 18, color: Colors.green),
+                                                GestureDetector(
+                                                  onTap: () {
+                                                    Navigator.pop(context, 'delete_${entry.key}');
+                                                  },
+                                                  child: const Padding(
+                                                    padding: EdgeInsets.only(left: 12.0, right: 4.0),
+                                                    child: Icon(Icons.delete_outline, size: 20, color: Colors.red),
+                                                  ),
                                                 ),
                                               ],
                                             ),
                                           );
                                         }),
                                         if (Platform.isAndroid) const PopupMenuDivider(),
-                                        if (Platform.isAndroid)
+                                        if (Platform.isAndroid && _customAlarmSounds.length < 4)
                                           const PopupMenuItem<String>(
                                             value: 'pick_custom',
                                             child: Row(
                                               children: [
-                                                Icon(Icons.music_note_rounded, size: 18),
+                                                Icon(Icons.add_circle_outline, size: 18),
                                                 SizedBox(width: 8),
-                                                Text('Choose from phone...'),
+                                                Text('Add custom sound...'),
                                               ],
                                             ),
                                           ),
