@@ -74,15 +74,13 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
 
     // প্রাইভেসি চেক (টাস্ক প্রাইভেট হলে এবং অন্য বন্ধু দেখলে ডাটা হাইড করবে কিন্তু প্রগ্রেস বার দেখা যাবে)
     bool shouldMaskDetails = widget.isFriendView && widget.task.isPrivate;
-    String displayTitle = widget.task.subject ?? widget.task.title;
+    String displayTitle = widget.task.title;
     if (widget.task.isPrivate) {
-      displayTitle = shouldMaskDetails ? '🔒 Private Task' : '🔒 $displayTitle';
+      displayTitle = '🔒 $displayTitle';
     }
-    String displayNotes = shouldMaskDetails 
-        ? 'The details of this task are hidden by the user.' 
-        : (widget.task.notes?.isNotEmpty == true ? widget.task.notes! : 'No notes available.');
+    String displayNotes = widget.task.notes?.isNotEmpty == true ? widget.task.notes! : 'No notes available.';
     
-    String category = shouldMaskDetails ? 'Hidden' : (widget.task.category ?? 'Uncategorized');
+    String category = widget.task.category ?? 'Uncategorized';
 
     String startTime = widget.task.startTime != null ? DateFormat('MMM d, yyyy - h:mm a').format(widget.task.startTime!) : 'Not Set';
     String endTime = widget.task.endTime != null ? DateFormat('MMM d, yyyy - h:mm a').format(widget.task.endTime!) : 'Not Set';
@@ -94,10 +92,41 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
         backgroundColor: Theme.of(context).colorScheme.surface,
         elevation: 0,
       ),
-      body: Column(
-        children: [
-          // ১. প্রগ্রেস বার (সবার জন্য সর্বদা দৃশ্যমান)
-          Container(
+      body: shouldMaskDetails 
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.lock_rounded, size: 64, color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5)),
+                  const SizedBox(height: 16),
+                  Text(
+                    displayTitle,
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Time: $startTime - $endTime',
+                    style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
+                  ),
+                  const SizedBox(height: 24),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Text(
+                      'This task is private.',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  )
+                ],
+              ),
+            )
+          : Column(
+              children: [
+                // ১. প্রগ্রেস বার (সবার জন্য সর্বদা দৃশ্যমান)
+                Container(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surface,

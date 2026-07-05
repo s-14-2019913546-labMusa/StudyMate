@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'daily_routine.dart';
 import 'language_manager.dart';
+import 'task_details_screen.dart';
 
 class TaskHistoryScreen extends StatefulWidget {
   final String? userId;
@@ -661,7 +662,7 @@ class _TaskHistoryScreenState extends State<TaskHistoryScreen> with SingleTicker
       elevation: 1,
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        onTap: () => _showTaskDetails(task),
+        onTap: () => _navigateToTaskDetails(dateDocId, task),
         leading: Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
@@ -754,213 +755,53 @@ class _TaskHistoryScreenState extends State<TaskHistoryScreen> with SingleTicker
     );
   }
 
-  // --- Read-Only Details Dialog ---
-
-  void _showTaskDetails(Task task) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) {
-        final colorScheme = Theme.of(ctx).colorScheme;
-        final isCompleted = task.isCompleted || task.status == 'completed';
-
-        return Container(
-          decoration: BoxDecoration(
-            color: colorScheme.surface,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Center(
-                  child: Container(
-                    width: 48,
-                    height: 5,
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade300,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                
-                // Status Badge & Title
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        task.title,
-                        style: Theme.of(ctx).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: (isCompleted ? Colors.green : Colors.orange).withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: isCompleted ? Colors.green : Colors.orange, width: 1),
-                      ),
-                      child: Text(
-                        isCompleted ? 'Completed'.tr() : 'Missed'.tr(),
-                        style: TextStyle(
-                          color: isCompleted ? Colors.green : Colors.orange,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                if (task.subject != null && task.subject!.isNotEmpty)
-                  Text(
-                    '${'Subject:'.tr()} ${task.subject}',
-                    style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.w600, fontSize: 14),
-                  ),
-                const SizedBox(height: 20),
-                const Divider(),
-                const SizedBox(height: 12),
-
-                // Details Grid
-                _buildReadOnlyDetailRow(Icons.subject_rounded, 'Topic'.tr(), task.topic ?? 'N/A'),
-                const SizedBox(height: 12),
-                _buildReadOnlyDetailRow(
-                  Icons.hourglass_bottom_rounded,
-                  'Planned Duration'.tr(),
-                  '${task.totalDurationMinutes} min',
-                ),
-                const SizedBox(height: 12),
-                _buildReadOnlyDetailRow(
-                  Icons.check_circle_outline_rounded,
-                  'Completed Duration'.tr(),
-                  '${task.completedDurationMinutes} min',
-                ),
-                const SizedBox(height: 12),
-                _buildReadOnlyDetailRow(
-                  Icons.category_rounded,
-                  'Category'.tr(),
-                  task.category?.tr() ?? 'N/A',
-                ),
-                const SizedBox(height: 12),
-                _buildReadOnlyDetailRow(
-                  Icons.access_time_filled_rounded,
-                  'Time Window'.tr(),
-                  '${task.startTime != null ? DateFormat('hh:mm a').format(task.startTime!) : 'N/A'} - ${task.endTime != null ? DateFormat('hh:mm a').format(task.endTime!) : 'N/A'}',
-                ),
-                const SizedBox(height: 20),
-                const Divider(),
-                const SizedBox(height: 16),
-
-                // Challenges
-                Text(
-                  'Challenges / Weaknesses'.tr(),
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    task.challenges == null || task.challenges!.trim().isEmpty
-                        ? 'No challenges recorded.'.tr()
-                        : task.challenges!,
-                    style: const TextStyle(fontSize: 13, height: 1.4),
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // Notes
-                Text(
-                  'Notes / Summary'.tr(),
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    task.notes == null || task.notes!.trim().isEmpty
-                        ? 'No notes recorded.'.tr()
-                        : task.notes!,
-                    style: const TextStyle(fontSize: 13, height: 1.4),
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // Completion Note
-                if (task.completionNote != null && task.completionNote!.trim().isNotEmpty) ...[
-                  Text(
-                    'Completion Note'.tr(),
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.green.withValues(alpha: 0.05),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.green.withValues(alpha: 0.15)),
-                    ),
-                    child: Text(
-                      task.completionNote!,
-                      style: const TextStyle(fontSize: 13, height: 1.4),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                ],
-
-                // Close Button
-                ElevatedButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: colorScheme.primary,
-                    foregroundColor: colorScheme.onPrimary,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  child: Text('Close'.tr(), style: const TextStyle(fontWeight: FontWeight.bold)),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
+  // --- Navigate to Details Screen ---
+  void _navigateToTaskDetails(String dateDocId, Task task) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => TaskDetailsScreen(
+          task: task,
+          isFriendView: widget.isFriendView,
+          onUpdate: (updatedTask) => _updateTaskInFirestore(dateDocId, updatedTask),
+        ),
+      ),
     );
   }
 
-  Widget _buildReadOnlyDetailRow(IconData icon, String label, String value) {
-    final theme = Theme.of(context);
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, color: theme.colorScheme.primary, size: 20),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label, style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
-              const SizedBox(height: 2),
-              Text(
-                value,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
+  Future<void> _updateTaskInFirestore(String dateDocId, Task updatedTask) async {
+    if (_effectiveUserId.isEmpty) return;
+    try {
+      final docRef = FirebaseFirestore.instance
+          .collection('users')
+          .doc(_effectiveUserId)
+          .collection('daily_routines')
+          .doc(dateDocId);
+          
+      final snapshot = await docRef.get();
+      if (snapshot.exists) {
+        final data = snapshot.data();
+        if (data != null && data['tasks'] != null) {
+          List<dynamic> tasksList = data['tasks'];
+          int index = tasksList.indexWhere((t) => t['id'] == updatedTask.id);
+          if (index != -1) {
+            tasksList[index] = updatedTask.toMap();
+            await docRef.update({'tasks': tasksList});
+            // Update local state if needed
+            setState(() {
+              // Update local cache
+              for (var routine in _loadedRoutines) {
+                if (routine.id == dateDocId) {
+                  int taskIdx = routine.tasks.indexWhere((t) => t.id == updatedTask.id);
+                  if (taskIdx != -1) routine.tasks[taskIdx] = updatedTask;
+                }
+              }
+            });
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Error updating task in Firestore: $e");
+    }
   }
 }

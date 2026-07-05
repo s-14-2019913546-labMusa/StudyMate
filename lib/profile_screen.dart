@@ -15,6 +15,7 @@ import 'app_lock_service.dart';
 import 'app_lock_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'cloud_backup_screen.dart';
+import 'notifications_hub_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -278,7 +279,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   _buildListTile(context, Icons.notifications_none_rounded, 'Notifications', onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const NotificationSettingsScreen()),
+                      MaterialPageRoute(builder: (_) => const NotificationsHubScreen()),
                     );
                   }),
                   _buildListTile(context, Icons.dark_mode_outlined, 'Dark Mode', isToggle: true),
