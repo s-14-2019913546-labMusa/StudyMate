@@ -100,7 +100,6 @@ class _ToolsScreenState extends State<ToolsScreen> {
           {'title': 'Dictionary', 'icon': Icons.menu_book_rounded, 'color': Colors.orangeAccent, 'action': 'dict', 'requiresInternet': true},
           {'title': 'Special Hub', 'icon': Icons.folder_copy_rounded, 'color': Colors.teal, 'action': 'study_folders'},
           {'title': 'Countdown', 'icon': Icons.event_note_rounded, 'color': const Color(0xFF6366F1), 'action': 'countdown'},
-          {'title': 'Web Bookmarks', 'icon': Icons.bookmarks_rounded, 'color': Colors.blue, 'action': 'bookmarks', 'requiresInternet': true},
         ]
       },
       {
@@ -116,10 +115,11 @@ class _ToolsScreenState extends State<ToolsScreen> {
         'name': 'Collaborative Studying',
         'icon': Icons.people_rounded,
         'tools': [
+          {'title': 'Social Hub', 'icon': Icons.people_alt_rounded, 'color': Colors.blueAccent, 'action': 'social_hub', 'requiresInternet': true},
           {'title': 'Study Room', 'icon': Icons.video_camera_front_rounded, 'color': Colors.deepPurpleAccent, 'action': 'study_room', 'requiresInternet': true},
           {'title': 'Partner Tasks', 'icon': Icons.group_add_rounded, 'color': Colors.green, 'action': 'partner_tasks', 'requiresInternet': true},
+          {'title': 'Web Bookmarks', 'icon': Icons.bookmarks_rounded, 'color': Colors.blue, 'action': 'bookmarks', 'requiresInternet': true},
           {'title': 'Study Analytics', 'icon': Icons.analytics_rounded, 'color': Colors.teal, 'action': 'analytics'},
-          {'title': 'Social Hub', 'icon': Icons.people_alt_rounded, 'color': Colors.blueAccent, 'action': 'social_hub', 'requiresInternet': true},
           {'title': 'Notifications', 'icon': Icons.notifications_active_rounded, 'color': Colors.redAccent, 'action': 'notifications'},
         ]
       },
