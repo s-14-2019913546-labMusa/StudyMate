@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -14,6 +15,22 @@ class NotificationCenterScreen extends StatefulWidget {
 
 class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
   final User? currentUser = FirebaseAuth.instance.currentUser;
+  Timer? _refreshTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    // Refresh UI every 10 seconds so that scheduled notifications appear in real-time
+    _refreshTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
 
   String _getIconLabel(String type) {
     switch (type) {
@@ -64,7 +81,7 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          if (!snapshot.hasData) {
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -79,7 +96,35 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
             );
           }
 
-          final docs = snapshot.data!.docs;
+          final now = DateTime.now();
+          final docs = snapshot.data!.docs.where((doc) {
+            final data = doc.data() as Map<String, dynamic>?;
+            if (data == null) return false;
+            
+            // Exclude pop-ups from Notification Center
+            if (data['type'] == 'popup') return false;
+
+            final Timestamp? scheduledTime = data['scheduledTime'] as Timestamp?;
+            if (scheduledTime != null && scheduledTime.toDate().isAfter(now)) {
+              return false;
+            }
+            return true;
+          }).toList();
+
+          if (docs.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.notifications_none_rounded, size: 64, color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5)),
+                  const SizedBox(height: 16),
+                  const Text('All caught up!', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  const SizedBox(height: 8),
+                  const Text('No notifications received today.', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                ],
+              ),
+            );
+          }
 
           return ListView.builder(
             padding: const EdgeInsets.all(16),

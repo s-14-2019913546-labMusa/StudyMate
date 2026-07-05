@@ -247,9 +247,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(height: 32),
 
                   // ৩. অ্যাপ সেটিংস লিস্ট
-                  _buildListTile(context, Icons.people_alt_rounded, 'Social Hub', onTap: () {
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => const SocialHubScreen()));
-                  }),
                   _buildListTile(context, Icons.person_outline_rounded, 'Edit Profile', onTap: () async {
                     final updated = await Navigator.push(
                       context,
@@ -276,12 +273,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       );
                     },
                   ),
-                  _buildListTile(context, Icons.notifications_none_rounded, 'Notifications', onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const NotificationsHubScreen()),
-                    );
-                  }),
                   _buildListTile(context, Icons.dark_mode_outlined, 'Dark Mode', isToggle: true),
 
                   _buildListTile(

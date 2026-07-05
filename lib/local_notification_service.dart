@@ -10,7 +10,9 @@ import 'package:path_provider/path_provider.dart';
 import 'dart:developer';
 import 'dart:io';
 import 'dart:convert';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'daily_routine.dart';
+import 'notification_service.dart';
 
 @pragma('vm:entry-point')
 void notificationTapBackground(NotificationResponse notificationResponse) {
@@ -117,7 +119,7 @@ class LocalNotificationService {
     // 1. 15 mins before bedtime
     final reminderTime = bedTime.subtract(const Duration(minutes: 15));
     if (reminderTime.isAfter(DateTime.now())) {
-      await _scheduleNotification(
+      await scheduleNotification(
         id: 1,
         title: 'Sleep Reminder',
         body: 'It is almost time for bed. Please get ready!',
@@ -130,7 +132,7 @@ class LocalNotificationService {
 
     // 2. Exact bedtime
     if (bedTime.isAfter(DateTime.now())) {
-      await _scheduleNotification(
+      await scheduleNotification(
         id: 2,
         title: 'Bed Time',
         body: 'Your sleep session has started. Good night!',
@@ -145,7 +147,7 @@ class LocalNotificationService {
     // 3. 10 mins after bedtime
     final checkupTime = bedTime.add(const Duration(minutes: 10));
     if (checkupTime.isAfter(DateTime.now())) {
-      await _scheduleNotification(
+      await scheduleNotification(
         id: 3,
         title: 'Sleep Checkup',
         body: 'Are you still awake?',
@@ -165,7 +167,7 @@ class LocalNotificationService {
 
   static Future<void> scheduleCheckupNotification(Duration delay) async {
     if (kIsWeb) return;
-    await _scheduleNotification(
+    await scheduleNotification(
       id: 3,
       title: 'Sleep Checkup',
       body: 'Are you still awake?',
@@ -180,7 +182,7 @@ class LocalNotificationService {
   static Future<void> scheduleMorningAlarm(DateTime wakeUpTime) async {
     if (kIsWeb) return;
     final sound = await _getAndroidSoundForType(true);
-    await _scheduleNotification(
+    await scheduleNotification(
       id: 4,
       title: '⏰ Good Morning!',
       body: 'Time to wake up and shine!',
@@ -308,7 +310,7 @@ class LocalNotificationService {
           final alarmTime = start.add(const Duration(minutes: 5));
           if (alarmTime.isAfter(now)) {
             final pName = (pKey == 'Dhuhr' && targetDate.weekday == DateTime.friday) ? 'জুমা' : prayerNames[pKey]!;
-            await _scheduleNotification(
+            await scheduleNotification(
               id: startId,
               title: "সালাতের ওয়াক্ত",
               body: "$pName সালাতের ওয়াক্ত শুরু হয়েছে! ৫ মিনিট অতিবাহিত হয়েছে।",
@@ -327,7 +329,7 @@ class LocalNotificationService {
           final alarmTime = end.subtract(const Duration(minutes: 20));
           if (alarmTime.isAfter(now)) {
             final pName = prayerNames[pKey]!;
-            await _scheduleNotification(
+            await scheduleNotification(
               id: endId,
               title: "তাড়াতাড়ি করুন!",
               body: "সতর্কতা: $pName নামাজের ওয়াক্ত শেষ হতে আর মাত্র ২০ মিনিট বাকি আছে!",
@@ -411,7 +413,7 @@ class LocalNotificationService {
     }
   }
 
-  static Future<void> _scheduleNotification({
+  static Future<void> scheduleNotification({
     required int id,
     required String title,
     required String body,
@@ -481,7 +483,7 @@ class LocalNotificationService {
       scheduledDate = scheduledDate.add(const Duration(days: 1));
     }
 
-    await _scheduleNotification(
+    await scheduleNotification(
       id: 1500, // Fixed ID for the daily countdown reminder
       title: 'Special Day Countdown ⏳',
       body: 'চেক করুন স্পেশাল ডে কাউন্টডাউন। আপনার ইভেন্টগুলোর আর কতদিন বাকি দেখে নিন!',
@@ -528,7 +530,7 @@ class LocalNotificationService {
         final int notifId = baseId + i;
         final String dayLabel = dayOffset == 1 ? '১ দিন' : (dayOffset == 4 ? '৪ দিন' : '৭ দিন');
 
-        await _scheduleNotification(
+        await scheduleNotification(
           id: notifId,
           title: '📖 রিভিশনের সময়! ($dayLabel পূর্বে)',
           body: '"$label" রিভিশন দেওয়ার এখনই সময়। ১-৪-৭ পদ্ধতিতে পড়া মনে রাখুন!',
@@ -575,6 +577,18 @@ class LocalNotificationService {
         body: 'It is time to start your scheduled task: ${task.title}.',
         scheduledDate: task.startTime!,
       );
+      
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        // Just save to Firestore so it appears in history
+        await NotificationService.sendNotification(
+          user.uid,
+          '⏰ Task Starting: ${task.title}',
+          'It is time to start your scheduled task: ${task.title}.',
+          type: 'task',
+          scheduledTime: task.startTime!,
+        );
+      }
       log('Scheduled start notification for task "${task.title}" at ${task.startTime}');
     }
 

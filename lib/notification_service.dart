@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'local_notification_service.dart';
 
 class NotificationService {
   /// Send a notification and log it in Firestore
@@ -76,6 +77,41 @@ class NotificationService {
       });
     } catch (e) {
       debugPrint('NotificationService error: $e');
+    }
+  }
+
+  /// Schedule a background local notification AND log it in Firestore
+  static Future<void> scheduleAppNotification(
+    String userId,
+    String title,
+    String body,
+    DateTime scheduledTime, {
+    String type = 'general',
+    int? localNotifId,
+  }) async {
+    try {
+      // 1. Schedule local notification so it pops up when app is closed
+      final id = localNotifId ?? DateTime.now().millisecondsSinceEpoch.remainder(100000);
+      
+      // We need to import LocalNotificationService at the top for this, let's just make sure it's imported.
+      // Wait, we need to add the import for local_notification_service.dart. I will add it in a separate edit.
+      await LocalNotificationService.scheduleNotification(
+        id: id,
+        title: title,
+        body: body,
+        scheduledDate: scheduledTime,
+      );
+
+      // 2. Write to Firestore so it appears in the app later
+      await sendNotification(
+        userId,
+        title,
+        body,
+        type: type,
+        scheduledTime: scheduledTime,
+      );
+    } catch (e) {
+      debugPrint('Schedule app notification error: $e');
     }
   }
 

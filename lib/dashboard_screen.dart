@@ -14,6 +14,7 @@ import 'profile_screen.dart'; // Profile স্ক্রিন ইমপোর�
 import 'shared_task_form.dart';
 // নতুন ফাইলটি ইমপোর্ট করা হলো
 import 'social_hub_screen.dart';
+import 'notifications_hub_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
 import 'local_notification_service.dart';
@@ -1134,7 +1135,14 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                     ),
                   ],
                 ),
-                _buildMessageIcon(context),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildNotificationIcon(context),
+                    const SizedBox(width: 8),
+                    _buildMessageIcon(context),
+                  ],
+                ),
               ],
             ),
             const SizedBox(height: 24),
@@ -1289,6 +1297,72 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildNotificationIcon(BuildContext context) {
+    if (user == null) {
+      return IconButton(
+        icon: Icon(Icons.notifications_outlined, color: Theme.of(context).colorScheme.onSurface, size: 30),
+        onPressed: () {},
+      );
+    }
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .doc(user!.uid)
+          .collection('notifications')
+          .where('isRead', isEqualTo: false)
+          .snapshots(),
+      builder: (context, snapshot) {
+        int totalUnread = 0;
+        if (snapshot.hasData) {
+          final now = DateTime.now();
+          for (var doc in snapshot.data!.docs) {
+            final data = doc.data() as Map<String, dynamic>;
+            // Only count if it's not a future scheduled notification
+            final Timestamp? scheduledTime = data['scheduledTime'] as Timestamp?;
+            if (scheduledTime == null || !scheduledTime.toDate().isAfter(now)) {
+              totalUnread++;
+            }
+          }
+        }
+
+        return Stack(
+          children: [
+            IconButton(
+              icon: Icon(Icons.notifications_outlined, color: Theme.of(context).colorScheme.onSurface, size: 30),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const NotificationsHubScreen()),
+                );
+              },
+            ),
+            if (totalUnread > 0)
+              Positioned(
+                right: 8,
+                top: 8,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: const BoxDecoration(
+                    color: Colors.red,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Text(
+                    totalUnread > 9 ? '9+' : totalUnread.toString(),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 

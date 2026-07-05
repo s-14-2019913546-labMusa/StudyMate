@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'language_manager.dart';
 import 'notification_center_screen.dart';
 import 'notification_settings_screen.dart';
+import 'popups_screen.dart';
 
 class NotificationsHubScreen extends StatelessWidget {
   const NotificationsHubScreen({super.key});
@@ -31,9 +32,9 @@ class NotificationsHubScreen extends StatelessWidget {
             title: "Pop ups",
             icon: Icons.notifications_active_rounded,
             onTap: () {
-              // Placeholder for pop-ups as requested by user
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Pop ups section coming soon!'.tr())),
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const PopupsScreen()),
               );
             },
           ),

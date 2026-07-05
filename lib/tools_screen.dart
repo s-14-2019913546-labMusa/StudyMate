@@ -37,7 +37,9 @@ import 'package:file_picker/file_picker.dart' as fp;
 import 'package:open_filex/open_filex.dart';
 import 'daily_diary_screen.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
-
+import 'bookmarks_screen.dart';
+import 'social_hub_screen.dart';
+import 'notifications_hub_screen.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 
 class ToolsScreen extends StatefulWidget {
@@ -98,6 +100,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
           {'title': 'Dictionary', 'icon': Icons.menu_book_rounded, 'color': Colors.orangeAccent, 'action': 'dict', 'requiresInternet': true},
           {'title': 'Special Hub', 'icon': Icons.folder_copy_rounded, 'color': Colors.teal, 'action': 'study_folders'},
           {'title': 'Countdown', 'icon': Icons.event_note_rounded, 'color': const Color(0xFF6366F1), 'action': 'countdown'},
+          {'title': 'Web Bookmarks', 'icon': Icons.bookmarks_rounded, 'color': Colors.blue, 'action': 'bookmarks', 'requiresInternet': true},
         ]
       },
       {
@@ -116,6 +119,8 @@ class _ToolsScreenState extends State<ToolsScreen> {
           {'title': 'Study Room', 'icon': Icons.video_camera_front_rounded, 'color': Colors.deepPurpleAccent, 'action': 'study_room', 'requiresInternet': true},
           {'title': 'Partner Tasks', 'icon': Icons.group_add_rounded, 'color': Colors.green, 'action': 'partner_tasks', 'requiresInternet': true},
           {'title': 'Study Analytics', 'icon': Icons.analytics_rounded, 'color': Colors.teal, 'action': 'analytics'},
+          {'title': 'Social Hub', 'icon': Icons.people_alt_rounded, 'color': Colors.blueAccent, 'action': 'social_hub', 'requiresInternet': true},
+          {'title': 'Notifications', 'icon': Icons.notifications_active_rounded, 'color': Colors.redAccent, 'action': 'notifications'},
         ]
       },
       {
@@ -217,6 +222,10 @@ class _ToolsScreenState extends State<ToolsScreen> {
                                       Navigator.push(context, MaterialPageRoute(builder: (_) => const StudyRoomScreen()));
                                     } else if (tool['action'] == 'partner_tasks') {
                                       Navigator.push(context, MaterialPageRoute(builder: (_) => const PartnerTasksScreen()));
+                                    } else if (tool['action'] == 'social_hub') {
+                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const SocialHubScreen()));
+                                    } else if (tool['action'] == 'notifications') {
+                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsHubScreen()));
                                     } else if (tool['action'] == 'notes') {
                                       Navigator.push(context, MaterialPageRoute(builder: (_) => const QuickNotesScreen()));
                                     } else if (tool['action'] == 'sleep') {
@@ -239,6 +248,8 @@ class _ToolsScreenState extends State<ToolsScreen> {
                                       Navigator.push(context, MaterialPageRoute(builder: (_) => const IslamicLifeScreen()));
                                     } else if (tool['action'] == 'daily_diary') {
                                       Navigator.push(context, MaterialPageRoute(builder: (_) => const DailyDiaryScreen()));
+                                    } else if (tool['action'] == 'bookmarks') {
+                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const BookmarksScreen()));
                                     } else if (tool['action'] == 'theme') {
                                       showModalBottomSheet(
                                         context: context,

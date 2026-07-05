@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'flashcard_study_screen.dart';
+import 'deck_dashboard_screen.dart';
 import 'ai_service.dart';
 
 class FlashcardDecksScreen extends StatefulWidget {
@@ -282,6 +284,58 @@ class _FlashcardDecksScreenState extends State<FlashcardDecksScreen> {
         .add(newDeck);
   }
 
+  void _processBulkImport(String title, String description, String rawData) {
+    if (title.isEmpty || rawData.isEmpty || currentUser == null) return;
+    
+    List<Map<String, String>> parsedCards = [];
+    
+    final RegExp qExp = RegExp(r'\{(?:Question|প্রশ্ন)\}', caseSensitive: false);
+    final RegExp aExp = RegExp(r'\{(?:Answer|উত্তর)\}', caseSensitive: false);
+    
+    final List<String> qChunks = rawData.split(qExp);
+    
+    for (String chunk in qChunks) {
+      if (chunk.trim().isEmpty) continue;
+      
+      final parts = chunk.split(aExp);
+      if (parts.length >= 2) {
+        String front = parts[0].trim();
+        String back = parts.sublist(1).join('\n').trim();
+        
+        if (front.isNotEmpty && back.isNotEmpty) {
+          parsedCards.add({
+            'id': DateTime.now().millisecondsSinceEpoch.toString() + '_' + parsedCards.length.toString(),
+            'front': front,
+            'back': back,
+            'difficulty': 'medium', // Default
+          });
+        }
+      }
+    }
+    
+    if (parsedCards.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No valid flashcards found. Use {Question} and {Answer} tags.')),
+      );
+      return;
+    }
+    
+    FirebaseFirestore.instance
+        .collection('users')
+        .doc(currentUser!.uid)
+        .collection('flashcard_decks')
+        .add({
+      'title': title,
+      'description': description,
+      'cards': parsedCards,
+      'timestamp': FieldValue.serverTimestamp(),
+    });
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Successfully imported ${parsedCards.length} flashcards!')),
+    );
+  }
+
   // Delete Deck
   Future<void> _deleteDeck(String docId) async {
     if (currentUser == null) return;
@@ -476,10 +530,10 @@ class _FlashcardDecksScreenState extends State<FlashcardDecksScreen> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => FlashcardStudyScreen(
+                                builder: (_) => DeckDashboardScreen(
                                   deckId: doc.id,
                                   deckTitle: title,
-                                  cards: cards,
+                                  allCards: cards,
                                 ),
                               ),
                             );
@@ -505,6 +559,9 @@ class _FlashcardDecksScreenState extends State<FlashcardDecksScreen> {
                 },
                 onAiGenerate: (topic) {
                   _generateAIDeck(topic);
+                },
+                onBulkImport: (title, desc, rawData) {
+                  _processBulkImport(title, desc, rawData);
                 },
               );
             },
@@ -558,6 +615,9 @@ class _FlashcardDecksScreenState extends State<FlashcardDecksScreen> {
                       },
                       onAiGenerate: (topic) {
                         _generateAIDeck(topic);
+                      },
+                      onBulkImport: (title, desc, rawData) {
+                        _processBulkImport(title, desc, rawData);
                       },
                     );
                   },
@@ -660,11 +720,13 @@ class _FlashcardDecksScreenState extends State<FlashcardDecksScreen> {
 class CreateDeckBottomSheet extends StatefulWidget {
   final Function(String, String, List<Map<String, String>>) onManualCreate;
   final Function(String) onAiGenerate;
+  final Function(String, String, String) onBulkImport;
 
   const CreateDeckBottomSheet({
     super.key,
     required this.onManualCreate,
     required this.onAiGenerate,
+    required this.onBulkImport,
   });
 
   @override
@@ -679,6 +741,9 @@ class _CreateDeckBottomSheetState extends State<CreateDeckBottomSheet> {
   // Manual Cards list controllers
   final List<TextEditingController> _questionControllers = [];
   final List<TextEditingController> _answerControllers = [];
+
+  // Bulk Import text controller
+  final TextEditingController _bulkTextController = TextEditingController();
 
   // AI Generator topic controller
   final TextEditingController _topicController = TextEditingController();
@@ -696,6 +761,7 @@ class _CreateDeckBottomSheetState extends State<CreateDeckBottomSheet> {
     _titleController.dispose();
     _descController.dispose();
     _topicController.dispose();
+    _bulkTextController.dispose();
     for (var controller in _questionControllers) {
       controller.dispose();
     }
@@ -727,7 +793,7 @@ class _CreateDeckBottomSheetState extends State<CreateDeckBottomSheet> {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
     return DefaultTabController(
-      length: 2,
+      length: 3,
       child: Container(
         height: MediaQuery.of(context).size.height * 0.75,
         padding: EdgeInsets.only(bottom: bottomInset),
@@ -754,7 +820,9 @@ class _CreateDeckBottomSheetState extends State<CreateDeckBottomSheet> {
                 labelColor: Theme.of(context).colorScheme.primary,
                 unselectedLabelColor: Colors.grey,
                 indicatorColor: Theme.of(context).colorScheme.primary,
+                isScrollable: true,
                 tabs: const [
+                  Tab(icon: Icon(Icons.paste_rounded), text: 'Bulk Import'),
                   Tab(icon: Icon(Icons.auto_awesome_rounded), text: 'AI Generator'),
                   Tab(icon: Icon(Icons.edit_note_rounded), text: 'Create Manually'),
                 ],
@@ -762,6 +830,7 @@ class _CreateDeckBottomSheetState extends State<CreateDeckBottomSheet> {
               Expanded(
                 child: TabBarView(
                   children: [
+                    _buildBulkImportTab(),
                     _buildAITab(),
                     _buildManualTab(),
                   ],
@@ -809,6 +878,178 @@ class _CreateDeckBottomSheetState extends State<CreateDeckBottomSheet> {
             label: const Text('Generate Flashcards'),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.purple,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+            ),
+          )
+        ],
+      ),
+    );
+  }
+
+  void _showAIPromptAdvice(BuildContext context) {
+    const promptText = 
+'''Act as an expert flashcard creator. I need to study [TOPIC]. Create [NUMBER] flashcards for me. 
+Format the output EXACTLY like this without any markdown formatting or extra text:
+
+{Question}
+[Your question here]
+{Answer}
+[Your answer here]
+''';
+
+    const promptTextBn = 
+'''আমি [TOPIC] নিয়ে পড়াশোনা করছি। আমাকে [NUMBER] টি গুরুত্বপূর্ণ প্রশ্ন ও উত্তর দাও।
+দয়া করে নিচের ফরম্যাটটি হুবহু মেনে চলবে। অন্য কোনো টেক্সট বা মার্কডাউন দেবে না:
+
+{প্রশ্ন}
+[আপনার প্রশ্ন]
+{উত্তর}
+[আপনার উত্তর]
+''';
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.tips_and_updates_rounded, color: Colors.orange),
+            SizedBox(width: 8),
+            Text('AI Prompt Guide'),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Copy the prompt below and paste it into ChatGPT, Gemini, or Claude to generate bulk questions perfectly formatted for StudyMate.', style: TextStyle(fontSize: 13, color: Colors.black87)),
+              const SizedBox(height: 16),
+              
+              const Text('English Prompt:', style: TextStyle(fontWeight: FontWeight.bold)),
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(top: 8, bottom: 8),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(8)),
+                child: Text(promptText, style: const TextStyle(fontSize: 12, fontFamily: 'monospace')),
+              ),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: () {
+                    Clipboard.setData(const ClipboardData(text: promptText));
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('English prompt copied!')));
+                    Navigator.pop(ctx);
+                  },
+                  icon: const Icon(Icons.copy, size: 16),
+                  label: const Text('Copy English'),
+                ),
+              ),
+              
+              const Divider(height: 32),
+              
+              const Text('Bangla Prompt:', style: TextStyle(fontWeight: FontWeight.bold)),
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(top: 8, bottom: 8),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(8)),
+                child: Text(promptTextBn, style: const TextStyle(fontSize: 12, fontFamily: 'monospace')),
+              ),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: () {
+                    Clipboard.setData(const ClipboardData(text: promptTextBn));
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Bangla prompt copied!')));
+                    Navigator.pop(ctx);
+                  },
+                  icon: const Icon(Icons.copy, size: 16),
+                  label: const Text('Copy Bangla'),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBulkImportTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Bulk Import Flashcards',
+            style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 12),
+          ElevatedButton.icon(
+            onPressed: () => _showAIPromptAdvice(context),
+            icon: const Icon(Icons.lightbulb_outline_rounded),
+            label: const Text('Get AI Prompt Guide'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.amber.shade100,
+              foregroundColor: Colors.orange.shade800,
+              elevation: 0,
+              alignment: Alignment.centerLeft,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Use {Question} or {প্রশ্ন} before the question, and {Answer} or {উত্তর} before the answer. This supports multiple lines like MCQs.',
+            style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+            child: const Text('Example:\n{প্রশ্ন}\nবাংলাদেশের রাজধানী কোথায়?\nক. ঢাকা\nখ. সিলেট\n{উত্তর}\nক. ঢাকা', style: TextStyle(fontFamily: 'monospace', fontSize: 12)),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _titleController,
+            decoration: const InputDecoration(labelText: 'Deck Title', prefixIcon: Icon(Icons.title_rounded)),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _bulkTextController,
+            maxLines: 8,
+            decoration: const InputDecoration(
+              hintText: 'Paste questions and answers here...',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: () {
+              final title = _titleController.text;
+              final rawText = _bulkTextController.text;
+              if (title.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter a deck title.')));
+                return;
+              }
+              if (rawText.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please paste some text.')));
+                return;
+              }
+              Navigator.pop(context);
+              widget.onBulkImport(title, _descController.text, rawText);
+            },
+            icon: const Icon(Icons.done_all_rounded),
+            label: const Text('Import Cards'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.primary,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 16),
             ),

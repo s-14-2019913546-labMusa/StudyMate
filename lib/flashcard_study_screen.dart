@@ -4,6 +4,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'gamification_service.dart';
+import 'package:flutter_card_swiper/flutter_card_swiper.dart';
+import 'package:confetti/confetti.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 
 class FlashcardStudyScreen extends StatefulWidget {
   final String deckId;
@@ -22,8 +25,11 @@ class FlashcardStudyScreen extends StatefulWidget {
 }
 
 class _FlashcardStudyScreenState extends State<FlashcardStudyScreen> {
+  final CardSwiperController _swiperController = CardSwiperController();
+  final ConfettiController _confettiController = ConfettiController(duration: const Duration(seconds: 3));
+  final FlutterTts _flutterTts = FlutterTts();
+
   int _currentIndex = 0;
-  bool _isFlipped = false;
   bool _sessionCompleted = false;
 
   final Map<String, int> _sessionStats = {
@@ -32,18 +38,30 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen> {
     'hard': 0,
   };
 
-  void _flipCard() {
-    setState(() {
-      _isFlipped = !_isFlipped;
-    });
+  @override
+  void initState() {
+    super.initState();
+    _initTts();
   }
 
-  Future<void> _recordResponse(String difficulty) async {
-    _sessionStats[difficulty] = (_sessionStats[difficulty] ?? 0) + 1;
+  Future<void> _initTts() async {
+    await _flutterTts.setLanguage("en-US");
+  }
 
-    // Update difficulty of the current card in Firestore
-    final currentCard = widget.cards[_currentIndex];
-    final String cardId = currentCard['id'];
+  Future<void> _speak(String text) async {
+    await _flutterTts.speak(text);
+  }
+
+  @override
+  void dispose() {
+    _swiperController.dispose();
+    _confettiController.dispose();
+    _flutterTts.stop();
+    super.dispose();
+  }
+
+  Future<void> _recordResponse(String difficulty, String cardId) async {
+    _sessionStats[difficulty] = (_sessionStats[difficulty] ?? 0) + 1;
 
     final User? user = FirebaseAuth.instance.currentUser;
     if (user != null) {
@@ -61,7 +79,31 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen> {
           
           final int cardIdx = cardsList.indexWhere((c) => c['id'] == cardId);
           if (cardIdx != -1) {
-            cardsList[cardIdx]['difficulty'] = difficulty;
+            Map<String, dynamic> card = cardsList[cardIdx];
+            card['difficulty'] = difficulty;
+            
+            // SRS Logic
+            double ease = (card['ease'] as num?)?.toDouble() ?? 2.5;
+            int interval = (card['interval'] as num?)?.toInt() ?? 0;
+            
+            if (difficulty == 'easy') {
+              ease += 0.15;
+              interval = interval == 0 ? 4 : (interval * ease).round();
+            } else if (difficulty == 'medium') {
+              interval = interval == 0 ? 1 : (interval * 1.5).round();
+            } else if (difficulty == 'hard') {
+              ease = max(1.3, ease - 0.2);
+              interval = 1; // review tomorrow
+            }
+            
+            card['ease'] = ease;
+            card['interval'] = interval;
+            // Set time to beginning of the day so it's due any time that day
+            final nextDate = DateTime.now().add(Duration(days: interval));
+            final normalizedDate = DateTime(nextDate.year, nextDate.month, nextDate.day);
+            card['nextReviewDate'] = Timestamp.fromDate(normalizedDate);
+
+            cardsList[cardIdx] = card;
             await docRef.update({'cards': cardsList});
           }
         }
@@ -69,25 +111,40 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen> {
         debugPrint('Error updating card difficulty: $e');
       }
     }
+  }
 
-    // Go to next card or complete session
-    if (_currentIndex < widget.cards.length - 1) {
-      setState(() {
-        _isFlipped = false;
-        _currentIndex++;
-      });
-    } else {
-      setState(() {
-        _sessionCompleted = true;
-      });
-      _awardFlashcardXP();
+  bool _onSwipe(int previousIndex, int? currentIndex, CardSwiperDirection direction) {
+    String difficulty = 'medium';
+    if (direction == CardSwiperDirection.right) {
+      difficulty = 'easy';
+    } else if (direction == CardSwiperDirection.left) {
+      difficulty = 'hard';
     }
+
+    final cardId = widget.cards[previousIndex]['id'];
+    _recordResponse(difficulty, cardId);
+
+    setState(() {
+      _currentIndex = currentIndex ?? widget.cards.length;
+    });
+
+    if (currentIndex == null || currentIndex >= widget.cards.length) {
+      _finishSession();
+    }
+    return true;
+  }
+
+  void _finishSession() {
+    setState(() {
+      _sessionCompleted = true;
+    });
+    _confettiController.play();
+    _awardFlashcardXP();
   }
 
   void _resetSession() {
     setState(() {
       _currentIndex = 0;
-      _isFlipped = false;
       _sessionCompleted = false;
       _sessionStats['easy'] = 0;
       _sessionStats['medium'] = 0;
@@ -99,12 +156,10 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen> {
   Widget build(BuildContext context) {
     if (widget.cards.isEmpty) {
       return const Scaffold(
-        body: Center(child: Text('No cards in this deck.')),
+        backgroundColor: Color(0xFF0F172A),
+        body: Center(child: Text('No cards in this deck.', style: TextStyle(color: Colors.white))),
       );
     }
-
-    final currentCard = widget.cards[_currentIndex];
-    final progress = (_currentIndex + 1) / widget.cards.length;
 
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A), // Dark premium navy background
@@ -120,18 +175,36 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-          child: _sessionCompleted 
-              ? _buildCompletionView()
-              : _buildStudyView(currentCard, progress),
-        ),
+      body: Stack(
+        children: [
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+              child: _sessionCompleted 
+                  ? _buildCompletionView()
+                  : _buildStudyView(),
+            ),
+          ),
+          Align(
+            alignment: Alignment.topCenter,
+            child: ConfettiWidget(
+              confettiController: _confettiController,
+              blastDirectionality: BlastDirectionality.explosive,
+              emissionFrequency: 0.05,
+              numberOfParticles: 20,
+              maxBlastForce: 100,
+              minBlastForce: 80,
+              gravity: 0.2,
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildStudyView(Map<String, dynamic> currentCard, double progress) {
+  Widget _buildStudyView() {
+    double progress = (_currentIndex) / widget.cards.length;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -151,203 +224,69 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen> {
             ),
             const SizedBox(width: 16),
             Text(
-              '${_currentIndex + 1}/${widget.cards.length}',
+              '$_currentIndex/${widget.cards.length}',
               style: GoogleFonts.poppins(color: Colors.white70, fontWeight: FontWeight.bold),
             )
           ],
         ),
-        const SizedBox(height: 40),
+        const SizedBox(height: 20),
+        
+        const Text(
+          'Swipe Right = Easy  |  Swipe Up = Medium  |  Swipe Left = Hard',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Colors.white38, fontSize: 11),
+        ),
+        
+        const SizedBox(height: 10),
 
-        // Flip Card Widget
+        // Swiper Stack
         Expanded(
-          child: GestureDetector(
-            onTap: _flipCard,
-            child: FlipCardWidget(
-              isFlipped: _isFlipped,
-              front: _buildCardFace(
-                title: 'QUESTION',
-                content: currentCard['front'] ?? '',
-                color: const Color(0xFF4F46E5), // Indigo
-                icon: Icons.help_outline_rounded,
-              ),
-              back: _buildCardFace(
-                title: 'ANSWER',
-                content: currentCard['back'] ?? '',
-                color: const Color(0xFF0EA5E9), // Sky Blue
-                icon: Icons.check_circle_outline_rounded,
-              ),
-            ),
+          child: CardSwiper(
+            controller: _swiperController,
+            cardsCount: widget.cards.length,
+            onSwipe: _onSwipe,
+            allowedSwipeDirection: const AllowedSwipeDirection.symmetric(horizontal: true, vertical: true),
+            numberOfCardsDisplayed: widget.cards.length > 2 ? 3 : widget.cards.length,
+            padding: const EdgeInsets.all(0),
+            cardBuilder: (context, index, percentThresholdX, percentThresholdY) {
+              return SwipableFlashcard(
+                cardData: widget.cards[index] as Map<String, dynamic>,
+                onSpeak: _speak,
+              );
+            },
           ),
         ),
-        const SizedBox(height: 40),
+        const SizedBox(height: 20),
 
-        // Interactive control area
-        AnimatedSwitcher(
-          duration: const Duration(milliseconds: 300),
-          child: _isFlipped 
-              ? _buildDifficultySelectors()
-              : _buildShowAnswerButton(),
+        // Control Buttons
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            FloatingActionButton(
+              heroTag: 'btn_hard',
+              onPressed: () => _swiperController.swipe(CardSwiperDirection.left),
+              backgroundColor: Colors.redAccent.withValues(alpha: 0.2),
+              elevation: 0,
+              child: const Icon(Icons.close_rounded, color: Colors.redAccent),
+            ),
+            FloatingActionButton(
+              heroTag: 'btn_medium',
+              onPressed: () => _swiperController.swipe(CardSwiperDirection.top),
+              backgroundColor: Colors.orangeAccent.withValues(alpha: 0.2),
+              elevation: 0,
+              child: const Icon(Icons.remove_rounded, color: Colors.orangeAccent),
+            ),
+            FloatingActionButton(
+              heroTag: 'btn_easy',
+              onPressed: () => _swiperController.swipe(CardSwiperDirection.right),
+              backgroundColor: Colors.greenAccent.withValues(alpha: 0.2),
+              elevation: 0,
+              child: const Icon(Icons.check_rounded, color: Colors.greenAccent),
+            ),
+          ],
         ),
         const SizedBox(height: 20),
       ],
-    );
-  }
-
-  Widget _buildCardFace({
-    required String title,
-    required String content,
-    required Color color,
-    required IconData icon,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E293B), // Slate 800
-        borderRadius: BorderRadius.circular(32),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08), width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.4),
-            blurRadius: 30,
-            offset: const Offset(0, 15),
-          ),
-          BoxShadow(
-            color: color.withValues(alpha: 0.08),
-            blurRadius: 15,
-            spreadRadius: 2,
-          )
-        ],
-      ),
-      padding: const EdgeInsets.all(32),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: color.withValues(alpha: 0.3)),
-                ),
-                child: Text(
-                  title,
-                  style: GoogleFonts.poppins(
-                    color: color,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                    letterSpacing: 1.0,
-                  ),
-                ),
-              ),
-              Icon(icon, color: Colors.white38, size: 28),
-            ],
-          ),
-          const Spacer(),
-          Center(
-            child: SingleChildScrollView(
-              child: Text(
-                content,
-                style: GoogleFonts.poppins(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w600,
-                  height: 1.5,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-          ),
-          const Spacer(),
-          Text(
-            'Tap to flip card',
-            style: GoogleFonts.poppins(
-              color: Colors.white30,
-              fontSize: 12,
-              fontStyle: FontStyle.italic,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildShowAnswerButton() {
-    return ElevatedButton(
-      key: const ValueKey('show_answer'),
-      onPressed: _flipCard,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF0F172A),
-        padding: const EdgeInsets.symmetric(vertical: 18),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        elevation: 8,
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.flip_rounded, size: 20),
-          const SizedBox(width: 8),
-          Text(
-            'Show Answer',
-            style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDifficultySelectors() {
-    return Row(
-      key: const ValueKey('difficulty_selectors'),
-      children: [
-        Expanded(
-          child: _buildDifficultyButton(
-            label: 'Hard',
-            color: Colors.redAccent,
-            onPressed: () => _recordResponse('hard'),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildDifficultyButton(
-            label: 'Medium',
-            color: Colors.orangeAccent,
-            onPressed: () => _recordResponse('medium'),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildDifficultyButton(
-            label: 'Easy',
-            color: Colors.greenAccent,
-            onPressed: () => _recordResponse('easy'),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDifficultyButton({
-    required String label,
-    required Color color,
-    required VoidCallback onPressed,
-  }) {
-    return OutlinedButton(
-      onPressed: onPressed,
-      style: OutlinedButton.styleFrom(
-        foregroundColor: color,
-        side: BorderSide(color: color.withValues(alpha: 0.5), width: 1.5),
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        backgroundColor: color.withValues(alpha: 0.05),
-      ),
-      child: Text(
-        label,
-        style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 15),
-      ),
     );
   }
 
@@ -381,7 +320,7 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen> {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),
-          Text(
+          const Text(
             'You completed your study session for this deck.',
             style: TextStyle(color: Colors.white60, fontSize: 15),
             textAlign: TextAlign.center,
@@ -489,6 +428,139 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen> {
   }
 }
 
+class SwipableFlashcard extends StatefulWidget {
+  final Map<String, dynamic> cardData;
+  final Function(String) onSpeak;
+
+  const SwipableFlashcard({super.key, required this.cardData, required this.onSpeak});
+
+  @override
+  State<SwipableFlashcard> createState() => _SwipableFlashcardState();
+}
+
+class _SwipableFlashcardState extends State<SwipableFlashcard> {
+  bool _isFlipped = false;
+
+  void _toggleFlip() {
+    setState(() {
+      _isFlipped = !_isFlipped;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: _toggleFlip,
+      child: FlipCardWidget(
+        isFlipped: _isFlipped,
+        front: _buildCardFace(
+          title: 'QUESTION',
+          content: widget.cardData['front'] ?? '',
+          color: const Color(0xFF4F46E5),
+          icon: Icons.help_outline_rounded,
+        ),
+        back: _buildCardFace(
+          title: 'ANSWER',
+          content: widget.cardData['back'] ?? '',
+          color: const Color(0xFF0EA5E9),
+          icon: Icons.check_circle_outline_rounded,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCardFace({
+    required String title,
+    required String content,
+    required Color color,
+    required IconData icon,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            const Color(0xFF1E293B), // Slate 800
+            const Color(0xFF111827), // Gray 900
+          ]
+        ),
+        borderRadius: BorderRadius.circular(32),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.5),
+            blurRadius: 30,
+            offset: const Offset(0, 15),
+          ),
+          BoxShadow(
+            color: color.withValues(alpha: 0.05),
+            blurRadius: 20,
+            spreadRadius: 2,
+          )
+        ],
+      ),
+      padding: const EdgeInsets.all(32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: color.withValues(alpha: 0.3)),
+                ),
+                child: Text(
+                  title,
+                  style: GoogleFonts.poppins(
+                    color: color,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                    letterSpacing: 1.0,
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.volume_up_rounded, color: Colors.white70),
+                onPressed: () => widget.onSpeak(content),
+              ),
+            ],
+          ),
+          const Spacer(),
+          Center(
+            child: SingleChildScrollView(
+              child: Text(
+                content,
+                style: GoogleFonts.poppins(
+                  color: Colors.white,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w600,
+                  height: 1.5,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+          const Spacer(),
+          Text(
+            'Tap to flip card',
+            style: GoogleFonts.poppins(
+              color: Colors.white30,
+              fontSize: 12,
+              fontStyle: FontStyle.italic,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 // Custom 3D Flip Card Widget
 class FlipCardWidget extends StatelessWidget {
   final bool isFlipped;
@@ -504,22 +576,22 @@ class FlipCardWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween<double>(begin: 0, end: isFlipped ? pi : 0),
+    return TweenAnimationBuilder(
+      tween: Tween<double>(begin: 0, end: isFlipped ? 180 : 0),
       duration: const Duration(milliseconds: 600),
-      curve: Curves.easeOutCubic,
-      builder: (context, angle, child) {
+      curve: Curves.easeOutBack,
+      builder: (context, double value, child) {
+        bool showFront = value < 90;
         return Transform(
-          transform: Matrix4.identity()
-            ..setEntry(3, 2, 0.0015) // Perspective factor (crucial for 3D look)
-            ..rotateY(angle),
           alignment: Alignment.center,
-          child: angle < pi / 2
+          transform: Matrix4.identity()
+            ..setEntry(3, 2, 0.001) // perspective
+            ..rotateY(value * pi / 180),
+          child: showFront
               ? front
               : Transform(
-                  // We flip the back card horizontally so it doesn't display mirrored
-                  transform: Matrix4.identity()..rotateY(pi),
                   alignment: Alignment.center,
+                  transform: Matrix4.identity()..rotateY(pi),
                   child: back,
                 ),
         );

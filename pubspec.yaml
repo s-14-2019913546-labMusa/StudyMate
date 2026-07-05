@@ -62,7 +62,7 @@ dependencies:
   flutter_ringtone_player: ^4.0.0
   file_picker: ^12.0.0-beta.7
   firebase_messaging: ^16.4.1
-  url_launcher: ^6.3.0
+  url_launcher: ^6.3.2
   open_filex: ^4.4.0
   hijri: ^3.0.0
   pdf: ^3.10.8
@@ -74,6 +74,9 @@ dependencies:
   googleapis: ^11.4.0
   googleapis_auth: any
   connectivity_plus: ^7.2.0
+  flutter_tts: ^4.2.5
+  confetti: ^0.8.0
+  flutter_card_swiper: ^7.2.0
 dev_dependencies:
   flutter_test:
     sdk: flutter
