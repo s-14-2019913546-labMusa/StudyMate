@@ -233,7 +233,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     }
 
     // Use file_picker to open the system's sound/ringtone picker
-    final result = await fp.FilePicker.pickFiles(
+    final result = await fp.FilePicker.platform.pickFiles(
       type: fp.FileType.audio,
       allowMultiple: false,
     );

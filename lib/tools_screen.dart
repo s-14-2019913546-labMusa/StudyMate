@@ -1562,9 +1562,83 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
   Stream<QuerySnapshot>? _notesLimitStream;
   Stream<QuerySnapshot>? _notesAllStream;
 
+  // Custom Undo variables
+  final List<String> _undoHistory = [];
+  bool _isUndoing = false;
+  Timer? _historyTimer;
+
+  void _initUndoListener() {
+    _undoHistory.add(_contentController.text);
+    int prevWordCount = _getWordCount(_contentController.text);
+
+    _contentController.addListener(() {
+      if (_isUndoing) return;
+
+      final currentText = _contentController.text;
+      final currentWordCount = _getWordCount(currentText);
+
+      // Check if a word boundary was just typed
+      final bool isWordBoundary = currentText.isNotEmpty &&
+          (currentText.endsWith(' ') ||
+           currentText.endsWith('\n') ||
+           currentText.endsWith('.') ||
+           currentText.endsWith(',') ||
+           currentText.endsWith('?') ||
+           currentText.endsWith('!'));
+
+      // If word count changed or a word boundary is typed, save state immediately
+      if (currentWordCount != prevWordCount || isWordBoundary) {
+        prevWordCount = currentWordCount;
+        _historyTimer?.cancel();
+        if (_undoHistory.isEmpty || _undoHistory.last != currentText) {
+          if (_undoHistory.length >= 6) {
+            _undoHistory.removeAt(0);
+          }
+          _undoHistory.add(currentText);
+        }
+      } else {
+        // Fallback debounce: if typing is paused for 1.2s, record the state
+        _historyTimer?.cancel();
+        _historyTimer = Timer(const Duration(milliseconds: 1200), () {
+          if (!mounted) return;
+          final pauseText = _contentController.text;
+          if (_undoHistory.isEmpty || _undoHistory.last != pauseText) {
+            if (_undoHistory.length >= 6) {
+              _undoHistory.removeAt(0);
+            }
+            _undoHistory.add(pauseText);
+          }
+        });
+      }
+    });
+  }
+
+  int _getWordCount(String text) {
+    if (text.trim().isEmpty) return 0;
+    return text.trim().split(RegExp(r'\s+')).length;
+  }
+
+  void _performUndo() {
+    if (_undoHistory.length > 1) {
+      setState(() {
+        _isUndoing = true;
+        _undoHistory.removeLast();
+        final prevText = _undoHistory.last;
+        _contentController.text = prevText;
+        _contentController.selection = TextSelection.collapsed(offset: _contentController.text.length);
+        _isUndoing = false;
+      });
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No more undo steps available (Max 5 steps)')),
+      );
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+    _initUndoListener();
     _loadApiKey();
     if (currentUser != null) {
       _notesLimitStream = FirebaseFirestore.instance
@@ -2012,6 +2086,7 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
     _titleController.dispose();
     _contentController.dispose();
     _audioRecorder.dispose();
+    _historyTimer?.cancel();
     super.dispose();
   }
 
@@ -2022,13 +2097,25 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
     Color cardColor = _isNoteDarkMode ? const Color(0xFF2D2D2D) : Theme.of(context).cardColor;
 
     return Scaffold(
-      resizeToAvoidBottomInset: false, // FAB এর সাথে কিবোর্ডের সমস্যা এড়ানোর জন্য
+      resizeToAvoidBottomInset: true, // কিবোর্ড উঠলে ভিউ উপরে উঠে যাবে
       backgroundColor: bgColor,
       appBar: AppBar(
         title: Text('Smart Notes', style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
         elevation: 0,
         iconTheme: IconThemeData(color: textColor),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.undo_rounded),
+            tooltip: 'Undo (Max 5 steps)',
+            onPressed: _performUndo,
+          ),
+          IconButton(
+            icon: _isSaving 
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) 
+                : const Icon(Icons.save_rounded),
+            tooltip: 'Save Note',
+            onPressed: _isSaving ? null : _saveNote,
+          ),
           IconButton(
             icon: Icon(_isNoteDarkMode ? Icons.light_mode_rounded : Icons.dark_mode_rounded),
             tooltip: 'Toggle Dark Mode',
@@ -2044,10 +2131,37 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
       body: SingleChildScrollView(
         padding: const EdgeInsets.only(bottom: 100), // FAB এর জন্য জায়গা
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             if (_isProcessingAI)
               const LinearProgressIndicator(color: Colors.indigoAccent),
-            // 1. Smart Editor Box
+            
+            // 1. Plain Bold Title Field (Directly on Page Background)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              child: TextField(
+                controller: _titleController,
+                style: TextStyle(
+                  fontSize: 26, 
+                  fontWeight: FontWeight.w900, 
+                  color: _isNoteDarkMode ? Colors.white : Colors.black87,
+                ),
+                decoration: InputDecoration(
+                  hintText: 'Note Title...',
+                  hintStyle: TextStyle(
+                    color: _isNoteDarkMode ? Colors.grey.shade500 : Colors.grey.shade400,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  border: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+            ),
+
+            // 2. Smart Editor Container
             Container(
               margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
               decoration: BoxDecoration(
@@ -2060,21 +2174,6 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
               ),
               child: Column(
                 children: [
-                  // Title
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                    child: TextField(
-                      controller: _titleController,
-                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: textColor),
-                      decoration: InputDecoration(
-                        hintText: 'Note Title...',
-                        hintStyle: TextStyle(color: Colors.grey.shade500),
-                        border: InputBorder.none,
-                      ),
-                    ),
-                  ),
-                  Divider(height: 1, color: _isNoteDarkMode ? Colors.grey.shade800 : Colors.grey.shade200),
-                  
                   // Boxed Content Body
                   Container(
                     margin: const EdgeInsets.all(16),
@@ -2095,12 +2194,15 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
                           ),
                           TextField(
                             controller: _contentController,
-                            maxLines: 10, // একটি নির্দিষ্ট উচ্চতা দেওয়া হলো
-                            minLines: 8,
+                            maxLines: null,
+                            minLines: 10,
                             style: TextStyle(fontSize: _fontSize, color: textColor, height: 1.5),
                             decoration: InputDecoration(
                               hintText: 'Start writing your notes here...',
-                              hintStyle: TextStyle(color: Colors.grey.shade500),
+                              hintStyle: TextStyle(
+                                color: _isNoteDarkMode ? Colors.grey.shade600 : Colors.grey.shade400,
+                                fontSize: 14,
+                              ),
                               border: InputBorder.none,
                               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                             ),
@@ -8327,7 +8429,7 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
   Future<void> _pickPdf() async {
     try {
       setState(() => _isLoading = true);
-      final result = await fp.FilePicker.pickFiles(
+      final result = await fp.FilePicker.platform.pickFiles(
         type: fp.FileType.custom,
         allowedExtensions: ['pdf'],
         allowMultiple: true,

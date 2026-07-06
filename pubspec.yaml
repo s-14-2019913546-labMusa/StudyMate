@@ -60,7 +60,7 @@ dependencies:
   flutter_local_notifications: ^22.0.1
   timezone: ^0.11.0
   flutter_ringtone_player: ^4.0.0
-  file_picker: ^12.0.0-beta.7
+  file_picker: ^8.1.2
   firebase_messaging: ^16.4.1
   url_launcher: ^6.3.2
   open_filex: ^4.4.0
@@ -77,6 +77,9 @@ dependencies:
   flutter_tts: ^4.2.5
   confetti: ^0.8.0
   flutter_card_swiper: ^7.2.0
+  flutter_quill: ^11.5.1
+  share_plus: ^12.0.2
+  image: ^4.9.1
 dev_dependencies:
   flutter_test:
     sdk: flutter

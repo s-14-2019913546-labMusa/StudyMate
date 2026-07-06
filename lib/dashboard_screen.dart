@@ -1384,11 +1384,8 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
         if (snapshot.hasData) {
           for (var doc in snapshot.data!.docs) {
             final data = doc.data() as Map<String, dynamic>;
-            final lastMessageSenderId = data['lastMessageSenderId'] ?? '';
-            if (lastMessageSenderId != user!.uid) {
-              final Map<String, dynamic> unreadMap = data['unreadCount'] ?? {};
-              totalUnread += (unreadMap[user!.uid] as num? ?? 0).toInt();
-            }
+            final Map<String, dynamic> unreadMap = data['unreadCount'] ?? {};
+            totalUnread += (unreadMap[user!.uid] as num? ?? 0).toInt();
           }
         }
 

@@ -284,7 +284,7 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
   /// Device থেকে audio file pick করে list এ যোগ করে
   Future<void> _pickCustomMusic() async {
     try {
-      final result = await fp.FilePicker.pickFiles(
+      final result = await fp.FilePicker.platform.pickFiles(
         type: fp.FileType.custom,
         allowedExtensions: ['mp3', 'wav', 'aac', 'm4a', 'flac', 'ogg'],
         allowMultiple: true,

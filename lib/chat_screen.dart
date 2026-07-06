@@ -232,7 +232,7 @@ class _ChatScreenState extends State<ChatScreen> {
         fileName = pickedFile.name;
       }
     } else {
-      final result = await fp.FilePicker.pickFiles(
+      final result = await fp.FilePicker.platform.pickFiles(
         type: fp.FileType.custom,
         allowedExtensions: ['pdf', 'doc', 'docx', 'txt'],
       );
