@@ -48,6 +48,9 @@ class LanguageManager extends ChangeNotifier {
   }
 
   String _cleanBilingualString(String input, String langCode) {
+    if (input.length > 80 || input.contains('\n')) {
+      return input;
+    }
     if (!input.contains('(') || !input.contains(')')) {
       return input;
     }
@@ -201,6 +204,17 @@ class LanguageManager extends ChangeNotifier {
     'Pending': 'অপেক্ষমান',
     'Private Task': 'ব্যক্তিগত টাস্ক',
     'About Us': 'আমাদের সম্পর্কে',
+    'about_us_description': 'স্টাডিমেট (StudyMate) হলো একটি অল-ইন-ওয়ান প্রোডাক্টিভিটি অ্যাপ, যা স্কুল, কলেজ, বিশ্ববিদ্যালয় এবং বিসিএস বা ব্যাংক জবসহ বিভিন্ন প্রতিযোগিতামূলক পরীক্ষার পরীক্ষার্থীদের জন্য বিশেষভাবে ডিজাইন করা হয়েছে।\n\nআমাদের লক্ষ্য হলো আপনাকে আরও স্মার্টলি পড়াশোনা করতে সাহায্য করা, শৃঙ্খলিত রাখা এবং একটি স্বাস্থ্যকর ও ভারসাম্যপূর্ণ জীবনধারা বজায় রাখতে সহায়তা করা।\n\nমূল ফিচারসমূহ:\n• স্মার্ট স্টাডি প্ল্যানার: কাস্টম রুটিন এবং এআই (AI) জেনারেটরের মাধ্যমে আপনার দৈনিক ও সাপ্তাহিক পড়াশোনা খুব সহজেই সাজিয়ে নিন।\n• ফোকাস ও প্রোডাক্টিভিটি: পোমোডোরো টাইমার, স্টপওয়াচ, ফোকাস মিউজিক এবং ডেডিকেটেড ফোকাস মোডের সাহায্যে পড়াশোনায় গভীর মনোযোগ ধরে রাখুন।\n• কার্যকর লার্নিং টুলস: ফ্ল্যাশকার্ড, ডিকশনারি, পিডিএফ রিডার এবং বৈজ্ঞানিক ১-৪-৭ রিভিশন পদ্ধতির মাধ্যমে পড়া সহজে মনে রাখুন।\n• সহযোগিতামূলক পড়াশোনা: সোশ্যাল হাব, স্টাডি রুম এবং পার্টনার টাস্কের মাধ্যমে বন্ধুদের সাথে যুক্ত থেকে একসাথে পড়াশোনা করুন।\n• সুস্থতা ও ইসলামিক লাইফ: ঘুম ও মেজাজ ট্র্যাক করুন, শ্বাস-প্রশ্বাসের ব্যায়াম করুন এবং নামাজের সময়সূচী, কুরআন, কিবলা কম্পাস ও তাসবিহ রিডারের মতো ফিচারগুলো ব্যবহার করুন।\n• গ্যামিফিকেশন: প্রতিদিনের স্ট্রিক বজায় রেখে এক্সপি (XP), লেভেল এবং ব্যাজ আনলক করে নিজের পড়ার আগ্রহ দ্বিগুণ করুন।\n\nপরবর্তী ক্লাস কিংবা ক্যারিয়ার গড়ার যুদ্ধ—আপনার প্রতিটি পদক্ষেপে স্টাডিমেট থাকবে আপনার বিশ্বস্ত সারথী হিসেবে!',
+    'Add New Task': 'নতুন টাস্ক যুক্ত করুন',
+    'Add to Next-day Routine': 'নেক্সট ডে রুটিনে যুক্ত করুন',
+    'Add Shared Task': 'নতুন শেয়ার্ড টাস্ক যুক্ত করুন',
+    'Reschedule': 'রিশিডিউল',
+    'Reschedule Task': 'টাস্ক রিশিডিউল করুন',
+    'Select Date': 'তারিখ নির্বাচন করুন',
+    'Today': 'আজ',
+    'Tomorrow': 'আগামীকাল',
+    'Confirm Reschedule': 'রিশিডিউল নিশ্চিত করুন',
+    'Reschedule successful!': 'রিশিডিউল সফল হয়েছে!',
     'Version': 'ভার্সন',
     'Connect with Us': 'আমাদের সাথে যুক্ত হোন',
     'Follow us on social media for updates and support.': 'আপডেট এবং সাপোর্টের জন্য আমাদের সোশ্যাল মিডিয়ায় ফলো করুন।',
@@ -454,6 +468,12 @@ class LanguageManager extends ChangeNotifier {
     'Incorrect PIN': 'ভুল পিন',
     'Forgot PIN?': 'পিন ভুলে গেছেন?',
     'If you forget your PIN, you must log out and log back in to reset it. Do you want to log out now?': 'পিন ভুলে গেলে রিসেটের জন্য আপনাকে লগআউট করতে হবে। আপনি কি এখনই লগআউট করতে চান?',
+    'Accept': 'গ্রহণ করুন',
+    'Where would you like to go?': 'আপনি কোথায় যেতে চান?',
+    'Messages': 'মেসেজ',
+    'Friend Requests': 'ফ্রেন্ড রিকোয়েস্ট',
+    'This profile is private.': 'এই প্রোফাইলটি ব্যক্তিগত।',
+    'You must be friends with this user to view their task list.': 'এই ইউজারের টাস্ক লিস্ট দেখতে হলে আপনাকে অবশ্যই তার ফ্রেন্ডলিস্টে থাকতে হবে।',
   };
 
   static const Map<String, String> _bnToEn = {
@@ -468,6 +488,7 @@ class LanguageManager extends ChangeNotifier {
     ' weekly routine!': ' weekly routine!',
 
     // Privacy policy section title
+    'about_us_description': 'StudyMate is the ultimate all-in-one productivity companion designed specifically for school, college, and university students, as well as competitive exam candidates (such as BCS and Bank exams).\n\nOur mission is to help you study smarter, stay disciplined, and maintain a healthy, balanced lifestyle.\n\nKey Features:\n• Smart Study Planner: Plan your days and weeks effortlessly with our custom Study Planner and AI Routine Generator.\n• Focus & Productivity: Beat distractions with the Pomodoro Timer, Stopwatch, Focus Music, and dedicated Focus Mode.\n• Effective Learning Aids: Enhance retention using Flashcards, a built-in Dictionary, PDF Reader, and the scientific 1-4-7 Revision method.\n• Collaborative Studying: Connect with peers through the Social Hub, Study Rooms, and shared Partner Tasks.\n• Well-being & Islamic Life: Track your sleep and mood, practice breathing exercises, and access spiritual tools like Prayer Times, Quran, Qibla Compass, and Tasbeeh.\n• Gamification: Stay motivated with Daily Streaks, XP points, Levels, and Unlocked Badges.\n\nWhether you are preparing for your next class or a major career exam, StudyMate is here to guide you every step of the way!',
     '১. তথ্য সংগ্রহ (Information Collection)': '1. Information Collection',
     'StudyMate আপনার প্রোফাইল তৈরি করতে নাম, ইমেল এবং প্রোফাইল ছবি সংগ্রহ করে। আপনার স্টাডি সেশন, টাস্ক ট্র্যাকিং এবং ইসলামিক লাইফ স্ক্রিনের কার্যক্রম শুধুমাত্র আপনার ব্যক্তিগত অগ্রগতির জন্য ব্যবহার করা হয়।':
         'StudyMate collects your name, email and profile picture to create your profile. Your study sessions, task tracking and Islamic Life activities are only used for your personal progress.',

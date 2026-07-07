@@ -803,31 +803,120 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       return;
     }
 
-    final docRef = FirebaseFirestore.instance
+    final String todayDocId = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final String newDocId = updatedTask.startTime != null
+        ? DateFormat('yyyy-MM-dd').format(updatedTask.startTime!)
+        : todayDocId;
+
+    // Check today's document first
+    final todayDocRef = FirebaseFirestore.instance
         .collection('users')
         .doc(user!.uid)
         .collection('dailyRoutines')
-        .doc(_todayDocId);
+        .doc(todayDocId);
 
-    final snapshot = await docRef.get();
-    if (snapshot.exists) {
-      DailyRoutine routine = DailyRoutine.fromMap(snapshot.data()!, snapshot.id);
+    final todaySnapshot = await todayDocRef.get();
+    bool updatedInToday = false;
+
+    if (todaySnapshot.exists) {
+      DailyRoutine routine = DailyRoutine.fromMap(todaySnapshot.data()!, todaySnapshot.id);
       int index = routine.tasks.indexWhere((t) => t.id == updatedTask.id);
       if (index != -1) {
-        routine.tasks[index] = updatedTask;
-        await docRef.update({'tasks': routine.tasks.map((t) => t.toMap()).toList()});
-        
-        // local notification সিডিউল বা বাতিল করা
-        if (updatedTask.alarmEnabled && updatedTask.status != 'completed' && !updatedTask.isCompleted) {
-          await LocalNotificationService.scheduleTaskNotifications(updatedTask);
+        if (todayDocId == newDocId) {
+          // Same day update in today's document
+          routine.tasks[index] = updatedTask;
+          await todayDocRef.update({'tasks': routine.tasks.map((t) => t.toMap()).toList()});
         } else {
-          await LocalNotificationService.cancelTaskNotifications(updatedTask.id);
+          // Moved from today to another day (e.g. tomorrow)
+          routine.tasks.removeAt(index);
+          await todayDocRef.update({'tasks': routine.tasks.map((t) => t.toMap()).toList()});
+          
+          // Add to new day
+          final newDocRef = FirebaseFirestore.instance
+              .collection('users')
+              .doc(user!.uid)
+              .collection('dailyRoutines')
+              .doc(newDocId);
+          final newSnapshot = await newDocRef.get();
+          if (newSnapshot.exists) {
+            DailyRoutine newRoutine = DailyRoutine.fromMap(newSnapshot.data()!, newSnapshot.id);
+            newRoutine.tasks.removeWhere((t) => t.id == updatedTask.id);
+            newRoutine.tasks.add(updatedTask);
+            await newDocRef.update({'tasks': newRoutine.tasks.map((t) => t.toMap()).toList()});
+          } else {
+            final newRoutine = DailyRoutine(
+              id: newDocId,
+              userId: user!.uid,
+              date: DateFormat('yyyy-MM-dd').parse(newDocId),
+              tasks: [updatedTask],
+            );
+            await newDocRef.set(newRoutine.toMap());
+          }
         }
+        updatedInToday = true;
+      }
+    }
 
-        if (updatedTask.status == 'completed') {
-          _loadStreak();
+    if (!updatedInToday) {
+      // It's not in today's routine. Check yesterday's routine!
+      final yesterday = DateTime.now().subtract(const Duration(days: 1));
+      final yesterdayDocId = DateFormat('yyyy-MM-dd').format(yesterday);
+      
+      final yesterdayDocRef = FirebaseFirestore.instance
+          .collection('users')
+          .doc(user!.uid)
+          .collection('dailyRoutines')
+          .doc(yesterdayDocId);
+
+      final yesterdaySnapshot = await yesterdayDocRef.get();
+      if (yesterdaySnapshot.exists) {
+        DailyRoutine routine = DailyRoutine.fromMap(yesterdaySnapshot.data()!, yesterdaySnapshot.id);
+        int index = routine.tasks.indexWhere((t) => t.id == updatedTask.id);
+        if (index != -1) {
+          if (yesterdayDocId == newDocId) {
+            // Same day update in yesterday's document
+            routine.tasks[index] = updatedTask;
+            await yesterdayDocRef.update({'tasks': routine.tasks.map((t) => t.toMap()).toList()});
+          } else {
+            // Moved from yesterday to today/tomorrow
+            routine.tasks.removeAt(index);
+            await yesterdayDocRef.update({'tasks': routine.tasks.map((t) => t.toMap()).toList()});
+            
+            // Add to new day
+            final newDocRef = FirebaseFirestore.instance
+                .collection('users')
+                .doc(user!.uid)
+                .collection('dailyRoutines')
+                .doc(newDocId);
+            final newSnapshot = await newDocRef.get();
+            if (newSnapshot.exists) {
+              DailyRoutine newRoutine = DailyRoutine.fromMap(newSnapshot.data()!, newSnapshot.id);
+              newRoutine.tasks.removeWhere((t) => t.id == updatedTask.id);
+              newRoutine.tasks.add(updatedTask);
+              await newDocRef.update({'tasks': newRoutine.tasks.map((t) => t.toMap()).toList()});
+            } else {
+              final newRoutine = DailyRoutine(
+                id: newDocId,
+                userId: user!.uid,
+                date: DateFormat('yyyy-MM-dd').parse(newDocId),
+                tasks: [updatedTask],
+              );
+              await newDocRef.set(newRoutine.toMap());
+            }
+          }
         }
       }
+    }
+
+    // Schedule/cancel notifications
+    if (updatedTask.alarmEnabled && updatedTask.status != 'completed' && !updatedTask.isCompleted) {
+      await LocalNotificationService.scheduleTaskNotifications(updatedTask);
+    } else {
+      await LocalNotificationService.cancelTaskNotifications(updatedTask.id);
+    }
+
+    if (updatedTask.status == 'completed') {
+      _loadStreak();
     }
   }
 
@@ -1005,8 +1094,8 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                     borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
                   ),
                   builder: (context) => AddTaskBottomSheet(
-                    title: 'নতুন টাস্ক যুক্ত করুন (Add New Task)',
-                    submitButtonText: 'সেভ নিউ টাস্ক',
+                    title: 'Add New Task'.tr(),
+                    submitButtonText: 'Save'.tr(),
                     onTaskAdded: (newTask) {
                       _addTaskToFirestore(newTask);
                     },
@@ -1379,46 +1468,105 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           .collection('chats')
           .where('participants', arrayContains: user!.uid)
           .snapshots(),
-      builder: (context, snapshot) {
-        int totalUnread = 0;
-        if (snapshot.hasData) {
-          for (var doc in snapshot.data!.docs) {
-            final data = doc.data() as Map<String, dynamic>;
-            final Map<String, dynamic> unreadMap = data['unreadCount'] ?? {};
-            totalUnread += (unreadMap[user!.uid] as num? ?? 0).toInt();
-          }
-        }
+      builder: (context, chatsSnap) {
+        return StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('users')
+              .doc(user!.uid)
+              .collection('friends')
+              .where('status', isEqualTo: 'pending')
+              .snapshots(),
+          builder: (context, requestsSnap) {
+            int unreadMessages = 0;
+            if (chatsSnap.hasData) {
+              for (var doc in chatsSnap.data!.docs) {
+                final data = doc.data() as Map<String, dynamic>;
+                final Map<String, dynamic> unreadMap = data['unreadCount'] ?? {};
+                unreadMessages += (unreadMap[user!.uid] as num? ?? 0).toInt();
+              }
+            }
 
-        return Stack(
-          children: [
-            IconButton(
-              icon: Icon(Icons.message_outlined, color: Theme.of(context).colorScheme.onSurface, size: 30),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const SocialHubScreen(initialTabIndex: 0)),
-                );
-              },
-            ),
-            if (totalUnread > 0)
-              Positioned(
-                right: 8,
-                top: 8,
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: const BoxDecoration(
-                    color: Colors.red,
-                    shape: BoxShape.circle,
-                  ),
-                  constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-                  child: Text(
-                    '$totalUnread',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                    textAlign: TextAlign.center,
-                  ),
+            int pendingRequests = 0;
+            if (requestsSnap.hasData) {
+              pendingRequests = requestsSnap.data!.docs.length;
+            }
+
+            int totalNotifications = unreadMessages + pendingRequests;
+
+            return Stack(
+              children: [
+                IconButton(
+                  icon: Icon(Icons.message_outlined, color: Theme.of(context).colorScheme.onSurface, size: 30),
+                  onPressed: () {
+                    if (unreadMessages > 0 && pendingRequests > 0) {
+                      // Both are available, show choice dialog
+                      showDialog(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          title: Text('Notifications'.tr()),
+                          content: Text('Where would you like to go?'.tr()),
+                          actions: [
+                            TextButton.icon(
+                              onPressed: () {
+                                Navigator.pop(ctx);
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (_) => const SocialHubScreen(initialTabIndex: 0)),
+                                );
+                              },
+                              icon: const Icon(Icons.chat_rounded),
+                              label: Text('${'Messages'.tr()} ($unreadMessages)'),
+                            ),
+                            TextButton.icon(
+                              onPressed: () {
+                                Navigator.pop(ctx);
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (_) => const SocialHubScreen(initialTabIndex: 3)),
+                                );
+                              },
+                              icon: const Icon(Icons.people_rounded),
+                              label: Text('${'Friend Requests'.tr()} ($pendingRequests)'),
+                            ),
+                          ],
+                        ),
+                      );
+                    } else if (pendingRequests > 0) {
+                      // Navigate to My Friends (tab 3)
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const SocialHubScreen(initialTabIndex: 3)),
+                      );
+                    } else {
+                      // Default to Chats (tab 0)
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const SocialHubScreen(initialTabIndex: 0)),
+                      );
+                    }
+                  },
                 ),
-              ),
-          ],
+                if (totalNotifications > 0)
+                  Positioned(
+                    right: 8,
+                    top: 8,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: Colors.red,
+                        shape: BoxShape.circle,
+                      ),
+                      constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                      child: Text(
+                        '$totalNotifications',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
         );
       },
     );
@@ -2976,74 +3124,80 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
             const SizedBox(height: 12),
             
             // Row 5: Control Buttons
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              alignment: WrapAlignment.spaceEvenly,
-              crossAxisAlignment: WrapCrossAlignment.center,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                if (_status == 'pending' || _status == 'paused')
-                  ElevatedButton.icon(
-                    icon: Icon(_status == 'paused' ? Icons.play_arrow_rounded : Icons.play_circle_fill_rounded, size: btnIconSize),
-                    label: Text((_status == 'paused' ? 'Resume' : 'Start').tr(), style: TextStyle(fontSize: btnFontSize, fontWeight: FontWeight.bold)),
-                    onPressed: () {
-                      final now = DateTime.now();
-                      double progress = widget.task.totalDurationMinutes > 0
-                          ? (_elapsedSeconds / (widget.task.totalDurationMinutes * 60))
-                          : 0.0;
-                      bool isMissed = widget.task.endTime != null && widget.task.endTime!.isBefore(now) && progress < 0.1;
+                if (_status == 'pending' || _status == 'paused') ...[
+                  Flexible(
+                    child: ElevatedButton.icon(
+                      icon: Icon(_status == 'paused' ? Icons.play_arrow_rounded : Icons.play_circle_fill_rounded, size: btnIconSize),
+                      label: Text((_status == 'paused' ? 'Resume' : 'Start').tr(), style: TextStyle(fontSize: btnFontSize, fontWeight: FontWeight.bold)),
+                      onPressed: () {
+                        final now = DateTime.now();
+                        double progress = widget.task.totalDurationMinutes > 0
+                            ? (_elapsedSeconds / (widget.task.totalDurationMinutes * 60))
+                            : 0.0;
+                        bool isMissed = widget.task.endTime != null && widget.task.endTime!.isBefore(now) && progress < 0.1;
 
-                      if (isMissed && _status == 'pending') {
-                        _showMissedTaskWarningDialog();
-                      } else {
-                        _startTimer(saveToDb: true);
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-                      foregroundColor: Theme.of(context).colorScheme.primary,
-                      elevation: 0,
-                      minimumSize: Size(0, btnHeight),
-                      padding: btnPadding,
-                    ),
-                  )
-                else if (_status == 'running')
-                  ElevatedButton.icon(
-                    icon: Icon(Icons.pause_rounded, size: btnIconSize),
-                    label: Text('Pause'.tr(), style: TextStyle(fontSize: btnFontSize, fontWeight: FontWeight.bold)),
-                    onPressed: _pauseTimer,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFFEF3C7), // Light Amber
-                      foregroundColor: const Color(0xFFD97706), // Amber 600
-                      elevation: 0,
-                      minimumSize: Size(0, btnHeight),
-                      padding: btnPadding,
+                        if (isMissed && _status == 'pending') {
+                          _showMissedTaskWarningDialog();
+                        } else {
+                          _startTimer(saveToDb: true);
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                        foregroundColor: Theme.of(context).colorScheme.primary,
+                        elevation: 0,
+                        minimumSize: Size(0, btnHeight),
+                        padding: btnPadding,
+                      ),
                     ),
                   ),
+                ] else if (_status == 'running') ...[
+                  Flexible(
+                    child: ElevatedButton.icon(
+                      icon: Icon(Icons.pause_rounded, size: btnIconSize),
+                      label: Text('Pause'.tr(), style: TextStyle(fontSize: btnFontSize, fontWeight: FontWeight.bold)),
+                      onPressed: _pauseTimer,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFFEF3C7), // Light Amber
+                        foregroundColor: const Color(0xFFD97706), // Amber 600
+                        elevation: 0,
+                        minimumSize: Size(0, btnHeight),
+                        padding: btnPadding,
+                      ),
+                    ),
+                  ),
+                ],
                 
-                ElevatedButton.icon(
-                  icon: Icon(Icons.check_circle_outline_rounded, size: btnIconSize),
-                  label: Text('Done'.tr(), style: TextStyle(fontSize: btnFontSize, fontWeight: FontWeight.bold)),
-                  onPressed: _showDoneDialog,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFDCFCE7), // Light Green
-                    foregroundColor: const Color(0xFF16A34A), // Green 600
-                    elevation: 0,
-                    minimumSize: Size(0, btnHeight),
-                    padding: btnPadding,
+                Flexible(
+                  child: ElevatedButton.icon(
+                    icon: Icon(Icons.check_circle_outline_rounded, size: btnIconSize),
+                    label: Text('Done'.tr(), style: TextStyle(fontSize: btnFontSize, fontWeight: FontWeight.bold)),
+                    onPressed: _showDoneDialog,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFDCFCE7), // Light Green
+                      foregroundColor: const Color(0xFF16A34A), // Green 600
+                      elevation: 0,
+                      minimumSize: Size(0, btnHeight),
+                      padding: btnPadding,
+                    ),
                   ),
                 ),
 
-                ElevatedButton.icon(
-                  icon: Icon(Icons.edit_rounded, size: btnIconSize - 2),
-                  label: Text('Edit'.tr(), style: TextStyle(fontSize: btnFontSize, fontWeight: FontWeight.bold)),
-                  onPressed: isEditDisabled ? null : _editTask,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: isEditDisabled ? Colors.grey.shade200 : Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-                    foregroundColor: isEditDisabled ? Colors.grey : Theme.of(context).colorScheme.primary,
-                    elevation: 0,
-                    minimumSize: Size(0, btnHeight),
-                    padding: btnPadding,
+                Flexible(
+                  child: ElevatedButton.icon(
+                    icon: Icon(Icons.edit_rounded, size: btnIconSize - 2),
+                    label: Text('Edit'.tr(), style: TextStyle(fontSize: btnFontSize, fontWeight: FontWeight.bold)),
+                    onPressed: isEditDisabled ? null : _editTask,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: isEditDisabled ? Colors.grey.shade200 : Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                      foregroundColor: isEditDisabled ? Colors.grey : Theme.of(context).colorScheme.primary,
+                      elevation: 0,
+                      minimumSize: Size(0, btnHeight),
+                      padding: btnPadding,
+                    ),
                   ),
                 ),
               ],

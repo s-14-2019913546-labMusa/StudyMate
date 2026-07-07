@@ -409,8 +409,8 @@ class _ToolsScreenState extends State<ToolsScreen> {
           useSafeArea: true,
           backgroundColor: Colors.transparent,
           builder: (context) => AddTaskBottomSheet(
-            title: 'নেক্সট ডে রুটিনে যুক্ত করুন',
-            submitButtonText: 'সেভ নেক্সট ডে রুটিন',
+            title: 'Add to Next-day Routine'.tr(),
+            submitButtonText: 'Save'.tr(),
             onTaskAdded: (newTask) async {
               await FirebaseFirestore.instance
                   .collection('users')
@@ -4406,8 +4406,8 @@ class _PartnerTasksScreenState extends State<PartnerTasksScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (ctx) => AddTaskBottomSheet(
-        title: 'নতুন শেয়ার্ড টাস্ক যুক্ত করুন (Add Shared Task)'.tr(),
-        submitButtonText: 'সেভ টাস্ক',
+        title: 'Add Shared Task'.tr(),
+        submitButtonText: 'Save'.tr(),
         onTaskAdded: (newTask) async {
           final user = FirebaseAuth.instance.currentUser;
           if (user == null) return;

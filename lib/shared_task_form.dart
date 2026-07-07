@@ -135,30 +135,30 @@ class _SharedTaskFormState extends State<SharedTaskForm> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // Subject
-            Text('Subject Name (বিষয়)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: onSurfaceColor)),
+            Text('Subject Name (বিষয়)'.tr(), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: onSurfaceColor)),
             const SizedBox(height: 8),
             TextFormField(
               controller: _subjectController,
               style: TextStyle(color: onSurfaceColor),
               decoration: InputDecoration(
-                hintText: 'Enter Subject Name',
+                hintText: 'Enter Subject Name'.tr(),
                 hintStyle: TextStyle(color: onSurfaceColor.withValues(alpha: 0.6)),
                 prefixIcon: Icon(Icons.subject, color: colorScheme.primary),
                 border: const OutlineInputBorder(),
                 enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: onSurfaceColor.withValues(alpha: 0.3))),
                 focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: colorScheme.primary)),
               ),
-              validator: (v) => v == null || v.isEmpty ? 'Enter a subject name' : null,
+              validator: (v) => v == null || v.isEmpty ? 'Enter subject name'.tr() : null,
             ),
             const SizedBox(height: 16),
             // Topic
-            Text('Topic Name (বিষয়বস্তু)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: onSurfaceColor)),
+            Text('Topic Name (বিষয়বস্তু)'.tr(), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: onSurfaceColor)),
             const SizedBox(height: 8),
             TextFormField(
               controller: _topicController,
               style: TextStyle(color: onSurfaceColor),
               decoration: InputDecoration(
-                hintText: 'Enter Topic Name',
+                hintText: 'Enter Topic Name'.tr(),
                 hintStyle: TextStyle(color: onSurfaceColor.withValues(alpha: 0.6)),
                 prefixIcon: Icon(Icons.title_rounded, color: colorScheme.primary),
                 border: const OutlineInputBorder(),
@@ -168,13 +168,13 @@ class _SharedTaskFormState extends State<SharedTaskForm> {
             ),
             const SizedBox(height: 16),
             // Challenges
-            Text('Possible Challenges (সম্ভাব্য সমস্যা)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: onSurfaceColor)),
+            Text('Possible Challenges (সম্ভাব্য সমস্যা)'.tr(), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: onSurfaceColor)),
             const SizedBox(height: 8),
             TextFormField(
               controller: _challengesController,
               style: TextStyle(color: onSurfaceColor),
               decoration: InputDecoration(
-                hintText: 'Describe potential issues or difficulties...',
+                hintText: 'Describe potential issues or difficulties...'.tr(),
                 hintStyle: TextStyle(color: onSurfaceColor.withValues(alpha: 0.6)),
                 prefixIcon: Icon(Icons.warning_amber_rounded, color: colorScheme.primary),
                 border: const OutlineInputBorder(),
@@ -184,13 +184,13 @@ class _SharedTaskFormState extends State<SharedTaskForm> {
             ),
             const SizedBox(height: 16),
             // Notes
-            Text('Task Goal / Notes (লক্ষ্য ও নোট)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: onSurfaceColor)),
+            Text('Task Goal / Notes (লক্ষ্য ও নোট)'.tr(), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: onSurfaceColor)),
             const SizedBox(height: 8),
             TextFormField(
               controller: _notesController,
               style: TextStyle(color: onSurfaceColor),
               decoration: InputDecoration(
-                hintText: 'Enter notes or specific goals...',
+                hintText: 'Enter notes or specific goals...'.tr(),
                 hintStyle: TextStyle(color: onSurfaceColor.withValues(alpha: 0.6)),
                 prefixIcon: Icon(Icons.notes, color: colorScheme.primary),
                 border: const OutlineInputBorder(),
@@ -199,7 +199,7 @@ class _SharedTaskFormState extends State<SharedTaskForm> {
               ),
             ),
             const SizedBox(height: 16),
-            Text('Category', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: onSurfaceColor)),
+            Text('Category'.tr(), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: onSurfaceColor)),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
               initialValue: _selectedCategory,
@@ -223,7 +223,7 @@ class _SharedTaskFormState extends State<SharedTaskForm> {
             
             // Sub-category for Study
             if (_selectedCategory == 'Study') ...[
-              Text('Sub-category (Folder)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: onSurfaceColor)),
+              Text('Sub-category (Folder)'.tr(), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: onSurfaceColor)),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
                 initialValue: _selectedSubCategory,
@@ -242,7 +242,7 @@ class _SharedTaskFormState extends State<SharedTaskForm> {
             Row(
               children: [
                 Checkbox(value: _isPrivate, onChanged: (v) => setState(() => _isPrivate = v ?? false)),
-                const Text('Private'),
+                Text('Private Task'.tr()),
               ],
             ),
             const SizedBox(height: 16),
@@ -258,7 +258,7 @@ class _SharedTaskFormState extends State<SharedTaskForm> {
                       size: 18,
                     ),
                     label: Text(
-                      _startTime == null ? 'Start Time' : _startTime!.format(context),
+                      _startTime == null ? 'Start Time'.tr() : _startTime!.format(context),
                       style: TextStyle(
                         color: _startTime != null ? colorScheme.primary : onSurfaceColor,
                         fontWeight: _startTime != null ? FontWeight.bold : FontWeight.normal,
@@ -288,7 +288,7 @@ class _SharedTaskFormState extends State<SharedTaskForm> {
                       size: 18,
                     ),
                     label: Text(
-                      _endTime == null ? 'End Time' : _endTime!.format(context),
+                      _endTime == null ? 'End Time'.tr() : _endTime!.format(context),
                       style: TextStyle(
                         color: _endTime != null ? colorScheme.primary : onSurfaceColor,
                         fontWeight: _endTime != null ? FontWeight.bold : FontWeight.normal,

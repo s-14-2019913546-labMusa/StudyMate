@@ -110,6 +110,20 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
     if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Friend request accepted!')));
   }
 
+  // রিকুয়েস্ট ডিক্লাইন বা ক্যান্সেল করার লজিক
+  Future<void> _declineFriendRequest(String requesterId) async {
+    if (currentUser == null) return;
+
+    await FirebaseFirestore.instance.collection('users').doc(currentUser!.uid).collection('friends').doc(requesterId).delete();
+    await FirebaseFirestore.instance.collection('users').doc(requesterId).collection('friends').doc(currentUser!.uid).delete();
+
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Friend request cancelled.')));
+  }
+
+  Future<void> _cancelFriendRequest(String targetUserId) async {
+    await _declineFriendRequest(targetUserId);
+  }
+
   // নতুন সার্চ লজিক: ইমেইল এবং ইউজার আইডি (Document ID) উভয় দিয়ে সার্চ করা
   Future<List<DocumentSnapshot>> _searchUsers(String query) async {
     if (query.isEmpty) return [];
@@ -242,13 +256,73 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
                           ),
                           title: Text(userData['displayName'] ?? 'Unknown User', style: const TextStyle(fontWeight: FontWeight.bold)),
                           subtitle: Text('${userData['email'] ?? ''}\nID: $userId'), // ইমেইলের নিচে আইডিও দেখাবে
-                          trailing: ElevatedButton.icon(
-                            onPressed: () => _sendFriendRequest(userId),
-                            icon: const Icon(Icons.person_add_alt_1_rounded, size: 16),
-                            label: const Text('Add'),
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            ),
+                          trailing: StreamBuilder<DocumentSnapshot>(
+                            stream: FirebaseFirestore.instance
+                                .collection('users')
+                                .doc(currentUser!.uid)
+                                .collection('friends')
+                                .doc(userId)
+                                .snapshots(),
+                            builder: (context, friendSnap) {
+                              if (!friendSnap.hasData || !friendSnap.data!.exists) {
+                                return ElevatedButton.icon(
+                                  onPressed: () => _sendFriendRequest(userId),
+                                  icon: const Icon(Icons.person_add_alt_1_rounded, size: 16),
+                                  label: const Text('Add'),
+                                  style: ElevatedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  ),
+                                );
+                              }
+                              
+                              final relationData = friendSnap.data!.data() as Map<String, dynamic>;
+                              final status = relationData['status'] ?? '';
+                              
+                              if (status == 'accepted') {
+                                return OutlinedButton.icon(
+                                  onPressed: null,
+                                  icon: const Icon(Icons.check_rounded, size: 16),
+                                  label: const Text('Friends'),
+                                  style: OutlinedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  ),
+                                );
+                              } else if (status == 'requested') {
+                                return OutlinedButton.icon(
+                                  onPressed: () => _cancelFriendRequest(userId),
+                                  icon: const Icon(Icons.hourglass_empty_rounded, size: 16),
+                                  label: const Text('Request Sent'),
+                                  style: OutlinedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  ),
+                                );
+                              } else if (status == 'pending') {
+                                return Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(Icons.check_circle_rounded, color: Colors.green),
+                                      onPressed: () => _acceptFriendRequest(userId),
+                                      tooltip: 'Accept',
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.cancel_rounded, color: Colors.red),
+                                      onPressed: () => _declineFriendRequest(userId),
+                                      tooltip: 'Decline',
+                                    ),
+                                  ],
+                                );
+                              }
+                              
+                              return ElevatedButton.icon(
+                                onPressed: () => _sendFriendRequest(userId),
+                                icon: const Icon(Icons.person_add_alt_1_rounded, size: 16),
+                                label: const Text('Add'),
+                                style: ElevatedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                ),
+                              );
+                            },
                           ),
                         );
                       },
@@ -291,19 +365,75 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
                   builder: (ctx, userSnap) {
                     if (!userSnap.hasData) return const SizedBox.shrink();
                     final userData = userSnap.data!.data() as Map<String, dynamic>? ?? {};
+                    final photoUrl = userData['photoUrl'] as String?;
+                    ImageProvider? avatarImage;
+                    if (photoUrl != null && photoUrl.isNotEmpty) {
+                      avatarImage = photoUrl.startsWith('http')
+                          ? NetworkImage(photoUrl)
+                          : FileImage(File(photoUrl)) as ImageProvider;
+                    }
+
                     return Card(
                       elevation: 0,
                       color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.05),
-                      child: ListTile(
-                        leading: const CircleAvatar(child: Icon(Icons.person)),
-                        title: Text(userData['displayName'] ?? 'Unknown User', style: const TextStyle(fontWeight: FontWeight.bold)),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        child: Row(
                           children: [
-                            ElevatedButton(
-                              onPressed: () => _acceptFriendRequest(requesterId),
-                              style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                              child: const Text('Accept'),
+                            // Leading Avatar
+                            CircleAvatar(
+                              radius: 20,
+                              backgroundImage: avatarImage,
+                              child: avatarImage == null ? const Icon(Icons.person) : null,
+                            ),
+                            const SizedBox(width: 12),
+                            // User Display Name
+                            Expanded(
+                              child: Text(
+                                userData['displayName'] ?? 'Unknown User',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            // Accept/Cancel Buttons Column
+                            Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                SizedBox(
+                                  height: 26,
+                                  child: ElevatedButton(
+                                    onPressed: () => _acceptFriendRequest(requesterId),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.green,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                                      textStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                                      elevation: 0,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                    ),
+                                    child: Text('Accept'.tr()),
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                SizedBox(
+                                  height: 26,
+                                  child: OutlinedButton(
+                                    onPressed: () => _declineFriendRequest(requesterId),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: Colors.red,
+                                      side: const BorderSide(color: Colors.red, width: 1),
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                                      textStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                    ),
+                                    child: Text('Cancel'.tr()),
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
@@ -1082,225 +1212,272 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
           // Friend's Tasks for the selected day
           Expanded(
             child: StreamBuilder<DocumentSnapshot>(
-              stream: FirebaseFirestore.instance.collection('users').doc(widget.friendId).collection('dailyRoutines').doc(dateDocId).snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-                if (!snapshot.hasData || !snapshot.data!.exists) {
+              stream: FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(widget.friendId)
+                  .collection('friends')
+                  .doc(FirebaseAuth.instance.currentUser!.uid)
+                  .snapshots(),
+              builder: (context, relationSnap) {
+                if (relationSnap.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                
+                bool isFriend = false;
+                if (relationSnap.hasData && relationSnap.data!.exists) {
+                  final data = relationSnap.data!.data() as Map<String, dynamic>?;
+                  if (data != null && data['status'] == 'accepted') {
+                    isFriend = true;
+                  }
+                }
+                
+                if (!isFriend) {
                   return Center(
                     child: Padding(
-                      padding: const EdgeInsets.all(20.0),
-                      child: Text(
-                        'No tasks set for $formattedDate.',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: Colors.grey),
+                      padding: const EdgeInsets.all(24.0),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.lock_outline_rounded, size: 64, color: Colors.grey.shade400),
+                          const SizedBox(height: 16),
+                          Text(
+                            'This profile is private.'.tr(),
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'You must be friends with this user to view their task list.'.tr(),
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(color: Colors.grey),
+                          ),
+                        ],
                       ),
                     ),
                   );
                 }
 
-                DailyRoutine routine = DailyRoutine.fromMap(snapshot.data!.data() as Map<String, dynamic>, snapshot.data!.id);
-                
-                if (routine.tasks.isEmpty) {
-                  return const Center(child: Text('No tasks available.'));
-                }
-
-                return ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  itemCount: routine.tasks.length,
-                  itemBuilder: (context, index) {
-                    final task = routine.tasks[index];
-                    
-                    double progress = task.totalDurationMinutes > 0
-                        ? (task.elapsedSeconds / (task.totalDurationMinutes * 60))
-                        : 0.0;
-                    if (progress > 1.0) progress = 1.0;
-                    int progressPercentage = (progress * 100).toInt();
-
-                    // Status identification
-                    String statusText = 'Pending';
-                    Color statusColor = Colors.grey;
-                    IconData statusIcon = Icons.pending_actions_rounded;
-
-                    if (task.isCompleted || task.status == 'completed') {
-                      statusText = 'Completed';
-                      statusColor = Colors.green;
-                      statusIcon = Icons.check_circle_rounded;
-                    } else if (task.endTime != null && task.endTime!.isBefore(DateTime.now()) && progress < 0.1) {
-                      statusText = 'Missed';
-                      statusColor = Colors.red;
-                      statusIcon = Icons.error_outline_rounded;
-                    } else if (task.status == 'running') {
-                      statusText = 'Running';
-                      statusColor = Colors.blue;
-                      statusIcon = Icons.play_circle_fill_rounded;
-                    } else if (task.status == 'paused') {
-                      statusText = 'Paused';
-                      statusColor = Colors.amber.shade700;
-                      statusIcon = Icons.pause_circle_filled_rounded;
-                    }
-
-                    String displayTitle = task.isPrivate ? 'Private Task'.tr() : (task.subject ?? task.title);
-                    
-                    String timeText = '';
-                    if (task.startTime != null && task.endTime != null) {
-                      timeText = '${DateFormat('h:mm a').format(task.startTime!)} - ${DateFormat('h:mm a').format(task.endTime!)}';
-                    }
-
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      clipBehavior: Clip.antiAlias,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      child: InkWell(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => TaskDetailsScreen(
-                                task: task,
-                                isFriendView: true,
-                                onUpdate: (updatedTask) async {
-                                  try {
-                                    final docRef = FirebaseFirestore.instance
-                                        .collection('users')
-                                        .doc(widget.friendId)
-                                        .collection('dailyRoutines')
-                                        .doc(dateDocId);
-                                    final docSnap = await docRef.get();
-                                    if (docSnap.exists) {
-                                      DailyRoutine currentRoutine = DailyRoutine.fromMap(docSnap.data()!, docSnap.id);
-                                      int taskIndex = currentRoutine.tasks.indexWhere((t) => t.id == updatedTask.id);
-                                      if (taskIndex != -1) {
-                                        currentRoutine.tasks[taskIndex] = updatedTask;
-                                        await docRef.update({
-                                          'tasks': currentRoutine.tasks.map((t) => t.toMap()).toList()
-                                        });
-                                      }
-                                    }
-                                  } catch (e) {
-                                    debugPrint("Error updating friend task: $e");
-                                  }
-                                },
-                              ),
-                            ),
-                          );
-                        },
-                        child: Container(
-                          decoration: BoxDecoration(
-                            border: Border(
-                              left: BorderSide(color: statusColor, width: 6),
-                            ),
-                          ),
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Row 1: Icon, Title, Private Icon, Status Badge
-                              Row(
-                                children: [
-                                  Icon(statusIcon, color: statusColor, size: 22),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      displayTitle,
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 15,
-                                        color: statusText == 'Missed' ? Colors.red.shade900 : null,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                  if (task.isPrivate) ...[
-                                    const Icon(Icons.lock_outline_rounded, size: 16, color: Colors.grey),
-                                    const SizedBox(width: 8),
-                                  ],
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: statusColor.withValues(alpha: 0.1),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Text(
-                                      statusText.tr(),
-                                      style: TextStyle(
-                                        color: statusColor,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              // Row 2: Category tag & Time if available
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  if (!task.isPrivate && task.category != null && task.category!.isNotEmpty)
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: Colors.blueGrey.withValues(alpha: 0.1),
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: Text(
-                                        task.category!.tr(),
-                                        style: const TextStyle(
-                                          color: Colors.blueGrey,
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    )
-                                  else
-                                    const SizedBox.shrink(),
-                                  if (timeText.isNotEmpty)
-                                    Text(
-                                      timeText,
-                                      style: TextStyle(
-                                        color: Colors.grey.shade600,
-                                        fontSize: 11,
-                                      ),
-                                    ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              // Row 3: Progress text
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    '$progressPercentage% ${'Completed'.tr()}',
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  Text(
-                                    '${task.elapsedSeconds ~/ 60} / ${task.totalDurationMinutes} mins',
-                                    style: TextStyle(
-                                      color: Colors.grey.shade600,
-                                      fontSize: 11,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 6),
-                              // Row 4: Progress bar
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(4),
-                                child: LinearProgressIndicator(
-                                  value: progress,
-                                  backgroundColor: Colors.grey.shade200,
-                                  color: statusColor,
-                                  minHeight: 6,
-                                ),
-                              ),
-                            ],
+                return StreamBuilder<DocumentSnapshot>(
+                  stream: FirebaseFirestore.instance.collection('users').doc(widget.friendId).collection('dailyRoutines').doc(dateDocId).snapshots(),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+                    if (!snapshot.hasData || !snapshot.data!.exists) {
+                      return Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(20.0),
+                          child: Text(
+                            'No tasks set for $formattedDate.'.tr(),
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(color: Colors.grey),
                           ),
                         ),
-                      ),
+                      );
+                    }
+
+                    DailyRoutine routine = DailyRoutine.fromMap(snapshot.data!.data() as Map<String, dynamic>, snapshot.data!.id);
+                    
+                    if (routine.tasks.isEmpty) {
+                      return const Center(child: Text('No tasks available.'));
+                    }
+
+                    return ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      itemCount: routine.tasks.length,
+                      itemBuilder: (context, index) {
+                        final task = routine.tasks[index];
+                        
+                        double progress = task.totalDurationMinutes > 0
+                            ? (task.elapsedSeconds / (task.totalDurationMinutes * 60))
+                            : 0.0;
+                        if (progress > 1.0) progress = 1.0;
+                        int progressPercentage = (progress * 100).toInt();
+
+                        // Status identification
+                        String statusText = 'Pending';
+                        Color statusColor = Colors.grey;
+                        IconData statusIcon = Icons.pending_actions_rounded;
+
+                        if (task.isCompleted || task.status == 'completed') {
+                          statusText = 'Completed';
+                          statusColor = Colors.green;
+                          statusIcon = Icons.check_circle_rounded;
+                        } else if (task.endTime != null && task.endTime!.isBefore(DateTime.now()) && progress < 0.1) {
+                          statusText = 'Missed';
+                          statusColor = Colors.red;
+                          statusIcon = Icons.error_outline_rounded;
+                        } else if (task.status == 'running') {
+                          statusText = 'Running';
+                          statusColor = Colors.blue;
+                          statusIcon = Icons.play_circle_fill_rounded;
+                        } else if (task.status == 'paused') {
+                          statusText = 'Paused';
+                          statusColor = Colors.amber.shade700;
+                          statusIcon = Icons.pause_circle_filled_rounded;
+                        }
+
+                        String displayTitle = task.isPrivate ? 'Private Task'.tr() : (task.subject ?? task.title);
+                        
+                        String timeText = '';
+                        if (task.startTime != null && task.endTime != null) {
+                          timeText = '${DateFormat('h:mm a').format(task.startTime!)} - ${DateFormat('h:mm a').format(task.endTime!)}';
+                        }
+
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          clipBehavior: Clip.antiAlias,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          child: InkWell(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => TaskDetailsScreen(
+                                    task: task,
+                                    isFriendView: true,
+                                    onUpdate: (updatedTask) async {
+                                      try {
+                                        final docRef = FirebaseFirestore.instance
+                                            .collection('users')
+                                            .doc(widget.friendId)
+                                            .collection('dailyRoutines')
+                                            .doc(dateDocId);
+                                        final docSnap = await docRef.get();
+                                        if (docSnap.exists) {
+                                          DailyRoutine currentRoutine = DailyRoutine.fromMap(docSnap.data()!, docSnap.id);
+                                          int taskIndex = currentRoutine.tasks.indexWhere((t) => t.id == updatedTask.id);
+                                          if (taskIndex != -1) {
+                                            currentRoutine.tasks[taskIndex] = updatedTask;
+                                            await docRef.update({
+                                              'tasks': currentRoutine.tasks.map((t) => t.toMap()).toList()
+                                            });
+                                          }
+                                        }
+                                      } catch (e) {
+                                        debugPrint("Error updating friend task: $e");
+                                      }
+                                    },
+                                  ),
+                                ),
+                              );
+                            },
+                            child: Container(
+                              decoration: BoxDecoration(
+                                border: Border(
+                                  left: BorderSide(color: statusColor, width: 6),
+                                ),
+                              ),
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Row 1: Icon, Title, Private Icon, Status Badge
+                                  Row(
+                                    children: [
+                                      Icon(statusIcon, color: statusColor, size: 22),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          displayTitle,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 15,
+                                            color: statusText == 'Missed' ? Colors.red.shade900 : null,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      if (task.isPrivate) ...[
+                                        const Icon(Icons.lock_outline_rounded, size: 16, color: Colors.grey),
+                                        const SizedBox(width: 8),
+                                      ],
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: statusColor.withValues(alpha: 0.1),
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Text(
+                                          statusText.tr(),
+                                          style: TextStyle(
+                                            color: statusColor,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  // Row 2: Category tag & Time if available
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      if (!task.isPrivate && task.category != null && task.category!.isNotEmpty)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: Colors.blueGrey.withValues(alpha: 0.1),
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: Text(
+                                            task.category!.tr(),
+                                            style: const TextStyle(
+                                              color: Colors.blueGrey,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        )
+                                      else
+                                        const SizedBox.shrink(),
+                                      if (timeText.isNotEmpty)
+                                        Text(
+                                          timeText,
+                                          style: TextStyle(
+                                            color: Colors.grey.shade600,
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 12),
+                                  // Row 3: Progress text
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        '$progressPercentage% ${'Completed'.tr()}',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      Text(
+                                        '${task.elapsedSeconds ~/ 60} / ${task.totalDurationMinutes} mins',
+                                        style: TextStyle(
+                                          color: Colors.grey.shade600,
+                                          fontSize: 11,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 6),
+                                  // Row 4: Progress bar
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(4),
+                                    child: LinearProgressIndicator(
+                                      value: progress,
+                                      backgroundColor: Colors.grey.shade200,
+                                      color: statusColor,
+                                      minHeight: 6,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
                     );
                   },
                 );

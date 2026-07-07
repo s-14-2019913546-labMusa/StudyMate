@@ -221,19 +221,7 @@ class _AboutUsScreenState extends State<AboutUsScreen> {
               padding: const EdgeInsets.all(20),
               decoration: ThemeManager.getCardDecoration(context),
               child: Text(
-                '''StudyMate is the ultimate all-in-one productivity companion designed specifically for school, college, and university students, as well as competitive exam candidates (such as BCS and Bank exams).
-
-Our mission is to help you study smarter, stay disciplined, and maintain a healthy, balanced lifestyle.
-
-Key Features:
-• Smart Study Planner: Plan your days and weeks effortlessly with our custom Study Planner and AI Routine Generator.
-• Focus & Productivity: Beat distractions with the Pomodoro Timer, Stopwatch, Focus Music, and dedicated Focus Mode.
-• Effective Learning Aids: Enhance retention using Flashcards, a built-in Dictionary, PDF Reader, and the scientific 1-4-7 Revision method.
-• Collaborative Studying: Connect with peers through the Social Hub, Study Rooms, and shared Partner Tasks.
-• Well-being & Islamic Life: Track your sleep and mood, practice breathing exercises, and access spiritual tools like Prayer Times, Quran, Qibla Compass, and Tasbeeh.
-• Gamification: Stay motivated with Daily Streaks, XP points, Levels, and Unlocked Badges.
-
-Whether you are preparing for your next class or a major career exam, StudyMate is here to guide you every step of the way!'''.tr(),
+                'about_us_description'.tr(),
                 textAlign: TextAlign.start,
                 style: const TextStyle(
                   fontSize: 14,
