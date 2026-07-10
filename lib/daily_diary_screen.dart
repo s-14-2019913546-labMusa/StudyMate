@@ -338,7 +338,7 @@ class _DailyDiaryScreenState extends State<DailyDiaryScreen> with SingleTickerPr
       case 'Monsoon': return const Color(0xFFECEFF1);
       case 'Autumn': return const Color(0xFFE0F7FA);
       case 'Winter': return const Color(0xFFEFEBE9);
-      default: return const Color(0xFFFDFBF7);
+      default: return const Color(0xFFF5EAD4);
     }
   }
 
@@ -475,7 +475,7 @@ class _DailyDiaryScreenState extends State<DailyDiaryScreen> with SingleTickerPr
                                 ),
                               ),
                               Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 0.0),
+                                padding: const EdgeInsets.only(left: 48.0, right: 24.0, top: 0.0, bottom: 0.0),
                                 child: TextField(
                                   controller: _diaryController,
                                   maxLines: null,
@@ -485,6 +485,7 @@ class _DailyDiaryScreenState extends State<DailyDiaryScreen> with SingleTickerPr
                                     border: InputBorder.none,
                                     hintText: 'Dear Diary...',
                                     contentPadding: EdgeInsets.symmetric(vertical: 0.0),
+                                    filled: false,
                                   ),
                                   style: textStyle,
                                 ),
@@ -840,7 +841,7 @@ class _DailyDiaryScreenState extends State<DailyDiaryScreen> with SingleTickerPr
                         // Text chunk for this page
                         Positioned(
                           top: 0,
-                          left: 24.0,
+                          left: 48.0,
                           right: 24.0,
                           child: Text(
                             pageText,
@@ -961,6 +962,14 @@ class LinedPaperPainter extends CustomPainter {
     final paint = Paint()
       ..color = lineColor
       ..strokeWidth = 1.0;
+      
+    // Draw vertical margin line (classic school notebook style red margin on the left)
+    final marginPaint = Paint()
+      ..color = lineColor == Colors.grey.shade800
+          ? Colors.redAccent.withValues(alpha: 0.3)
+          : Colors.redAccent.withValues(alpha: 0.5)
+      ..strokeWidth = 1.5;
+    canvas.drawLine(const Offset(40, 0), Offset(40, size.height), marginPaint);
       
     int lineCount = 1;
     for (double y = startY; y < size.height; y += lineHeight) {
