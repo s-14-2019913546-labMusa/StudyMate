@@ -105,6 +105,7 @@ class _StudyFolderDetailsScreenState extends State<StudyFolderDetailsScreen> wit
         'name': name,
         'targetNote': '',
         'topics': [],
+        'comments': [],
       });
       await _updateSubjectsInFirestore(updated);
     }
@@ -139,11 +140,9 @@ class _StudyFolderDetailsScreenState extends State<StudyFolderDetailsScreen> wit
     if (confirm == true) {
       final updated = currentSubjects.map((s) {
         if (s['name'] == subjectName) {
-          return {
-            'name': s['name'],
-            'targetNote': controller.text.trim(),
-            'topics': s['topics'],
-          };
+          final sMap = Map<String, dynamic>.from(s);
+          sMap['targetNote'] = controller.text.trim();
+          return sMap;
         }
         return s;
       }).toList();
@@ -211,17 +210,17 @@ class _StudyFolderDetailsScreenState extends State<StudyFolderDetailsScreen> wit
       final name = controller.text.trim();
       final updated = currentSubjects.map((s) {
         if (s['name'] == subjectName) {
-          final topicsList = List.from(s['topics'] ?? []);
+          final sMap = Map<String, dynamic>.from(s);
+          final topicsList = List.from(sMap['topics'] ?? []);
           if (!topicsList.any((t) => t['name'] == name)) {
             topicsList.add({
               'name': name,
               'isCompleted': false,
+              'comments': [],
             });
           }
-          return {
-            'name': s['name'],
-            'topics': topicsList,
-          };
+          sMap['topics'] = topicsList;
+          return sMap;
         }
         return s;
       }).toList();
@@ -233,19 +232,17 @@ class _StudyFolderDetailsScreenState extends State<StudyFolderDetailsScreen> wit
   Future<void> _toggleTopicCompletion(List<dynamic> currentSubjects, String subjectName, String topicName) async {
     final updated = currentSubjects.map((s) {
       if (s['name'] == subjectName) {
-        final topicsList = (s['topics'] as List).map((t) {
+        final sMap = Map<String, dynamic>.from(s);
+        final topicsList = (sMap['topics'] as List).map((t) {
           if (t['name'] == topicName) {
-            return {
-              'name': t['name'],
-              'isCompleted': !(t['isCompleted'] ?? false),
-            };
+            final tMap = Map<String, dynamic>.from(t);
+            tMap['isCompleted'] = !(t['isCompleted'] ?? false);
+            return tMap;
           }
           return t;
         }).toList();
-        return {
-          'name': s['name'],
-          'topics': topicsList,
-        };
+        sMap['topics'] = topicsList;
+        return sMap;
       }
       return s;
     }).toList();
@@ -273,18 +270,257 @@ class _StudyFolderDetailsScreenState extends State<StudyFolderDetailsScreen> wit
     if (confirm == true) {
       final updated = currentSubjects.map((s) {
         if (s['name'] == subjectName) {
-          final topicsList = List.from(s['topics'] ?? []);
+          final sMap = Map<String, dynamic>.from(s);
+          final topicsList = List.from(sMap['topics'] ?? []);
           topicsList.removeWhere((t) => t['name'] == topicName);
-          return {
-            'name': s['name'],
-            'topics': topicsList,
-          };
+          sMap['topics'] = topicsList;
+          return sMap;
         }
         return s;
       }).toList();
 
       await _updateSubjectsInFirestore(updated);
     }
+  }
+
+  Future<void> _showCommentsBottomSheet({
+    required bool isTopic,
+    required String subjectName,
+    String? topicName,
+    required List<dynamic> currentSubjects,
+  }) async {
+    final TextEditingController commentController = TextEditingController();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setModalState) {
+            final subject = currentSubjects.firstWhere((s) => s['name'] == subjectName, orElse: () => null);
+            if (subject == null) return const SizedBox.shrink();
+
+            List<dynamic> comments = [];
+            if (!isTopic) {
+              comments = subject['comments'] as List<dynamic>? ?? [];
+            } else {
+              final topic = (subject['topics'] as List).firstWhere((t) => t['name'] == topicName, orElse: () => null);
+              if (topic != null) {
+                comments = topic['comments'] as List<dynamic>? ?? [];
+              }
+            }
+
+            final List<dynamic> sortedComments = List.from(comments);
+            sortedComments.sort((a, b) {
+              final aTime = a['createdAt'] as Timestamp?;
+              final bTime = b['createdAt'] as Timestamp?;
+              if (aTime == null && bTime == null) return 0;
+              if (aTime == null) return 1;
+              if (bTime == null) return -1;
+              return aTime.compareTo(bTime);
+            });
+
+            return ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              child: Container(
+                color: isDark ? Colors.grey.shade900 : Colors.white,
+                padding: EdgeInsets.only(
+                  left: 16,
+                  right: 16,
+                  top: 16,
+                  bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            isTopic ? '${'Topic Notes'.tr()}: $topicName' : '${'Subject Notes'.tr()}: $subjectName',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ],
+                    ),
+                    const Divider(),
+                    const SizedBox(height: 8),
+                    Container(
+                      constraints: const BoxConstraints(maxHeight: 250),
+                      child: sortedComments.isEmpty
+                          ? Center(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 24.0),
+                                child: Text(
+                                  'No notes or comments added yet.'.tr(),
+                                  style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+                                ),
+                              ),
+                            )
+                          : ListView.builder(
+                              shrinkWrap: true,
+                              itemCount: sortedComments.length,
+                              itemBuilder: (ctx, index) {
+                                final c = sortedComments[index] as Map<String, dynamic>;
+                                final cId = c['id'] ?? '';
+                                final cText = c['text'] ?? '';
+                                final Timestamp? cTime = c['createdAt'] as Timestamp?;
+                                final timeStr = cTime != null
+                                    ? DateFormat.yMMMd().add_jm().format(cTime.toDate())
+                                    : '';
+
+                                return Card(
+                                  margin: const EdgeInsets.only(bottom: 8),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  color: isDark ? Colors.grey.shade800 : Colors.grey.shade100,
+                                  child: ListTile(
+                                    leading: Icon(Icons.notes_rounded, color: _folderColor, size: 20),
+                                    title: Text(cText, style: const TextStyle(fontSize: 13)),
+                                    subtitle: Text(timeStr, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                                    trailing: IconButton(
+                                      icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                                      onPressed: () async {
+                                        final bool? confirmDelete = await showDialog<bool>(
+                                          context: context,
+                                          builder: (ctx) => AlertDialog(
+                                            title: Text('Delete Note'.tr()),
+                                            content: Text('Are you sure you want to delete this note?'.tr()),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () => Navigator.pop(ctx, false),
+                                                child: Text('Cancel'.tr()),
+                                              ),
+                                              TextButton(
+                                                onPressed: () => Navigator.pop(ctx, true),
+                                                child: Text('Delete'.tr(), style: const TextStyle(color: Colors.red)),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                        if (confirmDelete != true) return;
+
+                                        final updated = currentSubjects.map((s) {
+                                          if (s['name'] == subjectName) {
+                                            final sMap = Map<String, dynamic>.from(s);
+                                            if (!isTopic) {
+                                              final List<dynamic> commentsList = List.from(sMap['comments'] ?? []);
+                                              commentsList.removeWhere((item) => item['id'] == cId);
+                                              sMap['comments'] = commentsList;
+                                            } else {
+                                              final List<dynamic> topicsList = (sMap['topics'] as List).map((t) {
+                                                if (t['name'] == topicName) {
+                                                  final tMap = Map<String, dynamic>.from(t);
+                                                  final List<dynamic> commentsList = List.from(tMap['comments'] ?? []);
+                                                  commentsList.removeWhere((item) => item['id'] == cId);
+                                                  tMap['comments'] = commentsList;
+                                                  return tMap;
+                                                }
+                                                return t;
+                                              }).toList();
+                                              sMap['topics'] = topicsList;
+                                            }
+                                            return sMap;
+                                          }
+                                          return s;
+                                        }).toList();
+
+                                        await _updateSubjectsInFirestore(updated);
+                                        setModalState(() {
+                                          currentSubjects = updated;
+                                        });
+                                      },
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: commentController,
+                            decoration: InputDecoration(
+                              hintText: 'Add a note...'.tr(),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            ),
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          onPressed: () async {
+                            final text = commentController.text.trim();
+                            if (text.isEmpty) return;
+
+                            final newComment = {
+                              'id': DateTime.now().millisecondsSinceEpoch.toString(),
+                              'text': text,
+                              'createdAt': Timestamp.now(),
+                            };
+
+                            final updated = currentSubjects.map((s) {
+                              if (s['name'] == subjectName) {
+                                final sMap = Map<String, dynamic>.from(s);
+                                if (!isTopic) {
+                                  final List<dynamic> commentsList = List.from(sMap['comments'] ?? []);
+                                  commentsList.add(newComment);
+                                  sMap['comments'] = commentsList;
+                                } else {
+                                  final List<dynamic> topicsList = (sMap['topics'] as List).map((t) {
+                                    if (t['name'] == topicName) {
+                                      final tMap = Map<String, dynamic>.from(t);
+                                      final List<dynamic> commentsList = List.from(tMap['comments'] ?? []);
+                                      commentsList.add(newComment);
+                                      tMap['comments'] = commentsList;
+                                      return tMap;
+                                    }
+                                    return t;
+                                  }).toList();
+                                  sMap['topics'] = topicsList;
+                                }
+                                return sMap;
+                              }
+                              return s;
+                            }).toList();
+
+                            await _updateSubjectsInFirestore(updated);
+                            commentController.clear();
+                            setModalState(() {
+                              currentSubjects = updated;
+                            });
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _folderColor,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          ),
+                          child: const Icon(Icons.send_rounded, size: 16),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   // --- UI Builders ---
@@ -502,14 +738,38 @@ class _StudyFolderDetailsScreenState extends State<StudyFolderDetailsScreen> wit
                                             'Subject Target'.tr(),
                                             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                                           ),
-                                          IconButton(
-                                            icon: Icon(Icons.edit_rounded, size: 16, color: _folderColor),
-                                            onPressed: () {
-                                              final targetNote = subject['targetNote'] as String? ?? '';
-                                              _editTargetNote(subjects, subName, targetNote);
-                                            },
-                                            padding: EdgeInsets.zero,
-                                            constraints: const BoxConstraints(),
+                                          Row(
+                                            children: [
+                                              IconButton(
+                                                icon: Icon(
+                                                  (subject['comments'] as List? ?? []).isNotEmpty
+                                                      ? Icons.chat_bubble_rounded
+                                                      : Icons.chat_bubble_outline_rounded,
+                                                  size: 16,
+                                                  color: (subject['comments'] as List? ?? []).isNotEmpty
+                                                      ? _folderColor
+                                                      : Colors.grey,
+                                                ),
+                                                tooltip: 'Subject Notes'.tr(),
+                                                onPressed: () => _showCommentsBottomSheet(
+                                                  isTopic: false,
+                                                  subjectName: subName,
+                                                  currentSubjects: subjects,
+                                                ),
+                                                padding: EdgeInsets.zero,
+                                                constraints: const BoxConstraints(),
+                                              ),
+                                              const SizedBox(width: 10),
+                                              IconButton(
+                                                icon: Icon(Icons.edit_rounded, size: 16, color: _folderColor),
+                                                onPressed: () {
+                                                  final targetNote = subject['targetNote'] as String? ?? '';
+                                                  _editTargetNote(subjects, subName, targetNote);
+                                                },
+                                                padding: EdgeInsets.zero,
+                                                constraints: const BoxConstraints(),
+                                              ),
+                                            ],
                                           ),
                                         ],
                                       ),
@@ -553,9 +813,32 @@ class _StudyFolderDetailsScreenState extends State<StudyFolderDetailsScreen> wit
                                       fontSize: 14,
                                     ),
                                   ),
-                                  trailing: IconButton(
-                                    icon: const Icon(Icons.close_rounded, size: 16, color: Colors.red),
-                                    onPressed: () => _deleteTopic(subjects, subName, topicName),
+                                  trailing: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      IconButton(
+                                        icon: Icon(
+                                          (topicMap['comments'] as List? ?? []).isNotEmpty
+                                              ? Icons.chat_bubble_rounded
+                                              : Icons.chat_bubble_outline_rounded,
+                                          size: 16,
+                                          color: (topicMap['comments'] as List? ?? []).isNotEmpty
+                                              ? _folderColor
+                                              : Colors.grey,
+                                        ),
+                                        tooltip: 'Topic Notes'.tr(),
+                                        onPressed: () => _showCommentsBottomSheet(
+                                          isTopic: true,
+                                          subjectName: subName,
+                                          topicName: topicName,
+                                          currentSubjects: subjects,
+                                        ),
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.close_rounded, size: 16, color: Colors.red),
+                                        onPressed: () => _deleteTopic(subjects, subName, topicName),
+                                      ),
+                                    ],
                                   ),
                                 );
                               }),

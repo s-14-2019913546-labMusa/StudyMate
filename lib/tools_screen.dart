@@ -28,6 +28,7 @@ import 'islamic_life_screen.dart';
 import 'theme_manager.dart';
 import 'local_notification_service.dart';
 import 'study_analytics_screen.dart';
+import 'weekly_overview_screen.dart';
 import 'task_history_screen.dart';
 import 'gamification_service.dart';
 import 'language_manager.dart';
@@ -492,12 +493,9 @@ class _ToolsScreenState extends State<ToolsScreen> {
     return GestureDetector(
       onTap: () {
         if (user == null) return;
-        showModalBottomSheet(
-          context: context,
-          isScrollControlled: true,
-          useSafeArea: true,
-          backgroundColor: Colors.transparent,
-          builder: (context) => const AddWeeklyRoutineTaskBottomSheet(),
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const WeeklyOverviewScreen()),
         );
       },
       child: Container(
@@ -544,7 +542,16 @@ class _ToolsScreenState extends State<ToolsScreen> {
 }
 
 class AddWeeklyRoutineTaskBottomSheet extends StatefulWidget {
-  const AddWeeklyRoutineTaskBottomSheet({super.key});
+  final Task? taskToEdit;
+  final String? initialDay;
+  final bool isDuplicate;
+
+  const AddWeeklyRoutineTaskBottomSheet({
+    super.key,
+    this.taskToEdit,
+    this.initialDay,
+    this.isDuplicate = false,
+  });
 
   @override
   State<AddWeeklyRoutineTaskBottomSheet> createState() => _AddWeeklyRoutineTaskBottomSheetState();
@@ -572,6 +579,27 @@ class _AddWeeklyRoutineTaskBottomSheetState extends State<AddWeeklyRoutineTaskBo
   void initState() {
     super.initState();
     _loadCustomFolders();
+    if (widget.initialDay != null) {
+      _selectedDay = widget.initialDay!;
+    }
+    if (widget.taskToEdit != null) {
+      _subjectController.text = widget.taskToEdit!.subject ?? widget.taskToEdit!.title;
+      _topicController.text = widget.taskToEdit!.topic ?? '';
+      _challengesController.text = widget.taskToEdit!.challenges ?? '';
+      _notesController.text = widget.taskToEdit!.notes ?? '';
+      _isPrivate = widget.taskToEdit!.isPrivate;
+      if (widget.taskToEdit!.startTime != null) {
+        _startTime = TimeOfDay.fromDateTime(widget.taskToEdit!.startTime!);
+      }
+      if (widget.taskToEdit!.endTime != null) {
+        _endTime = TimeOfDay.fromDateTime(widget.taskToEdit!.endTime!);
+      }
+      _selectedCategory = widget.taskToEdit!.category ?? 'Study';
+      if (!_categories.contains(_selectedCategory)) {
+        _selectedSubCategory = _selectedCategory;
+        _selectedCategory = 'Study';
+      }
+    }
   }
 
   @override
@@ -668,8 +696,12 @@ class _AddWeeklyRoutineTaskBottomSheetState extends State<AddWeeklyRoutineTaskBo
     );
 
     final taskSubject = _subjectController.text.trim();
+    final taskId = (widget.taskToEdit != null && !widget.isDuplicate)
+        ? widget.taskToEdit!.id
+        : UniqueKey().toString();
+
     final task = Task(
-      id: UniqueKey().toString(),
+      id: taskId,
       title: taskSubject,
       subject: taskSubject,
       topic: _topicController.text.trim(),
@@ -682,13 +714,39 @@ class _AddWeeklyRoutineTaskBottomSheetState extends State<AddWeeklyRoutineTaskBo
     );
 
     try {
-      await FirebaseFirestore.instance
+      final userRef = FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
-          .collection('weeklyRoutines')
-          .doc(_selectedDay)
-          .collection('tasks')
-          .add(task.toMap());
+          .collection('weeklyRoutines');
+
+      if (widget.taskToEdit != null && !widget.isDuplicate) {
+        if (widget.initialDay == _selectedDay) {
+          await userRef
+              .doc(_selectedDay)
+              .collection('tasks')
+              .doc(taskId)
+              .set(task.toMap());
+        } else {
+          if (widget.initialDay != null) {
+            await userRef
+                .doc(widget.initialDay)
+                .collection('tasks')
+                .doc(taskId)
+                .delete();
+          }
+          await userRef
+              .doc(_selectedDay)
+              .collection('tasks')
+              .doc(taskId)
+              .set(task.toMap());
+        }
+      } else {
+        await userRef
+            .doc(_selectedDay)
+            .collection('tasks')
+            .doc(taskId)
+            .set(task.toMap());
+      }
 
       if (mounted) {
         Navigator.of(context).pop();
@@ -984,7 +1042,7 @@ class _AddWeeklyRoutineTaskBottomSheetState extends State<AddWeeklyRoutineTaskBo
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
                   initialValue: _selectedSubCategory,
-                  items: {'None', ..._studyFolders}.map((c) => DropdownMenuItem(value: c, child: Text(c, style: TextStyle(color: onSurfaceColor)))).toList(),
+                  items: {'None', _selectedSubCategory, ..._studyFolders}.map((c) => DropdownMenuItem(value: c, child: Text(c, style: TextStyle(color: onSurfaceColor)))).toList(),
                   onChanged: (v) {
                     setState(() {
                       _selectedSubCategory = v ?? 'None';

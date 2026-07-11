@@ -48,6 +48,261 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   Timer? _missedTasksSnoozeTimer;
   StreamSubscription<DashboardRoutineData>? _routineSubscription;
 
+  bool _hasWeeklyTasksForToday = false;
+  List<Task> _todayWeeklyTasks = [];
+
+  Future<void> _checkWeeklyTasksForToday() async {
+    if (user == null) return;
+    try {
+      final todayDocId = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      final prefs = await SharedPreferences.getInstance();
+      final isAlreadyImported = prefs.getBool('weekly_imported_$todayDocId') ?? false;
+      if (isAlreadyImported) {
+        if (mounted) {
+          setState(() {
+            _hasWeeklyTasksForToday = false;
+            _todayWeeklyTasks = [];
+          });
+        }
+        return;
+      }
+
+      final dayOfWeek = DateFormat('EEEE').format(DateTime.now());
+      final weeklySnap = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user!.uid)
+          .collection('weeklyRoutines')
+          .doc(dayOfWeek)
+          .collection('tasks')
+          .get();
+
+      if (weeklySnap.docs.isNotEmpty) {
+        final List<Task> tasks = weeklySnap.docs.map((doc) {
+          return Task.fromMap(doc.data(), doc.id);
+        }).toList();
+
+        if (mounted) {
+          setState(() {
+            _hasWeeklyTasksForToday = true;
+            _todayWeeklyTasks = tasks;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _hasWeeklyTasksForToday = false;
+            _todayWeeklyTasks = [];
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint("Error checking weekly tasks: $e");
+    }
+  }
+
+  Future<void> _importWeeklyTasks() async {
+    if (user == null || _todayWeeklyTasks.isEmpty) return;
+
+    try {
+      final todayDocId = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      final docRef = FirebaseFirestore.instance
+          .collection('users')
+          .doc(user!.uid)
+          .collection('dailyRoutines')
+          .doc(todayDocId);
+
+      final importedTasks = _todayWeeklyTasks.map((t) {
+        final now = DateTime.now();
+        DateTime? newStart;
+        DateTime? newEnd;
+        if (t.startTime != null) {
+          newStart = DateTime(now.year, now.month, now.day, t.startTime!.hour, t.startTime!.minute);
+        }
+        if (t.endTime != null) {
+          newEnd = DateTime(now.year, now.month, now.day, t.endTime!.hour, t.endTime!.minute);
+        }
+
+        return t.copyWith(
+          title: '[WR] ${t.title}',
+          subject: t.subject != null ? '[WR] ${t.subject}' : '[WR] ${t.title}',
+          startTime: newStart,
+          endTime: newEnd,
+        ).toMap();
+      }).toList();
+
+      final snapshot = await docRef.get();
+      if (snapshot.exists) {
+        await docRef.update({
+          'tasks': FieldValue.arrayUnion(importedTasks)
+        });
+      } else {
+        final newRoutine = DailyRoutine(
+          id: todayDocId,
+          userId: user!.uid,
+          date: DateTime.now(),
+          tasks: importedTasks.map((t) => Task.fromMap(t, t['id'])).toList(),
+        );
+        await docRef.set(newRoutine.toMap());
+      }
+
+      for (var tMap in importedTasks) {
+        final task = Task.fromMap(tMap, tMap['id']);
+        if (task.alarmEnabled) {
+          await LocalNotificationService.scheduleTaskNotifications(task);
+        }
+      }
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('weekly_imported_$todayDocId', true);
+
+      await _checkWeeklyTasksForToday();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Weekly tasks imported to Today\'s Tasks!'.tr())),
+        );
+      }
+    } catch (e) {
+      debugPrint("Error importing weekly tasks: $e");
+    }
+  }
+
+  Widget _buildWeeklyTasksAlertCard() {
+    if (!_hasWeeklyTasksForToday || _todayWeeklyTasks.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      margin: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: isDark 
+              ? [const Color(0xFF1E3A8A), const Color(0xFF0F172A)] 
+              : [const Color(0xFFEFF6FF), const Color(0xFFDBEAFE)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: const Color(0xFF3B82F6).withValues(alpha: 0.3),
+          width: 1.5,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF3B82F6).withValues(alpha: 0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.calendar_view_week_rounded, color: Color(0xFF3B82F6), size: 24),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Today's Weekly Routine".tr(),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: isDark ? Colors.white : const Color(0xFF1E3A8A),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      "${_todayWeeklyTasks.length} tasks scheduled for today".tr(),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? Colors.white70 : const Color(0xFF1E3A8A).withValues(alpha: 0.8),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ..._todayWeeklyTasks.take(3).map((t) {
+            final timeStr = t.startTime != null && t.endTime != null
+                ? '${DateFormat.jm().format(t.startTime!)} - ${DateFormat.jm().format(t.endTime!)}'
+                : 'No time set';
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8.0, left: 44.0),
+              child: Row(
+                children: [
+                  const Icon(Icons.circle, size: 6, color: Color(0xFF3B82F6)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      t.title,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: isDark ? Colors.white.withValues(alpha: 0.9) : const Color(0xFF1E3A8A),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    timeStr,
+                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                  ),
+                ],
+              ),
+            );
+          }),
+          if (_todayWeeklyTasks.length > 3)
+            Padding(
+              padding: const EdgeInsets.only(left: 44.0, bottom: 8.0),
+              child: Text(
+                "+ ${_todayWeeklyTasks.length - 3} more tasks...".tr(),
+                style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Colors.grey),
+              ),
+            ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: () async {
+                  final prefs = await SharedPreferences.getInstance();
+                  final todayDocId = DateFormat('yyyy-MM-dd').format(DateTime.now());
+                  await prefs.setBool('weekly_imported_$todayDocId', true);
+                  setState(() {
+                    _hasWeeklyTasksForToday = false;
+                  });
+                },
+                child: Text('Dismiss'.tr(), style: const TextStyle(color: Colors.grey)),
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton(
+                onPressed: _importWeeklyTasks,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF3B82F6),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                ),
+                child: Text('Add to Today\'s Tasks'.tr()),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -60,6 +315,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       _checkAndScheduleBreathingPopup();
       _startTaskAlertsTimer();
       _updateUserStatus(true); // Initial status update
+      _checkWeeklyTasksForToday();
     }
   }
 
@@ -1259,6 +1515,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             const SizedBox(height: 16),
             _buildSpecialIslamicDayBanner(context),
             _buildTodayProgressCard(context),
+            _buildWeeklyTasksAlertCard(),
             const SizedBox(height: 30),
             
             if (_isLoadingRoutine)

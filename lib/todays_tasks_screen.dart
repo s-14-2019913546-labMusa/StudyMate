@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart';
 import 'daily_routine.dart';
+import 'dashboard_screen.dart'; // For AddTaskBottomSheet
+import 'language_manager.dart';
 
 // ==========================================
 // 6. Today's Tasks Screen (আজকের টাস্ক স্ক্রিন)
@@ -86,24 +91,79 @@ class _TodaysTasksScreenState extends State<TodaysTasksScreen> {
                                 : Theme.of(context).colorScheme.onSurface,
                           ),
                     ),
-                    trailing: Checkbox(
-                      value: task.isCompleted,
-                      onChanged: (bool? newValue) {
-                        setState(() {
-                          task.isCompleted = newValue ?? false;
-                          // If task is completed, set completedDuration to totalDuration
-                          // If unchecked, set completedDuration to 0
-                          if (task.isCompleted) {
-                            task.completedDurationMinutes = task.totalDurationMinutes;
-                          } else {
-                            task.completedDurationMinutes = 0; // Or revert to a previous state if you track partial completion
-                          }
-                        });
-                        // In a real app, you would update this task in Firestore:
-                        // _updateTaskInFirestore(task);
-                        // print('Task ${task.title} completion changed to $newValue'); // Removed print for production
-                      },
-                      activeColor: Theme.of(context).colorScheme.primary,
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.copy, size: 18, color: Colors.teal),
+                          tooltip: 'Duplicate Task'.tr(),
+                          onPressed: () {
+                            showModalBottomSheet(
+                              context: context,
+                              isScrollControlled: true,
+                              useSafeArea: true,
+                              shape: const RoundedRectangleBorder(
+                                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                              ),
+                              builder: (context) => AddTaskBottomSheet(
+                                onTaskAdded: (newTask) async {
+                                  final user = FirebaseAuth.instance.currentUser;
+                                  if (user == null) return;
+                                  final todayDocId = DateFormat('yyyy-MM-dd').format(DateTime.now());
+                                  final docRef = FirebaseFirestore.instance
+                                      .collection('users')
+                                      .doc(user.uid)
+                                      .collection('dailyRoutines')
+                                      .doc(todayDocId);
+                                  
+                                  try {
+                                    await docRef.update({
+                                      'tasks': FieldValue.arrayUnion([newTask.toMap()])
+                                    });
+                                    setState(() {
+                                      _tasks.add(newTask);
+                                    });
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text('Task Duplicated Successfully!'.tr())),
+                                      );
+                                    }
+                                  } catch (e) {
+                                    debugPrint("Error duplicating task to today's routine: $e");
+                                  }
+                                },
+                                title: 'Duplicate Task'.tr(),
+                              ),
+                            );
+                          },
+                        ),
+                        Checkbox(
+                          value: task.isCompleted,
+                          onChanged: (bool? newValue) {
+                            setState(() {
+                              task.isCompleted = newValue ?? false;
+                              if (task.isCompleted) {
+                                task.completedDurationMinutes = task.totalDurationMinutes;
+                              } else {
+                                task.completedDurationMinutes = 0;
+                              }
+                            });
+                            final user = FirebaseAuth.instance.currentUser;
+                            if (user != null) {
+                              final todayDocId = DateFormat('yyyy-MM-dd').format(DateTime.now());
+                              FirebaseFirestore.instance
+                                  .collection('users')
+                                  .doc(user.uid)
+                                  .collection('dailyRoutines')
+                                  .doc(todayDocId)
+                                  .update({
+                                    'tasks': _tasks.map((t) => t.toMap()).toList()
+                                  });
+                            }
+                          },
+                          activeColor: Theme.of(context).colorScheme.primary,
+                        ),
+                      ],
                     ),
                   ),
                 );
