@@ -25,6 +25,16 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        ndk {
+            abiFilters.addAll(setOf("armeabi-v7a", "arm64-v8a"))
+        }
+    }
+
+    packaging {
+        jniLibs {
+            excludes.add("lib/x86/*")
+            excludes.add("lib/x86_64/*")
+        }
     }
 
     buildTypes {

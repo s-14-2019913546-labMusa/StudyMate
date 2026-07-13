@@ -6,10 +6,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'daily_routine.dart';
 import 'language_manager.dart';
 import 'islamic_service.dart';
+import 'bengali_date_helper.dart';
+import 'calendar_screen.dart';
 import 'todays_tasks_screen.dart';
 import 'gamification_service.dart';
-import 'task_details_screen.dart'; // নতুন ফাইলটি ইমপোর্ট করা হলো
-import 'tools_screen.dart'; // Tools স্ক্রিন ইমপোর্ট
+import 'task_details_screen.dart';
+import 'tools_screen.dart';
 import 'profile_screen.dart'; // Profile স্ক্রিন ইমপোর্ট
 import 'shared_task_form.dart';
 // নতুন ফাইলটি ইমপোর্ট করা হলো
@@ -18,6 +20,7 @@ import 'notifications_hub_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
 import 'local_notification_service.dart';
+import 'update_service.dart';
 
 class DashboardRoutineData {
   final DailyRoutine? localRoutine;
@@ -316,6 +319,12 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       _startTaskAlertsTimer();
       _updateUserStatus(true); // Initial status update
       _checkWeeklyTasksForToday();
+      
+      Future.delayed(const Duration(seconds: 2), () {
+        if (mounted) {
+          UpdateService.checkUpdate(context);
+        }
+      });
     }
   }
 
@@ -1491,26 +1500,69 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               ],
             ),
             const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    LanguageManager.formatDate(DateTime.now()),
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w500,
-                        ),
-                  ),
-                ),
-                Text(
-                  IslamicService.getHijriDateBn(DateTime.now()),
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.teal.shade700,
-                        fontWeight: FontWeight.w600,
+            InkWell(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const CalendarScreen()),
+                );
+              },
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            LanguageManager.formatDate(DateTime.now()),
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  color: Theme.of(context).colorScheme.onSurface,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Text(
+                                BengaliDateHelper.getBengaliDate(DateTime.now()),
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: Colors.orange.shade700,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                '•',
+                                style: TextStyle(color: Colors.grey.shade500, fontSize: 10),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  IslamicService.getHijriDateBn(DateTime.now()),
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                        color: Colors.teal.shade700,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
+                    ),
+                    Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      size: 14,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
             const SizedBox(height: 16),
             _buildSpecialIslamicDayBanner(context),
