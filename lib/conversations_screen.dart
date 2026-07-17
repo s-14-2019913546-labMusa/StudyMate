@@ -220,6 +220,26 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
     );
   }
 
+  Color _getStatusColor(Map<String, dynamic> userData) {
+    final lastSeenTimestamp = userData['lastSeen'] as Timestamp?;
+    if (lastSeenTimestamp == null) {
+      return Colors.red;
+    }
+    final lastSeen = lastSeenTimestamp.toDate();
+    final difference = DateTime.now().difference(lastSeen);
+
+    if (difference.inMinutes >= 10) {
+      return Colors.red;
+    }
+
+    final appActive = userData['appActive'] as bool? ?? false;
+    if (appActive && difference.inMinutes < 2) {
+      return Colors.green;
+    }
+
+    return Colors.amber;
+  }
+
   Widget _buildOneOnOneConversationTile(BuildContext context, String chatId, Map<String, dynamic> chatData) {
     final List<dynamic> participants = chatData['participants'] ?? [];
     final otherUserId = participants.firstWhere((id) => id != currentUser!.uid, orElse: () => '');
@@ -243,28 +263,26 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
         final lastMessage = chatData['lastMessage'] ?? 'No messages yet.';
         final timestamp = (chatData['lastMessageTimestamp'] as Timestamp?)?.toDate();
         final timeString = timestamp != null ? DateFormat('h:mm a').format(timestamp) : '';
-        final lastSeen = (userData['lastSeen'] as Timestamp?)?.toDate();
-        final isOnline = lastSeen != null && DateTime.now().difference(lastSeen).inMinutes < 5;
+        final statusColor = _getStatusColor(userData);
 
         return ListTile(
           onLongPress: () => _togglePinChat(chatId, isPinned),
           leading: Stack(
             children: [
               const CircleAvatar(child: Icon(Icons.person)),
-              if (isOnline)
-                Positioned(
-                  bottom: 0,
-                  right: 0,
-                  child: Container(
-                    width: 12,
-                    height: 12,
-                    decoration: BoxDecoration(
-                      color: Colors.green,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Theme.of(context).scaffoldBackgroundColor, width: 2),
-                    ),
+              Positioned(
+                bottom: 0,
+                right: 0,
+                child: Container(
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: statusColor,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Theme.of(context).scaffoldBackgroundColor, width: 2),
                   ),
                 ),
+              ),
             ],
           ),
           title: Text(
@@ -312,27 +330,25 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
 
         final userData = userSnapshot.data!.data() as Map<String, dynamic>? ?? {};
         final friendName = userData['displayName'] ?? 'Study Buddy';
-        final lastSeen = (userData['lastSeen'] as Timestamp?)?.toDate();
-        final isOnline = lastSeen != null && DateTime.now().difference(lastSeen).inMinutes < 5;
+        final statusColor = _getStatusColor(userData);
 
         return ListTile(
           leading: Stack(
             children: [
               const CircleAvatar(child: Icon(Icons.person_outline)),
-              if (isOnline)
-                Positioned(
-                  bottom: 0,
-                  right: 0,
-                  child: Container(
-                    width: 12,
-                    height: 12,
-                    decoration: BoxDecoration(
-                      color: Colors.green,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Theme.of(context).scaffoldBackgroundColor, width: 2),
-                    ),
+              Positioned(
+                bottom: 0,
+                right: 0,
+                child: Container(
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: statusColor,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Theme.of(context).scaffoldBackgroundColor, width: 2),
                   ),
                 ),
+              ),
             ],
           ),
           title: Text(friendName, style: const TextStyle(fontWeight: FontWeight.w500)),

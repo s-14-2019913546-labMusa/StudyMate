@@ -103,7 +103,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
           {'title': 'Flashcards', 'icon': Icons.style_rounded, 'color': Colors.purpleAccent, 'action': 'flash'},
           {'title': 'Task History', 'icon': Icons.history_rounded, 'color': Colors.blueGrey, 'action': 'task_history'},
           {'title': 'Dictionary', 'icon': Icons.menu_book_rounded, 'color': Colors.orangeAccent, 'action': 'dict', 'requiresInternet': true},
-          {'title': 'Special Hub', 'icon': Icons.folder_copy_rounded, 'color': Colors.teal, 'action': 'study_folders'},
+          {'title': 'Study Map', 'icon': Icons.folder_copy_rounded, 'color': Colors.teal, 'action': 'study_folders'},
           {'title': 'Countdown', 'icon': Icons.event_note_rounded, 'color': const Color(0xFF6366F1), 'action': 'countdown'},
           {'title': 'Calendar', 'icon': Icons.calendar_month_rounded, 'color': Colors.teal, 'action': 'calendar'},
         ]
@@ -124,7 +124,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
           {'title': 'Social Hub', 'icon': Icons.people_alt_rounded, 'color': Colors.blueAccent, 'action': 'social_hub', 'requiresInternet': true},
           {'title': 'Study Room', 'icon': Icons.video_camera_front_rounded, 'color': Colors.deepPurpleAccent, 'action': 'study_room', 'requiresInternet': true},
           {'title': 'Partner Tasks', 'icon': Icons.group_add_rounded, 'color': Colors.green, 'action': 'partner_tasks', 'requiresInternet': true},
-          {'title': 'Web Bookmarks', 'icon': Icons.bookmarks_rounded, 'color': Colors.blue, 'action': 'bookmarks', 'requiresInternet': true},
+          {'title': 'Web Study', 'icon': Icons.bookmarks_rounded, 'color': Colors.blue, 'action': 'bookmarks', 'requiresInternet': true},
           {'title': 'Study Analytics', 'icon': Icons.analytics_rounded, 'color': Colors.teal, 'action': 'analytics'},
           {'title': 'Notifications', 'icon': Icons.notifications_active_rounded, 'color': Colors.redAccent, 'action': 'notifications'},
         ]
@@ -1126,12 +1126,25 @@ class _SleepTrackerScreenState extends State<SleepTrackerScreen> with SingleTick
   bool _alarmTriggered = false;
   bool _bedTimeTriggered = false;
 
+  String _selectedSleepAlarmSound = 'Alarm';
+  String _selectedSleepAlarmSoundName = 'System Default Alarm';
+  String _sleepAlarmRepeatCount = 'loop';
+  Map<String, String> _customAlarmSounds = {};
+  final Map<String, String> _builtInSounds = {
+    'Notification': 'System Default Notification',
+    'Alarm': 'System Default Alarm',
+    'Ringtone': 'System Default Ringtone',
+  };
+  bool _isPlayingPreview = false;
+  Timer? _previewTimer;
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _startUIUpdateTimer(); // Start timer immediately to watch for bedtime
     _loadSleepState();
+    _loadSleepAlarmSettings();
     if (currentUser != null) {
       _sleepHistoryStream = FirebaseFirestore.instance
           .collection('users')
@@ -1139,6 +1152,61 @@ class _SleepTrackerScreenState extends State<SleepTrackerScreen> with SingleTick
           .collection('sleep_history')
           .orderBy('timestamp', descending: true)
           .snapshots();
+    }
+  }
+
+  Future<void> _loadSleepAlarmSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _selectedSleepAlarmSound = prefs.getString('selectedSleepAlarmSound') ?? 'Alarm';
+      _selectedSleepAlarmSoundName = prefs.getString('selectedSleepAlarmSoundName') ?? 'System Default Alarm';
+      _sleepAlarmRepeatCount = prefs.getString('sleepAlarmRepeatCount') ?? 'loop';
+      try {
+        final customAlarmSoundsStr = prefs.getString('customAlarmSounds');
+        if (customAlarmSoundsStr != null) {
+          _customAlarmSounds = Map<String, String>.from(jsonDecode(customAlarmSoundsStr));
+        }
+      } catch (_) {}
+    });
+  }
+
+  Future<void> _pickSleepRingtone() async {
+    if (!Platform.isAndroid) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('This feature is available on Android only.')),
+      );
+      return;
+    }
+
+    if (_customAlarmSounds.length >= 8) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Maximum custom sounds limit reached.')),
+      );
+      return;
+    }
+
+    final result = await fp.FilePicker.platform.pickFiles(
+      type: fp.FileType.audio,
+      allowMultiple: false,
+    );
+
+    if (result != null && result.files.single.path != null) {
+      final file = result.files.single;
+      final soundUri = 'file://${file.path}';
+      
+      final prefs = await SharedPreferences.getInstance();
+      setState(() {
+        _customAlarmSounds[soundUri] = file.name;
+        _selectedSleepAlarmSound = soundUri;
+        _selectedSleepAlarmSoundName = file.name;
+      });
+      await prefs.setString('customAlarmSounds', jsonEncode(_customAlarmSounds));
+      await prefs.setString('selectedSleepAlarmSound', _selectedSleepAlarmSound);
+      await prefs.setString('selectedSleepAlarmSoundName', _selectedSleepAlarmSoundName);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sound added and selected for sleep alarm!')),
+      );
     }
   }
 
@@ -1171,7 +1239,37 @@ class _SleepTrackerScreenState extends State<SleepTrackerScreen> with SingleTick
     _tabController.dispose();
     _uiUpdateTimer?.cancel();
     _alarmRingingTimer?.cancel();
+    _previewTimer?.cancel();
     super.dispose();
+  }
+
+  void _togglePreviewSound(String soundName) {
+    _previewTimer?.cancel();
+    if (_isPlayingPreview) {
+      SoundPlayer.stopAlarm();
+      setState(() {
+        _isPlayingPreview = false;
+      });
+    } else {
+      SoundPlayer.stopAlarm();
+      SoundPlayer.playNotificationSoundAndVibration(
+        soundName: soundName,
+        volume: 1.0,
+        soundEnabled: true,
+        vibrationEnabled: false,
+        isAlarm: true,
+      );
+      setState(() {
+        _isPlayingPreview = true;
+      });
+      _previewTimer = Timer(const Duration(seconds: 8), () {
+        if (mounted) {
+          setState(() {
+            _isPlayingPreview = false;
+          });
+        }
+      });
+    }
   }
 
   void _startUIUpdateTimer() {
@@ -1505,7 +1603,179 @@ class _SleepTrackerScreenState extends State<SleepTrackerScreen> with SingleTick
             ],
           ),
           
-          const SizedBox(height: 60),
+          const SizedBox(height: 24),
+          Card(
+            elevation: 2,
+            shadowColor: Colors.black12,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Column(
+                children: [
+                  // Sound Selector Row
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.indigo.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(Icons.music_note_rounded, color: Colors.indigo),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Morning Alarm Sound',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                _selectedSleepAlarmSoundName,
+                                style: const TextStyle(color: Colors.grey, fontSize: 12),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: Icon(
+                            _isPlayingPreview ? Icons.stop_circle_rounded : Icons.play_circle_fill_rounded,
+                            color: Colors.indigo,
+                            size: 28,
+                          ),
+                          onPressed: () => _togglePreviewSound(_selectedSleepAlarmSound),
+                        ),
+                        PopupMenuButton<String>(
+                          icon: const Icon(Icons.arrow_drop_down_circle_outlined, color: Colors.indigo),
+                          onSelected: (String value) async {
+                            if (value == 'pick_custom_sleep') {
+                              await _pickSleepRingtone();
+                              return;
+                            }
+                            final prefs = await SharedPreferences.getInstance();
+                            setState(() {
+                              _selectedSleepAlarmSound = value;
+                              _selectedSleepAlarmSoundName = _builtInSounds[value] ?? _customAlarmSounds[value] ?? value;
+                            });
+                            await prefs.setString('selectedSleepAlarmSound', _selectedSleepAlarmSound);
+                            await prefs.setString('selectedSleepAlarmSoundName', _selectedSleepAlarmSoundName);
+                          },
+                          itemBuilder: (BuildContext context) {
+                            return [
+                              ..._builtInSounds.entries.map((entry) {
+                                final isSelected = entry.key == _selectedSleepAlarmSound;
+                                return PopupMenuItem<String>(
+                                  value: entry.key,
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Expanded(child: Text(entry.value)),
+                                      if (isSelected)
+                                        const Icon(Icons.check_circle_rounded, size: 18, color: Colors.green),
+                                    ],
+                                  ),
+                                );
+                              }),
+                              if (_customAlarmSounds.isNotEmpty) const PopupMenuDivider(),
+                              ..._customAlarmSounds.entries.map((entry) {
+                                final isSelected = entry.key == _selectedSleepAlarmSound;
+                                return PopupMenuItem<String>(
+                                  value: entry.key,
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Expanded(child: Text(entry.value)),
+                                      if (isSelected)
+                                        const Icon(Icons.check_circle_rounded, size: 18, color: Colors.green),
+                                    ],
+                                  ),
+                                );
+                              }),
+                              const PopupMenuDivider(),
+                              const PopupMenuItem<String>(
+                                value: 'pick_custom_sleep',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.add_circle_outline_rounded, size: 18),
+                                    SizedBox(width: 8),
+                                    Text('নিজের ডিভাইস থেকে যোগ করুন...'),
+                                  ],
+                                ),
+                              ),
+                            ];
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1, color: Colors.black12),
+                  // Repeat Selector Row
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.indigo.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(Icons.repeat_rounded, color: Colors.indigo),
+                        ),
+                        const SizedBox(width: 14),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Alarm Repeat',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                              ),
+                              SizedBox(height: 2),
+                              Text(
+                                'অ্যালার্ম পুনরাবৃত্তি',
+                                style: TextStyle(color: Colors.grey, fontSize: 12),
+                              ),
+                            ],
+                          ),
+                        ),
+                        DropdownButton<String>(
+                          value: _sleepAlarmRepeatCount,
+                          underline: Container(),
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.indigo),
+                          onChanged: (String? val) async {
+                            if (val != null) {
+                              final prefs = await SharedPreferences.getInstance();
+                              setState(() {
+                                _sleepAlarmRepeatCount = val;
+                              });
+                              await prefs.setString('sleepAlarmRepeatCount', val);
+                            }
+                          },
+                          items: const [
+                            DropdownMenuItem(value: 'loop', child: Text('Loop Continuously')),
+                            DropdownMenuItem(value: '1', child: Text('1 Time')),
+                            DropdownMenuItem(value: '2', child: Text('2 Times')),
+                            DropdownMenuItem(value: '3', child: Text('3 Times')),
+                            DropdownMenuItem(value: '4', child: Text('4 Times')),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
+          const SizedBox(height: 32),
           ElevatedButton.icon(
             onPressed: _startSleep,
             icon: const Icon(Icons.bed_rounded, size: 28),
@@ -2817,9 +3087,9 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    Color bgColor = _isNoteDarkMode ? const Color(0xFF1E1E1E) : Theme.of(context).colorScheme.surface;
-    Color textColor = _isNoteDarkMode ? Colors.white : Theme.of(context).colorScheme.onSurface;
-    Color cardColor = _isNoteDarkMode ? const Color(0xFF2D2D2D) : Theme.of(context).cardColor;
+    Color bgColor = _isNoteDarkMode ? const Color(0xFF1E1E1E) : const Color(0xFFF5F5F5);
+    Color textColor = _isNoteDarkMode ? Colors.white : Colors.black87;
+    Color cardColor = _isNoteDarkMode ? const Color(0xFF2D2D2D) : Colors.white;
 
     return Scaffold(
       resizeToAvoidBottomInset: true, // কিবোর্ড উঠলে ভিউ উপরে উঠে যাবে
@@ -3246,8 +3516,8 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    Color bgColor = _isNoteDarkMode ? const Color(0xFF1E1E1E) : Theme.of(context).colorScheme.surface;
-    Color textColor = _isNoteDarkMode ? Colors.white : Theme.of(context).colorScheme.onSurface;
+    Color bgColor = _isNoteDarkMode ? const Color(0xFF1E1E1E) : const Color(0xFFF5F5F5);
+    Color textColor = _isNoteDarkMode ? Colors.white : Colors.black87;
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -7951,7 +8221,7 @@ class _StopwatchScreenState extends State<StopwatchScreen> with TickerProviderSt
 
   void _triggerAlarm() {
     if (!_alarmEnabled) return; // এলার্ম বন্ধ থাকলে বাজাবে না
-    SoundPlayer.playAlarmNotificationSound();
+    SoundPlayer.playAlarmNotificationSound(looping: true);
     showDialog(
       context: context,
       barrierDismissible: false, // ব্যাকগ্রাউন্ডে ট্যাপ করলে বন্ধ না হওয়ার জন্য
@@ -8593,7 +8863,7 @@ class _PomodoroTimerScreenState extends State<PomodoroTimerScreen> with WidgetsB
   }
 
   void _onTimerComplete() {
-    SoundPlayer.playAlarmNotificationSound();
+    SoundPlayer.playAlarmNotificationSound(looping: true);
     if (_currentMode == 'Focus') {
       _plantTreeAndAwardXP();
     }
@@ -8618,6 +8888,7 @@ class _PomodoroTimerScreenState extends State<PomodoroTimerScreen> with WidgetsB
         actions: [
           ElevatedButton(
             onPressed: () {
+              SoundPlayer.stopAlarm();
               Navigator.pop(ctx);
               if (_currentMode == 'Focus') {
                 _setMode('Short Break', shortBreakMinutes);

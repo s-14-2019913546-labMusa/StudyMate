@@ -38,6 +38,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
   String _selectedPushSoundName = 'Notification';
   String _selectedAlarmSound = 'Alarm';
   String _selectedAlarmSoundName = 'Alarm';
+  String _alarmRepeatCount = 'loop';
 
   // Default built-in sounds map
   final Map<String, String> _builtInSounds = {
@@ -82,6 +83,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
             _selectedPushSoundName = settings['selectedPushSoundName'] as String? ?? settings['selectedSoundName'] as String? ?? 'Notification';
             _selectedAlarmSound = settings['selectedAlarmSound'] as String? ?? 'Alarm';
             _selectedAlarmSoundName = settings['selectedAlarmSoundName'] as String? ?? 'Alarm';
+            _alarmRepeatCount = settings['alarmRepeatCount'] as String? ?? 'loop';
 
             final customPushSoundsRaw = settings['customPushSounds'] as Map<String, dynamic>? ?? {};
             _customPushSounds = customPushSoundsRaw.map((key, value) => MapEntry(key, value.toString()));
@@ -138,6 +140,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
       if (key == 'selectedPushSoundName') _selectedPushSoundName = value as String;
       if (key == 'selectedAlarmSound') _selectedAlarmSound = value as String;
       if (key == 'selectedAlarmSoundName') _selectedAlarmSoundName = value as String;
+      if (key == 'alarmRepeatCount') _alarmRepeatCount = value as String;
     });
 
     if (key == 'soundEnabled' || key == 'vibrationEnabled' || key == 'volumeLevel') {
@@ -163,6 +166,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
         'selectedPushSoundName': _selectedPushSoundName,
         'selectedAlarmSound': _selectedAlarmSound,
         'selectedAlarmSoundName': _selectedAlarmSoundName,
+        'alarmRepeatCount': _alarmRepeatCount,
       };
 
       final prefs = await SharedPreferences.getInstance();
@@ -171,6 +175,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
       await prefs.setDouble('volumeLevel', _volumeLevel);
       await prefs.setString('selectedPushSound', _selectedPushSound);
       await prefs.setString('selectedAlarmSound', _selectedAlarmSound);
+      await prefs.setString('alarmRepeatCount', _alarmRepeatCount);
 
       await FirebaseFirestore.instance.collection('users').doc(_currentUser.uid).set({
         'notificationSettings': settingsMap,
@@ -824,6 +829,34 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                               onChanged: _globalNotifications
                                   ? (val) => _saveSettings('volumeLevel', val)
                                   : null,
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Alarm Repeat'.tr(), 
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: onSurface),
+                                ),
+                                DropdownButton<String>(
+                                  value: _alarmRepeatCount,
+                                  dropdownColor: Theme.of(context).cardColor,
+                                  underline: Container(),
+                                  style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold, fontSize: 13),
+                                  onChanged: _globalNotifications
+                                      ? (val) {
+                                          if (val != null) _saveSettings('alarmRepeatCount', val);
+                                        }
+                                      : null,
+                                  items: [
+                                    DropdownMenuItem(value: 'loop', child: Text('Loop Continuously'.tr())),
+                                    DropdownMenuItem(value: '1', child: Text('1 Time'.tr())),
+                                    DropdownMenuItem(value: '2', child: Text('2 Times'.tr())),
+                                    DropdownMenuItem(value: '3', child: Text('3 Times'.tr())),
+                                    DropdownMenuItem(value: '4', child: Text('4 Times'.tr())),
+                                  ],
+                                ),
+                              ],
                             ),
                           ],
                         ],

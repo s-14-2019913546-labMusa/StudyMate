@@ -628,7 +628,21 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
                         final userData = userSnap.data!.data() as Map<String, dynamic>? ?? {};
                         final name = userData['displayName'] ?? 'Study Buddy';
                         final lastSeen = (userData['lastSeen'] as Timestamp?)?.toDate();
-                        final isOnline = lastSeen != null && DateTime.now().difference(lastSeen).inMinutes < 2;
+                        Color statusColor = Colors.red;
+                        String statusText = 'Offline';
+                        if (lastSeen != null) {
+                          final difference = DateTime.now().difference(lastSeen);
+                          if (difference.inMinutes < 10) {
+                            final appActive = userData['appActive'] as bool? ?? false;
+                            if (appActive && difference.inMinutes < 2) {
+                              statusColor = Colors.green;
+                              statusText = 'Online';
+                            } else {
+                              statusColor = Colors.amber;
+                              statusText = 'Away';
+                            }
+                          }
+                        }
 
                         return ListTile(
                           onTap: isMe
@@ -649,23 +663,22 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
                               CircleAvatar(
                                 child: Text(name.isNotEmpty ? name[0].toUpperCase() : 'B'),
                               ),
-                              if (isOnline)
-                                Positioned(
-                                  bottom: 0,
-                                  right: 0,
-                                  child: Container(
-                                    width: 12,
-                                    height: 12,
-                                    decoration: BoxDecoration(
-                                      color: Colors.green,
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color: Theme.of(context).scaffoldBackgroundColor,
-                                        width: 2,
-                                      ),
+                              Positioned(
+                                bottom: 0,
+                                right: 0,
+                                child: Container(
+                                  width: 12,
+                                  height: 12,
+                                  decoration: BoxDecoration(
+                                    color: statusColor,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: Theme.of(context).scaffoldBackgroundColor,
+                                      width: 2,
                                     ),
                                   ),
                                 ),
+                              ),
                             ],
                           ),
                           title: Text(
@@ -675,8 +688,8 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
                             ),
                           ),
                           subtitle: Text(
-                            isOnline ? 'Online' : 'Offline',
-                            style: TextStyle(color: isOnline ? Colors.green : Colors.grey),
+                            statusText,
+                            style: TextStyle(color: statusColor == Colors.red ? Colors.grey : statusColor),
                           ),
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,

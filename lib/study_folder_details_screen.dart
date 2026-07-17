@@ -62,6 +62,26 @@ class _StudyFolderDetailsScreenState extends State<StudyFolderDetailsScreen> wit
     }
   }
 
+  Future<void> _moveTopic(List<dynamic> currentSubjects, String subjectName, int topicIndex, int direction) async {
+    final updated = List.from(currentSubjects);
+    final subIdx = updated.indexWhere((s) => s['name'] == subjectName);
+    if (subIdx == -1) return;
+
+    final subject = Map<String, dynamic>.from(updated[subIdx]);
+    final topics = List.from(subject['topics'] ?? []);
+    
+    final targetIndex = topicIndex + direction;
+    if (targetIndex < 0 || targetIndex >= topics.length) return;
+
+    final item = topics.removeAt(topicIndex);
+    topics.insert(targetIndex, item);
+    
+    subject['topics'] = topics;
+    updated[subIdx] = subject;
+    
+    await _updateSubjectsInFirestore(updated);
+  }
+
   Future<void> _addSubject(List<dynamic> currentSubjects) async {
     final controller = TextEditingController();
     final confirm = await showDialog<bool>(
@@ -665,7 +685,17 @@ class _StudyFolderDetailsScreenState extends State<StudyFolderDetailsScreen> wit
                         ),
                       ),
                     )
-                  : ListView.builder(
+                  : ReorderableListView.builder(
+                      buildDefaultDragHandles: false,
+                      onReorder: (oldIndex, newIndex) async {
+                        if (newIndex > oldIndex) {
+                          newIndex -= 1;
+                        }
+                        final updated = List.from(subjects);
+                        final item = updated.removeAt(oldIndex);
+                        updated.insert(newIndex, item);
+                        await _updateSubjectsInFirestore(updated);
+                      },
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       itemCount: subjects.length,
                       itemBuilder: (context, subIndex) {
@@ -674,6 +704,7 @@ class _StudyFolderDetailsScreenState extends State<StudyFolderDetailsScreen> wit
                         final topics = subject['topics'] as List<dynamic>? ?? [];
 
                         return Card(
+                          key: ValueKey(subName),
                           margin: const EdgeInsets.only(bottom: 12),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                           elevation: 1,
@@ -684,34 +715,46 @@ class _StudyFolderDetailsScreenState extends State<StudyFolderDetailsScreen> wit
                               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                             ),
                             subtitle: Text('${topics.length} ${'Topic'.tr()}'),
-                            trailing: PopupMenuButton<String>(
-                              icon: const Icon(Icons.more_vert_rounded),
-                              onSelected: (val) {
-                                if (val == 'add_topic') {
-                                  _addTopic(subjects, subName);
-                                } else if (val == 'delete_sub') {
-                                  _deleteSubject(subjects, subName);
-                                }
-                              },
-                              itemBuilder: (ctx) => [
-                                PopupMenuItem(
-                                  value: 'add_topic',
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.add, size: 18, color: Theme.of(context).iconTheme.color),
-                                      const SizedBox(width: 8),
-                                      Text('Add Topic'.tr()),
-                                    ],
-                                  ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                PopupMenuButton<String>(
+                                  icon: const Icon(Icons.more_vert_rounded),
+                                  onSelected: (val) {
+                                    if (val == 'add_topic') {
+                                      _addTopic(subjects, subName);
+                                    } else if (val == 'delete_sub') {
+                                      _deleteSubject(subjects, subName);
+                                    }
+                                  },
+                                  itemBuilder: (ctx) => [
+                                    PopupMenuItem(
+                                      value: 'add_topic',
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.add, size: 18, color: Theme.of(context).iconTheme.color),
+                                          const SizedBox(width: 8),
+                                          Text('Add Topic'.tr()),
+                                        ],
+                                      ),
+                                    ),
+                                    PopupMenuItem(
+                                      value: 'delete_sub',
+                                      child: Row(
+                                        children: [
+                                          const Icon(Icons.delete_outline_rounded, size: 18, color: Colors.red),
+                                          const SizedBox(width: 8),
+                                          Text('Delete'.tr(), style: const TextStyle(color: Colors.red)),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                PopupMenuItem(
-                                  value: 'delete_sub',
-                                  child: Row(
-                                    children: [
-                                      const Icon(Icons.delete_outline_rounded, size: 18, color: Colors.red),
-                                      const SizedBox(width: 8),
-                                      Text('Delete'.tr(), style: const TextStyle(color: Colors.red)),
-                                    ],
+                                ReorderableDragStartListener(
+                                  index: subIndex,
+                                  child: const Padding(
+                                    padding: EdgeInsets.symmetric(horizontal: 8.0),
+                                    child: Icon(Icons.drag_handle_rounded, color: Colors.grey),
                                   ),
                                 ),
                               ],
@@ -793,8 +836,8 @@ class _StudyFolderDetailsScreenState extends State<StudyFolderDetailsScreen> wit
                                   padding: const EdgeInsets.all(16.0),
                                   child: Text('No notes recorded.'.tr(), style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
                                 ),
-                              ...topics.map((t) {
-                                final topicMap = t as Map<String, dynamic>;
+                              ...Iterable<int>.generate(topics.length).map((topicIndex) {
+                                final topicMap = topics[topicIndex] as Map<String, dynamic>;
                                 final topicName = topicMap['name'] ?? '';
                                 final isComp = topicMap['isCompleted'] ?? false;
 
@@ -834,6 +877,16 @@ class _StudyFolderDetailsScreenState extends State<StudyFolderDetailsScreen> wit
                                           currentSubjects: subjects,
                                         ),
                                       ),
+                                      if (topicIndex > 0)
+                                        IconButton(
+                                          icon: const Icon(Icons.arrow_upward_rounded, size: 16, color: Colors.grey),
+                                          onPressed: () => _moveTopic(subjects, subName, topicIndex, -1),
+                                        ),
+                                      if (topicIndex < topics.length - 1)
+                                        IconButton(
+                                          icon: const Icon(Icons.arrow_downward_rounded, size: 16, color: Colors.grey),
+                                          onPressed: () => _moveTopic(subjects, subName, topicIndex, 1),
+                                        ),
                                       IconButton(
                                         icon: const Icon(Icons.close_rounded, size: 16, color: Colors.red),
                                         onPressed: () => _deleteTopic(subjects, subName, topicName),

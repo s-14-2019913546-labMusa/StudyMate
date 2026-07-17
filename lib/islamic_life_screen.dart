@@ -6,11 +6,14 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:file_picker/file_picker.dart' as fp;
 import 'islamic_service.dart';
 import 'local_notification_service.dart';
 import 'quran_reader_screen.dart';
 import 'qibla_compass_screen.dart';
 import 'tasbeeh_counter_screen.dart';
+import 'prayer_history_screen.dart';
 
 class IslamicLifeScreen extends StatefulWidget {
   const IslamicLifeScreen({super.key});
@@ -37,12 +40,23 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
   Map<String, Map<String, bool>> _historyData = {};
 
   // ── Islamic Notification Settings (independent from global settings) ──────
-  // Keys: prayerStart, prayerWarning, jummaReminder
-  Map<String, bool> _islamicNotifSettings = {
+  // Keys: prayerStart, prayerWarning, jummaReminder, prayerAlarmEnabled, selectedPrayerAlarmSound, selectedPrayerAlarmSoundName
+  Map<String, dynamic> _islamicNotifSettings = {
     'prayerStart': true,
     'prayerWarning': true,
     'jummaReminder': true,
+    'prayerAlarmEnabled': false,
+    'selectedPrayerAlarmSound': 'Alarm',
+    'selectedPrayerAlarmSoundName': 'System Default Alarm',
   };
+  Map<String, String> _customAlarmSounds = {};
+  final Map<String, String> _builtInSounds = {
+    'Notification': 'System Default Notification',
+    'Alarm': 'System Default Alarm',
+    'Ringtone': 'System Default Ringtone',
+  };
+  bool _isPlayingPreview = false;
+  Timer? _previewTimer;
   static const String _islamicNotifFile = 'islamic_notif_settings.json';
 
   // Friday Special Checklist States
@@ -74,6 +88,7 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
   @override
   void dispose() {
     _countdownTimer?.cancel();
+    _previewTimer?.cancel();
     _audioPlayer.dispose();
     super.dispose();
   }
@@ -177,6 +192,16 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
     try {
       final directory = await getApplicationDocumentsDirectory();
       final file = File('${directory.path}/$_islamicNotifFile');
+      final prefs = await SharedPreferences.getInstance();
+      
+      // Load custom alarm sounds
+      try {
+        final customAlarmSoundsStr = prefs.getString('customAlarmSounds');
+        if (customAlarmSoundsStr != null) {
+          _customAlarmSounds = Map<String, String>.from(jsonDecode(customAlarmSoundsStr));
+        }
+      } catch (_) {}
+
       if (await file.exists()) {
         final decoded = json.decode(await file.readAsString()) as Map<String, dynamic>;
         if (mounted) {
@@ -185,6 +210,9 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
               'prayerStart':    decoded['prayerStart']    as bool? ?? true,
               'prayerWarning':  decoded['prayerWarning']  as bool? ?? true,
               'jummaReminder':  decoded['jummaReminder']  as bool? ?? true,
+              'prayerAlarmEnabled': decoded['prayerAlarmEnabled'] as bool? ?? false,
+              'selectedPrayerAlarmSound': decoded['selectedPrayerAlarmSound'] as String? ?? 'Alarm',
+              'selectedPrayerAlarmSoundName': decoded['selectedPrayerAlarmSoundName'] as String? ?? 'System Default Alarm',
             };
           });
         }
@@ -204,6 +232,92 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
       }
     } catch (e) {
       debugPrint('Error saving Islamic notif settings: $e');
+    }
+  }
+
+  Future<void> _saveCustomSounds() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('customAlarmSounds', jsonEncode(_customAlarmSounds));
+  }
+
+  Future<void> _pickPrayerRingtone(StateSetter setModal) async {
+    if (!Platform.isAndroid) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('This feature is available on Android only.')),
+      );
+      return;
+    }
+
+    if (_customAlarmSounds.length >= 8) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Maximum custom sounds limit reached.')),
+      );
+      return;
+    }
+
+    final result = await fp.FilePicker.platform.pickFiles(
+      type: fp.FileType.audio,
+      allowMultiple: false,
+    );
+
+    if (result != null && result.files.single.path != null) {
+      final file = result.files.single;
+      final soundUri = 'file://${file.path}';
+      
+      setModal(() {
+        _customAlarmSounds[soundUri] = file.name;
+        _islamicNotifSettings['selectedPrayerAlarmSound'] = soundUri;
+        _islamicNotifSettings['selectedPrayerAlarmSoundName'] = file.name;
+      });
+      setState(() {
+        _customAlarmSounds[soundUri] = file.name;
+        _islamicNotifSettings['selectedPrayerAlarmSound'] = soundUri;
+        _islamicNotifSettings['selectedPrayerAlarmSoundName'] = file.name;
+      });
+      await _saveCustomSounds();
+      await _saveIslamicNotifSettings();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sound added and selected!')),
+      );
+    }
+  }
+
+  void _togglePreviewSound(String soundName, StateSetter setModal) {
+    _previewTimer?.cancel();
+    if (_isPlayingPreview) {
+      SoundPlayer.stopAlarm();
+      setModal(() {
+        _isPlayingPreview = false;
+      });
+      setState(() {
+        _isPlayingPreview = false;
+      });
+    } else {
+      SoundPlayer.stopAlarm();
+      SoundPlayer.playNotificationSoundAndVibration(
+        soundName: soundName,
+        volume: 1.0,
+        soundEnabled: true,
+        vibrationEnabled: false,
+        isAlarm: true,
+      );
+      setModal(() {
+        _isPlayingPreview = true;
+      });
+      setState(() {
+        _isPlayingPreview = true;
+      });
+      _previewTimer = Timer(const Duration(seconds: 8), () {
+        if (mounted) {
+          setModal(() {
+            _isPlayingPreview = false;
+          });
+          setState(() {
+            _isPlayingPreview = false;
+          });
+        }
+      });
     }
   }
 
@@ -288,6 +402,130 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                     key: 'jummaReminder',
                     goldAccent: goldAccent,
                   ),
+                  _buildNotifTile(
+                    ctx, setModal,
+                    icon: Icons.notifications_active_rounded,
+                    title: 'সালাতের ওয়াক্তে আযান/অ্যালার্ম বাজবে',
+                    subtitle: 'ওয়াক্ত শুরু হলে নোটিফিকেশনের সাথে আযান/অ্যালার্ম বাজবে',
+                    key: 'prayerAlarmEnabled',
+                    goldAccent: goldAccent,
+                  ),
+                  if (_islamicNotifSettings['prayerAlarmEnabled'] ?? false) ...[
+                    const SizedBox(height: 8),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 8.0, right: 8.0, bottom: 8.0),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.04),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.white12),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('সালাত অ্যালার্ম সাউন্ড', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  IconButton(
+                                    icon: Icon(
+                                      _isPlayingPreview ? Icons.stop_circle_rounded : Icons.play_circle_fill_rounded,
+                                      color: goldAccent,
+                                      size: 24,
+                                    ),
+                                    constraints: const BoxConstraints(),
+                                    padding: const EdgeInsets.only(right: 8.0),
+                                    onPressed: () => _togglePreviewSound(_islamicNotifSettings['selectedPrayerAlarmSound'] ?? 'Alarm', setModal),
+                                  ),
+                                  Flexible(
+                                    child: PopupMenuButton<String>(
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Flexible(
+                                            child: Text(
+                                              _islamicNotifSettings['selectedPrayerAlarmSoundName'] ?? 'System Default Alarm',
+                                              style: const TextStyle(color: goldAccent, fontSize: 12),
+                                              overflow: TextOverflow.ellipsis,
+                                              maxLines: 1,
+                                            ),
+                                          ),
+                                          const Icon(Icons.arrow_drop_down_rounded, color: goldAccent),
+                                        ],
+                                      ),
+                                  onSelected: (String value) async {
+                                    if (value == 'pick_custom_prayer') {
+                                      await _pickPrayerRingtone(setModal);
+                                      return;
+                                    }
+                                    final selectedName = _builtInSounds[value] ?? _customAlarmSounds[value] ?? value;
+                                    setModal(() {
+                                      _islamicNotifSettings['selectedPrayerAlarmSound'] = value;
+                                      _islamicNotifSettings['selectedPrayerAlarmSoundName'] = selectedName;
+                                    });
+                                    setState(() {
+                                      _islamicNotifSettings['selectedPrayerAlarmSound'] = value;
+                                      _islamicNotifSettings['selectedPrayerAlarmSoundName'] = selectedName;
+                                    });
+                                    await _saveIslamicNotifSettings();
+                                  },
+                                  itemBuilder: (BuildContext context) {
+                                    return [
+                                      ..._builtInSounds.entries.map((entry) {
+                                        final isSelected = entry.key == _islamicNotifSettings['selectedPrayerAlarmSound'];
+                                        return PopupMenuItem<String>(
+                                          value: entry.key,
+                                          child: Row(
+                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Expanded(child: Text(entry.value)),
+                                              if (isSelected)
+                                                const Icon(Icons.check_circle_rounded, size: 18, color: Colors.green),
+                                            ],
+                                          ),
+                                        );
+                                      }),
+                                      if (_customAlarmSounds.isNotEmpty) const PopupMenuDivider(),
+                                      ..._customAlarmSounds.entries.map((entry) {
+                                        final isSelected = entry.key == _islamicNotifSettings['selectedPrayerAlarmSound'];
+                                        return PopupMenuItem<String>(
+                                          value: entry.key,
+                                          child: Row(
+                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Expanded(child: Text(entry.value)),
+                                              if (isSelected)
+                                                const Icon(Icons.check_circle_rounded, size: 18, color: Colors.green),
+                                            ],
+                                          ),
+                                        );
+                                      }),
+                                      const PopupMenuDivider(),
+                                      const PopupMenuItem<String>(
+                                        value: 'pick_custom_prayer',
+                                        child: Row(
+                                          children: [
+                                            Icon(Icons.add_circle_outline_rounded, size: 18),
+                                            SizedBox(width: 8),
+                                            Text('নিজের ডিভাইস থেকে যোগ করুন...'),
+                                          ],
+                                        ),
+                                      ),
+                                    ];
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 16),
                   Container(
                     padding: const EdgeInsets.all(14),
@@ -383,13 +621,25 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
     _saveHistoryData();
   }
 
-  void _playNotificationSound() async {
-    try {
-      await _audioPlayer.play(
-        UrlSource('https://assets.mixkit.co/active_storage/sfx/2869/2869-600.wav'),
+  void _playNotificationSound({bool isSalatAlarm = false}) async {
+    if (isSalatAlarm && (_islamicNotifSettings['prayerAlarmEnabled'] ?? false)) {
+      final soundName = _islamicNotifSettings['selectedPrayerAlarmSound'] ?? 'Alarm';
+      await SoundPlayer.playNotificationSoundAndVibration(
+        soundName: soundName,
+        volume: 1.0,
+        soundEnabled: true,
+        vibrationEnabled: true,
+        isAlarm: true,
+        looping: false, // Salat Alarm plays once fully, no looping.
       );
-    } catch (e) {
-      SystemSound.play(SystemSoundType.click);
+    } else {
+      try {
+        await _audioPlayer.play(
+          UrlSource('https://assets.mixkit.co/active_storage/sfx/2869/2869-600.wav'),
+        );
+      } catch (e) {
+        SystemSound.play(SystemSoundType.click);
+      }
     }
   }
 
@@ -461,6 +711,7 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
             "নামাজের সময়",
             "সালাতের ওয়াক্ত শুরু হয়েছে! ৫ মিনিট অতিবাহিত হয়েছে। অনুগ্রহ করে জুমআ/জামায়াতে সালাত আদায়ের প্রস্তুতি নিন।",
             false,
+            isSalatAlarm: true,
           );
         }
       }
@@ -478,17 +729,19 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
             "তাড়াতাড়ি করুন!",
             "সতর্কতা: $pName নামাজের ওয়াক্ত শেষ হতে আর মাত্র ২০ মিনিট বাকি আছে! দ্রুত সালাত আদায় করে নিন।",
             true,
+            isSalatAlarm: false,
           );
         }
       }
     }
   }
 
-  void _triggerNotification(String title, String body, bool isWarning) {
-    _playNotificationSound();
+  void _triggerNotification(String title, String body, bool isWarning, {bool isSalatAlarm = false}) {
+    _playNotificationSound(isSalatAlarm: isSalatAlarm);
     if (!mounted) return;
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (ctx) {
         const goldAccent = Color(0xFFE5B842);
         const cardBg = Color(0xFF162D24);
@@ -520,7 +773,10 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
+              onPressed: () {
+                SoundPlayer.stopAlarm();
+                Navigator.of(ctx).pop();
+              },
               child: Text(
                 "ঠিক আছে",
                 style: TextStyle(color: accentColor, fontWeight: FontWeight.bold),
@@ -1437,12 +1693,79 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                   const SizedBox(height: 24),
                   
                   // 5. Prayer History Section
-                  const Padding(
-                    padding: EdgeInsets.only(left: 4.0, bottom: 12.0),
-                    child: Text(
-                      'নামাজের ইতিহাস',
-                      style: TextStyle(color: textLight, fontWeight: FontWeight.bold, fontSize: 18),
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.only(left: 4.0, bottom: 12.0),
+                        child: Text(
+                          'নামাজের ইতিহাস',
+                          style: TextStyle(color: textLight, fontWeight: FontWeight.bold, fontSize: 18),
+                        ),
+                      ),
+                      TextButton.icon(
+                        style: TextButton.styleFrom(foregroundColor: goldAccent),
+                        icon: const Icon(Icons.analytics_rounded, size: 16),
+                        label: const Text('বিস্তারিত রিপোর্ট', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => const PrayerHistoryScreen()),
+                          ).then((_) => _loadHistoryData());
+                        },
+                      ),
+                    ],
+                  ),
+                  
+                  Builder(
+                    builder: (context) {
+                      final todayKey = DateFormat('yyyy-MM-dd').format(DateTime.now());
+                      final dayData = _historyData[todayKey] ?? {};
+                      int todayMissed = 0;
+                      for (final p in ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha']) {
+                        if (!(dayData[p] ?? false)) {
+                          todayMissed++;
+                        }
+                      }
+                      
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: todayMissed > 0 
+                              ? Colors.redAccent.withValues(alpha: 0.1) 
+                              : Colors.green.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: todayMissed > 0 
+                                ? Colors.redAccent.withValues(alpha: 0.3) 
+                                : Colors.green.withValues(alpha: 0.3)
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              todayMissed > 0 ? Icons.info_outline_rounded : Icons.check_circle_outline_rounded,
+                              color: todayMissed > 0 ? Colors.redAccent : Colors.greenAccent,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                todayMissed == 0
+                                    ? 'আলহামদুলিল্লাহ, আজ কোনো ওয়াক্ত নামাজ মিস নাই।'
+                                    : 'আজ আপনার $todayMissed ওয়াক্ত নামাজ মিস গেছে।',
+                                style: TextStyle(
+                                  color: todayMissed > 0 ? Colors.redAccent : Colors.greenAccent,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
                   ),
                   
                   // Sort history dates descending

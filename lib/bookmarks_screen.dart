@@ -13,6 +13,7 @@ class BookmarksScreen extends StatefulWidget {
 
 class _BookmarksScreenState extends State<BookmarksScreen> {
   final User? currentUser = FirebaseAuth.instance.currentUser;
+  bool _isReorderMode = false;
   final _titleController = TextEditingController();
   final _urlController = TextEditingController();
 
@@ -275,23 +276,36 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
   Widget build(BuildContext context) {
     if (currentUser == null) {
       return Scaffold(
-        appBar: AppBar(title: Text('Web Bookmarks'.tr())),
+        appBar: AppBar(title: Text('Web Study'.tr())),
         body: Center(child: Text('Please log in to use bookmarks.'.tr())),
       );
     }
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Web Bookmarks'.tr(), style: const TextStyle(fontWeight: FontWeight.bold)),
+        title: Text('Web Study'.tr(), style: const TextStyle(fontWeight: FontWeight.bold)),
         elevation: 0,
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: Icon(
+              _isReorderMode ? Icons.grid_view_rounded : Icons.swap_vert_rounded,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            tooltip: _isReorderMode ? 'Grid View'.tr() : 'Reorder'.tr(),
+            onPressed: () {
+              setState(() {
+                _isReorderMode = !_isReorderMode;
+              });
+            },
+          ),
+        ],
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
             .collection('users')
             .doc(currentUser!.uid)
             .collection('bookmarks')
-            .orderBy('createdAt', descending: true)
             .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -299,6 +313,88 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
           }
 
           final hasData = snapshot.hasData && snapshot.data!.docs.isNotEmpty;
+
+          final docs = snapshot.data?.docs ?? [];
+          final sortedDocs = List<QueryDocumentSnapshot>.from(docs);
+          sortedDocs.sort((a, b) {
+            final aData = a.data() as Map<String, dynamic>;
+            final bData = b.data() as Map<String, dynamic>;
+            final aPos = aData['position'] ?? (aData['createdAt'] as Timestamp?)?.millisecondsSinceEpoch ?? 0;
+            final bPos = bData['position'] ?? (bData['createdAt'] as Timestamp?)?.millisecondsSinceEpoch ?? 0;
+            return aPos.compareTo(bPos);
+          });
+
+          if (_isReorderMode && hasData) {
+            return ReorderableListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              itemCount: sortedDocs.length,
+              onReorder: (oldIndex, newIndex) async {
+                if (newIndex > oldIndex) {
+                  newIndex -= 1;
+                }
+                final item = sortedDocs.removeAt(oldIndex);
+                sortedDocs.insert(newIndex, item);
+
+                // Write positions to Firestore in batch
+                final batch = FirebaseFirestore.instance.batch();
+                for (int i = 0; i < sortedDocs.length; i++) {
+                  final docRef = FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(currentUser!.uid)
+                      .collection('bookmarks')
+                      .doc(sortedDocs[i].id);
+                  batch.update(docRef, {'position': i});
+                }
+                await batch.commit();
+              },
+              itemBuilder: (context, index) {
+                final doc = sortedDocs[index];
+                final data = doc.data() as Map<String, dynamic>;
+                final title = data['title'] ?? 'Untitled';
+                final url = data['url'] ?? '';
+
+                String domain = url;
+                try {
+                  domain = Uri.parse(url).host;
+                } catch (_) {}
+
+                return Card(
+                  key: ValueKey(doc.id),
+                  margin: const EdgeInsets.only(bottom: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
+                        shape: BoxShape.circle,
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: Image.network(
+                          'https://www.google.com/s2/favicons?domain=$domain&sz=128',
+                          width: 24,
+                          height: 24,
+                          fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Icon(
+                              Icons.language_rounded,
+                              size: 24,
+                              color: Theme.of(context).colorScheme.primary,
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                    title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: Text(domain, style: const TextStyle(fontSize: 11, color: Colors.grey), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    trailing: const Icon(Icons.drag_handle_rounded, color: Colors.grey),
+                  ),
+                );
+              },
+            );
+          }
 
           return CustomScrollView(
             physics: const BouncingScrollPhysics(),
@@ -317,6 +413,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(Icons.bookmarks_outlined, size: 80, color: Colors.grey.withValues(alpha: 0.3)),
+                        const SizedBox(height: 16),
                         const SizedBox(height: 16),
                         Text(
                           'No bookmarks yet!'.tr(),
@@ -344,7 +441,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                     ),
                     delegate: SliverChildBuilderDelegate(
                       (context, index) {
-                        final doc = snapshot.data!.docs[index];
+                        final doc = sortedDocs[index];
                         final data = doc.data() as Map<String, dynamic>;
                         final title = data['title'] ?? 'Untitled';
                         final url = data['url'] ?? '';
@@ -438,7 +535,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                           ),
                         );
                       },
-                      childCount: snapshot.data!.docs.length,
+                      childCount: sortedDocs.length,
                     ),
                   ),
                 ),

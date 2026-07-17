@@ -2,6 +2,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
@@ -181,7 +182,10 @@ class LocalNotificationService {
 
   static Future<void> scheduleMorningAlarm(DateTime wakeUpTime) async {
     if (kIsWeb) return;
-    final sound = await _getAndroidSoundForType(true);
+    final prefs = await SharedPreferences.getInstance();
+    final repeatCount = prefs.getString('sleepAlarmRepeatCount') ?? 'loop';
+    final isInsistent = repeatCount == 'loop';
+    final sound = await _getAndroidSoundForType(true, isSleepAlarm: true);
     await scheduleNotification(
       id: 4,
       title: '⏰ Good Morning!',
@@ -193,6 +197,7 @@ class LocalNotificationService {
       channelName: 'Morning Alarm Notifications',
       channelDescription: 'Handles wake-up alarms with louder sounds',
       enableVibration: true,
+      insistent: isInsistent,
       actions: [
         const AndroidNotificationAction('alarm_snooze', 'Snooze (5m)', showsUserInterface: true),
         const AndroidNotificationAction('alarm_off', 'Turn Off', showsUserInterface: true),
@@ -200,12 +205,33 @@ class LocalNotificationService {
     );
   }
 
-  static Future<AndroidNotificationSound?> _getAndroidSoundForType(bool isAlarm) async {
+  static Future<AndroidNotificationSound?> _getAndroidSoundForType(
+    bool isAlarm, {
+    bool isSleepAlarm = false,
+    bool isPrayerAlarm = false,
+  }) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final soundKey = isAlarm ? 'selectedAlarmSound' : 'selectedPushSound';
-      final defaultSound = isAlarm ? 'Alarm' : 'Notification';
-      final soundPath = prefs.getString(soundKey) ?? defaultSound;
+      String soundPath = isAlarm ? 'Alarm' : 'Notification';
+
+      if (isSleepAlarm) {
+        soundPath = prefs.getString('selectedSleepAlarmSound') ?? 'Alarm';
+      } else if (isPrayerAlarm) {
+        try {
+          final directory = await getApplicationDocumentsDirectory();
+          final file = File('${directory.path}/islamic_notif_settings.json');
+          if (await file.exists()) {
+            final decoded = json.decode(await file.readAsString()) as Map<String, dynamic>;
+            soundPath = decoded['selectedPrayerAlarmSound'] as String? ?? 'Alarm';
+          }
+        } catch (e) {
+          log('Error loading prayer alarm sound: $e');
+        }
+      } else {
+        final soundKey = isAlarm ? 'selectedAlarmSound' : 'selectedPushSound';
+        final defaultSound = isAlarm ? 'Alarm' : 'Notification';
+        soundPath = prefs.getString(soundKey) ?? defaultSound;
+      }
 
       if (soundPath.startsWith('content://') || soundPath.startsWith('file://')) {
         return UriAndroidNotificationSound(soundPath);
@@ -234,7 +260,7 @@ class LocalNotificationService {
 
   static Future<void> schedulePrayerNotifications(
     Map<String, String> timings,
-    Map<String, bool> settings,
+    Map<String, dynamic> settings,
   ) async {
     if (kIsWeb) return;
 
@@ -310,6 +336,10 @@ class LocalNotificationService {
           final alarmTime = start.add(const Duration(minutes: 5));
           if (alarmTime.isAfter(now)) {
             final pName = (pKey == 'Dhuhr' && targetDate.weekday == DateTime.friday) ? 'জুমা' : prayerNames[pKey]!;
+            final isAlarmEnabled = settings['prayerAlarmEnabled'] ?? false;
+            final sound = isAlarmEnabled
+                ? await _getAndroidSoundForType(true, isPrayerAlarm: true)
+                : null;
             await scheduleNotification(
               id: startId,
               title: "সালাতের ওয়াক্ত",
@@ -320,6 +350,8 @@ class LocalNotificationService {
               channelDescription: 'Reminders for daily prayer times',
               enableVibration: true,
               playSound: true,
+              sound: sound,
+              insistent: false,
             );
           }
         }
@@ -426,6 +458,7 @@ class LocalNotificationService {
     bool enableVibration = false,
     List<AndroidNotificationAction>? actions,
     DateTimeComponents? matchDateTimeComponents,
+    bool insistent = false,
   }) async {
     if (kIsWeb) return;
     final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
@@ -438,6 +471,7 @@ class LocalNotificationService {
       sound: sound,
       enableVibration: enableVibration,
       actions: actions,
+      additionalFlags: insistent ? Int32List.fromList([4]) : null,
     );
 
     final DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
@@ -666,6 +700,7 @@ class SoundPlayer {
     required bool soundEnabled,
     required bool vibrationEnabled,
     bool isAlarm = false,
+    bool looping = false,
   }) async {
     // Stop any currently playing sound first
     try {
@@ -690,8 +725,13 @@ class SoundPlayer {
       try {
         final path = soundName.replaceFirst('file://', '');
         await _appAudioPlayer.setVolume(volume);
+        if (looping) {
+          await _appAudioPlayer.setReleaseMode(ReleaseMode.loop);
+        } else {
+          await _appAudioPlayer.setReleaseMode(ReleaseMode.release);
+        }
         await _appAudioPlayer.play(DeviceFileSource(path));
-        log('Playing custom local sound: $soundName');
+        log('Playing custom local sound: $soundName (looping: $looping)');
       } catch (e) {
         log('Error playing custom local sound: $e');
       }
@@ -702,23 +742,23 @@ class SoundPlayer {
       // Using system sounds which is reliable offline
       if (isAlarm) {
         if (soundName == 'Ringtone') {
-          await FlutterRingtonePlayer().playRingtone(volume: volume, looping: false);
+          await FlutterRingtonePlayer().playRingtone(volume: volume, looping: looping);
         } else if (soundName == 'Notification') {
-          await FlutterRingtonePlayer().playNotification(volume: volume, looping: false);
+          await FlutterRingtonePlayer().playNotification(volume: volume, looping: looping);
         } else {
-          await FlutterRingtonePlayer().playAlarm(volume: volume, looping: false);
+          await FlutterRingtonePlayer().playAlarm(volume: volume, looping: looping);
         }
       } else {
         // Push notification / General sounds
         if (soundName == 'Alarm') {
-          await FlutterRingtonePlayer().playAlarm(volume: volume, looping: false);
+          await FlutterRingtonePlayer().playAlarm(volume: volume, looping: looping);
         } else if (soundName == 'Ringtone') {
-          await FlutterRingtonePlayer().playRingtone(volume: volume, looping: false);
+          await FlutterRingtonePlayer().playRingtone(volume: volume, looping: looping);
         } else {
-          await FlutterRingtonePlayer().playNotification(volume: volume, looping: false);
+          await FlutterRingtonePlayer().playNotification(volume: volume, looping: looping);
         }
       }
-      log('Playing system sound: $soundName (isAlarm: $isAlarm)');
+      log('Playing system sound: $soundName (isAlarm: $isAlarm, looping: $looping)');
     } catch (e) {
       log('Error playing system sound: $e. Falling back to system click.');
       try {
@@ -744,6 +784,7 @@ class SoundPlayer {
         soundEnabled: soundEnabled,
         vibrationEnabled: vibrationEnabled,
         isAlarm: false,
+        looping: false,
       );
     } catch (e) {
       log('Error playing Push sound: $e');
@@ -751,7 +792,7 @@ class SoundPlayer {
   }
 
   // Wrapper method to play Alarm sound
-  static Future<void> playAlarmNotificationSound() async {
+  static Future<void> playAlarmNotificationSound({bool looping = false}) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final bool soundEnabled = prefs.getBool('soundEnabled') ?? true;
@@ -765,6 +806,7 @@ class SoundPlayer {
         soundEnabled: soundEnabled,
         vibrationEnabled: vibrationEnabled,
         isAlarm: true,
+        looping: looping,
       );
     } catch (e) {
       log('Error playing Alarm sound: $e');

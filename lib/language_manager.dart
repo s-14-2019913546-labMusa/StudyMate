@@ -95,6 +95,13 @@ class LanguageManager extends ChangeNotifier {
 
 
   static const Map<String, String> _enToBn = {
+    // Alarm Repeat translation additions
+    'Alarm Repeat': 'অ্যালার্ম পুনরাবৃত্তি',
+    'Loop Continuously': 'লুপে বাজতে থাকবে',
+    '1 Time': '১ বার',
+    '2 Times': '২ বার',
+    '3 Times': '৩ বার',
+    '4 Times': '৪ বার',
     // Splash / Login / Signup
     'StudyMate': 'স্টাডিমেট',
     'Your Educational Companion': 'আপনার শিক্ষামূলক সঙ্গী',
@@ -357,7 +364,8 @@ class LanguageManager extends ChangeNotifier {
     'Subject:': 'বিষয়:',
     'BCS': 'বিসিএস',
     'Bank': 'ব্যাংক',
-    'Special Hub': 'স্পেশাল হাব',
+    'Study Map': 'স্টাডি ম্যাপ',
+    'Web Study': 'ওয়েব স্টাডি',
     'Create Folder': 'ফোল্ডার তৈরি করুন',
     'Folder Name': 'ফোল্ডারের নাম',
     'Syllabus': 'সিলেবাস',
@@ -451,6 +459,13 @@ class LanguageManager extends ChangeNotifier {
     'Reactions': 'রিঅ্যাকশনস',
     'Copy Text': 'কপি করুন',
     'Message copied to clipboard!': 'মেসেজ ক্লিপবোর্ডে কপি করা হয়েছে!',
+    'Reply': 'রিপ্লাই',
+    'Replying to': 'রিপ্লাই দিচ্ছেন',
+    'This message was deleted': 'এই বার্তাটি মুছে ফেলা হয়েছে',
+    'Edited': 'সম্পাদিত',
+    'Editing Message': 'মেসেজ এডিট করা হচ্ছে',
+    'Delete Message': 'বার্তাটি মুছুন',
+    'Are you sure you want to delete this message?': 'আপনি কি নিশ্চিত যে আপনি এই বার্তাটি মুছে ফেলতে চান?',
     'Seen': 'সিন',
     'Auto Login': 'অটো লগইন',
     'Security Settings': 'নিরাপত্তা সেটিংস',

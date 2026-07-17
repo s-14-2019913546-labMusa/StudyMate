@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:studymate/bengali_date_helper.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import 'package:hijri/hijri_calendar.dart';
@@ -40,7 +41,7 @@ class _DailyDiaryScreenState extends State<DailyDiaryScreen> with SingleTickerPr
   String _fontFamily = 'System';
   String _bgTheme = 'Default';
   String? _bgImageBase64;
-  double _bgOpacity = 0.2;
+  double _bgOpacity = 0.65;
 
   @override
   void initState() {
@@ -63,8 +64,13 @@ class _DailyDiaryScreenState extends State<DailyDiaryScreen> with SingleTickerPr
       _fontSize = prefs.getDouble('diary_font_size') ?? 18.0;
       _fontFamily = prefs.getString('diary_font_family') ?? 'System';
       _bgTheme = prefs.getString('diary_bg_theme') ?? 'Default';
+      // Migrate old theme values to new system
+      const validThemes = ['Default', 'Classic Diary', 'Boishakh', 'Joishtho', 'Ashar', 'Shrabon', 'Bhadra', 'Ashwin', 'Kartik', 'Agrahayan', 'Poush', 'Magh', 'Falgun', 'Chaitra'];
+      if (!validThemes.contains(_bgTheme)) {
+        _bgTheme = 'Default';
+      }
       _bgImageBase64 = prefs.getString('diary_bg_image');
-      _bgOpacity = prefs.getDouble('diary_bg_opacity') ?? 0.2;
+      _bgOpacity = prefs.getDouble('diary_bg_opacity') ?? 0.65;
     });
   }
 
@@ -269,26 +275,10 @@ class _DailyDiaryScreenState extends State<DailyDiaryScreen> with SingleTickerPr
                         },
                       ),
                     ),
-                    ListTile(
-                      title: const Text('Background Theme'),
-                      trailing: DropdownButton<String>(
-                        value: _bgTheme,
-                        items: const [
-                          DropdownMenuItem(value: 'Default', child: Text('Default')),
-                          DropdownMenuItem(value: 'Spring', child: Text('Spring (Falgun)')),
-                          DropdownMenuItem(value: 'Monsoon', child: Text('Monsoon (Ashar)')),
-                          DropdownMenuItem(value: 'Autumn', child: Text('Autumn (Sarat)')),
-                          DropdownMenuItem(value: 'Winter', child: Text('Winter (Poush)')),
-                        ],
-                        onChanged: (v) {
-                          if (v != null) {
-                            setState(() => _bgTheme = v);
-                            setModalState(() => _bgTheme = v);
-                            _saveSettings();
-                          }
-                        },
-                      ),
-                    ),
+                    const SizedBox(height: 8),
+                    Text('Background Theme', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 12),
+                    _buildThemeSelector(setModalState),
                     const Divider(),
                     ListTile(
                       title: const Text('Custom Background Image'),
@@ -297,7 +287,7 @@ class _DailyDiaryScreenState extends State<DailyDiaryScreen> with SingleTickerPr
                         child: const Text('Pick Image'),
                       ),
                     ),
-                    if (_bgImageBase64 != null) ...[
+                    if (_bgImageBase64 != null || _bgTheme != 'Classic Diary') ...[
                       ListTile(
                         title: const Text('Image Opacity'),
                         subtitle: Slider(
@@ -310,14 +300,16 @@ class _DailyDiaryScreenState extends State<DailyDiaryScreen> with SingleTickerPr
                             _saveSettings();
                           },
                         ),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.delete_outline, color: Colors.red),
-                          onPressed: () {
-                            setState(() => _bgImageBase64 = null);
-                            setModalState(() => _bgImageBase64 = null);
-                            _saveSettings();
-                          },
-                        ),
+                        trailing: _bgImageBase64 != null
+                            ? IconButton(
+                                icon: const Icon(Icons.delete_outline, color: Colors.red),
+                                onPressed: () {
+                                  setState(() => _bgImageBase64 = null);
+                                  setModalState(() => _bgImageBase64 = null);
+                                  _saveSettings();
+                                },
+                              )
+                            : null,
                       ),
                     ],
                     const SizedBox(height: 20),
@@ -331,20 +323,116 @@ class _DailyDiaryScreenState extends State<DailyDiaryScreen> with SingleTickerPr
     );
   }
 
+  Widget _buildThemeSelector(void Function(void Function()) setModalState) {
+    const themes = [
+      {'key': 'Default', 'label': 'অটো (মাস অনুসারে)', 'image': ''},
+      {'key': 'Classic Diary', 'label': 'ক্লাসিক ডায়েরি', 'image': ''},
+      {'key': 'Boishakh', 'label': 'বৈশাখ', 'image': 'assets/images/boishakh.png'},
+      {'key': 'Joishtho', 'label': 'জ্যৈষ্ঠ', 'image': 'assets/images/joishtho.png'},
+      {'key': 'Ashar', 'label': 'আষাঢ়', 'image': 'assets/images/ashar.png'},
+      {'key': 'Shrabon', 'label': 'শ্রাবণ', 'image': 'assets/images/shrabon.png'},
+      {'key': 'Bhadra', 'label': 'ভাদ্র', 'image': 'assets/images/bhadra.png'},
+      {'key': 'Ashwin', 'label': 'আশ্বিন', 'image': 'assets/images/ashwin.png'},
+      {'key': 'Kartik', 'label': 'কার্তিক', 'image': 'assets/images/kartik.png'},
+      {'key': 'Agrahayan', 'label': 'অগ্রহায়ণ', 'image': 'assets/images/agrahayan.png'},
+      {'key': 'Poush', 'label': 'পৌষ', 'image': 'assets/images/poush.png'},
+      {'key': 'Magh', 'label': 'মাঘ', 'image': 'assets/images/magh.png'},
+      {'key': 'Falgun', 'label': 'ফাল্গুন', 'image': 'assets/images/falgun.png'},
+      {'key': 'Chaitra', 'label': 'চৈত্র', 'image': 'assets/images/chaitra.png'},
+    ];
+
+    return SizedBox(
+      height: 120,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: themes.length,
+        itemBuilder: (context, index) {
+          final theme = themes[index];
+          final isSelected = _bgTheme == theme['key'];
+          final hasImage = theme['image']!.isNotEmpty;
+
+          return GestureDetector(
+            onTap: () {
+              setState(() => _bgTheme = theme['key']!);
+              setModalState(() => _bgTheme = theme['key']!);
+              _saveSettings();
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: 90,
+              margin: const EdgeInsets.only(right: 10),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isSelected ? Colors.deepOrange : Colors.grey.shade300,
+                  width: isSelected ? 2.5 : 1,
+                ),
+                color: hasImage ? null : const Color(0xFFFAF0DC),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Stack(
+                children: [
+                  if (hasImage)
+                    Positioned.fill(
+                      child: Image.asset(
+                        theme['image']!,
+                        fit: BoxFit.cover,
+                      ),
+                    )
+                  else
+                    Center(
+                      child: Icon(
+                        theme['key'] == 'Default' ? Icons.auto_awesome : Icons.menu_book_rounded,
+                        color: Colors.brown.shade400,
+                        size: 30,
+                      ),
+                    ),
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+                      color: Colors.black54,
+                      child: Text(
+                        theme['label']!,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                  if (isSelected)
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: Container(
+                        decoration: const BoxDecoration(
+                          color: Colors.deepOrange,
+                          shape: BoxShape.circle,
+                        ),
+                        padding: const EdgeInsets.all(2),
+                        child: const Icon(Icons.check, color: Colors.white, size: 14),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   Color _getBackgroundColor(bool isDark) {
     if (isDark) return Colors.grey.shade900;
-    switch (_bgTheme) {
-      case 'Spring': return const Color(0xFFF9FBE7);
-      case 'Monsoon': return const Color(0xFFECEFF1);
-      case 'Autumn': return const Color(0xFFE0F7FA);
-      case 'Winter': return const Color(0xFFEFEBE9);
-      default: return const Color(0xFFF5EAD4);
-    }
+    return const Color(0xFFFAF0DC); // Antique yellowish old diary page color
   }
 
   TextStyle _getTextStyle(bool isDark) {
     TextStyle baseStyle = TextStyle(
-      height: 2.2,
+      height: 1.55,
       fontSize: _fontSize,
       color: isDark ? Colors.white : Colors.black87,
     );
@@ -386,6 +474,103 @@ class _DailyDiaryScreenState extends State<DailyDiaryScreen> with SingleTickerPr
     );
   }
 
+  String _getThemeImagePath(String theme, DateTime date) {
+    if (theme == 'Classic Diary') return '';
+    String monthImageName = '';
+    if (theme == 'Default') {
+      final bnMonthIndex = BengaliDateHelper.getBengaliMonthIndexFromDate(date);
+      switch (bnMonthIndex) {
+        case 0: monthImageName = 'boishakh.png'; break;
+        case 1: monthImageName = 'joishtho.png'; break;
+        case 2: monthImageName = 'ashar.png'; break;
+        case 3: monthImageName = 'shrabon.png'; break;
+        case 4: monthImageName = 'bhadra.png'; break;
+        case 5: monthImageName = 'ashwin.png'; break;
+        case 6: monthImageName = 'kartik.png'; break;
+        case 7: monthImageName = 'agrahayan.png'; break;
+        case 8: monthImageName = 'poush.png'; break;
+        case 9: monthImageName = 'magh.png'; break;
+        case 10: monthImageName = 'falgun.png'; break;
+        case 11:
+        default:
+          monthImageName = 'chaitra.png'; break;
+      }
+    } else {
+      switch (theme) {
+        case 'Boishakh': monthImageName = 'boishakh.png'; break;
+        case 'Joishtho': monthImageName = 'joishtho.png'; break;
+        case 'Ashar': monthImageName = 'ashar.png'; break;
+        case 'Shrabon': monthImageName = 'shrabon.png'; break;
+        case 'Bhadra': monthImageName = 'bhadra.png'; break;
+        case 'Ashwin': monthImageName = 'ashwin.png'; break;
+        case 'Kartik': monthImageName = 'kartik.png'; break;
+        case 'Agrahayan': monthImageName = 'agrahayan.png'; break;
+        case 'Poush': monthImageName = 'poush.png'; break;
+        case 'Magh': monthImageName = 'magh.png'; break;
+        case 'Falgun': monthImageName = 'falgun.png'; break;
+        case 'Chaitra': monthImageName = 'chaitra.png'; break;
+        default: return '';
+      }
+    }
+    return 'assets/images/$monthImageName';
+  }
+
+  Widget _buildBackgroundImage(bool isDark) {
+    final double activeOpacity = isDark ? (_bgOpacity * 0.4).clamp(0.01, 1.0) : _bgOpacity;
+
+    Widget? imageWidget;
+    if (_bgImageBase64 != null) {
+      try {
+        imageWidget = Image.memory(
+          base64Decode(_bgImageBase64!),
+          fit: BoxFit.cover,
+          width: double.infinity,
+        );
+      } catch (e) {
+        debugPrint('Error decoding base64 image: $e');
+      }
+    } else {
+      final path = _getThemeImagePath(_bgTheme, _selectedDate);
+      if (path.isNotEmpty) {
+        imageWidget = Image.asset(
+          path,
+          fit: BoxFit.cover,
+          width: double.infinity,
+        );
+      }
+    }
+
+    if (imageWidget == null) return const SizedBox.shrink();
+
+    return Positioned.fill(
+      child: Align(
+        alignment: Alignment.bottomCenter,
+        child: FractionallySizedBox(
+          heightFactor: 0.7,
+          widthFactor: 1.0,
+          child: Opacity(
+            opacity: activeOpacity,
+            child: ShaderMask(
+              shaderCallback: (rect) {
+                return LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [
+                    Colors.white,
+                    Colors.white.withOpacity(0.0),
+                  ],
+                  stops: const [0.3, 1.0],
+                ).createShader(rect);
+              },
+              blendMode: BlendMode.dstIn,
+              child: imageWidget,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildTodayPage() {
     final engDate = DateFormat('EEEE, dd MMMM yyyy').format(_selectedDate);
     final benDate = _getBengaliDate(_selectedDate);
@@ -393,7 +578,7 @@ class _DailyDiaryScreenState extends State<DailyDiaryScreen> with SingleTickerPr
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final textStyle = _getTextStyle(isDark);
-    final lineHeight = _fontSize * 2.2;
+    final lineHeight = _fontSize * 1.55;
     final startY = lineHeight;
 
     return Padding(
@@ -453,16 +638,7 @@ class _DailyDiaryScreenState extends State<DailyDiaryScreen> with SingleTickerPr
                         Expanded(
                           child: Stack(
                             children: [
-                              if (_bgImageBase64 != null)
-                                Positioned.fill(
-                                  child: Opacity(
-                                    opacity: _bgOpacity,
-                                    child: Image.memory(
-                                      base64Decode(_bgImageBase64!),
-                                      fit: BoxFit.cover,
-                                    ),
-                                  ),
-                                ),
+                              _buildBackgroundImage(isDark),
                               Positioned.fill(
                                 child: IgnorePointer(
                                   child: CustomPaint(
@@ -768,11 +944,14 @@ class _DailyDiaryScreenState extends State<DailyDiaryScreen> with SingleTickerPr
   Future<List<pw.MemoryImage>> _buildPdfPageImages(String dateStr, String content) async {
     const isDark = false; 
     final textStyle = _getTextStyle(isDark);
-    final lineHeight = _fontSize * 2.2;
+    final lineHeight = _fontSize * 1.55;
     final startY = lineHeight;
 
+    final parsedDate = DateFormat('yyyy-MM-dd').parse(dateStr);
+    final monthImagePath = _getThemeImagePath(_bgTheme, parsedDate);
+
     final wrappedLines = _wrapText(content, 48);
-    final int linesPerPage = 15;
+    final int linesPerPage = 20;
     
     final totalPages = (wrappedLines.length / linesPerPage).ceil().clamp(1, 9999);
     final List<pw.MemoryImage> pageImages = [];
@@ -788,12 +967,12 @@ class _DailyDiaryScreenState extends State<DailyDiaryScreen> with SingleTickerPr
         key: UniqueKey(),
         width: 794,
         height: 1123,
-        color: const Color(0xFFF5F5F5), // Grey canvas background like the app
+        color: const Color(0xFFFAF0DC),
         padding: const EdgeInsets.all(32.0),
         child: Container(
           clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: const Color(0xFFFAF0DC),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: Colors.grey.shade300),
             boxShadow: [
@@ -806,11 +985,42 @@ class _DailyDiaryScreenState extends State<DailyDiaryScreen> with SingleTickerPr
           child: Stack(
             children: [
               // Background Image in Writing Area only
-              if (_bgImageBase64 != null)
+              if (_bgImageBase64 != null || monthImagePath.isNotEmpty)
                 Positioned.fill(
-                  child: Opacity(
-                    opacity: _bgOpacity,
-                    child: Image.memory(base64Decode(_bgImageBase64!), fit: BoxFit.cover),
+                  child: Align(
+                    alignment: Alignment.bottomCenter,
+                    child: FractionallySizedBox(
+                      heightFactor: 0.7,
+                      widthFactor: 1.0,
+                      child: Opacity(
+                        opacity: _bgOpacity,
+                        child: ShaderMask(
+                          shaderCallback: (rect) {
+                            return LinearGradient(
+                              begin: Alignment.bottomCenter,
+                              end: Alignment.topCenter,
+                              colors: [
+                                Colors.white,
+                                Colors.white.withOpacity(0.0),
+                              ],
+                              stops: const [0.3, 1.0],
+                            ).createShader(rect);
+                          },
+                          blendMode: BlendMode.dstIn,
+                          child: _bgImageBase64 != null
+                              ? Image.memory(
+                                  base64Decode(_bgImageBase64!),
+                                  fit: BoxFit.cover,
+                                  width: double.infinity,
+                                )
+                              : Image.asset(
+                                  monthImagePath,
+                                  fit: BoxFit.cover,
+                                  width: double.infinity,
+                                ),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               Column(
@@ -838,9 +1048,9 @@ class _DailyDiaryScreenState extends State<DailyDiaryScreen> with SingleTickerPr
                             ),
                           ),
                         ),
-                        // Text chunk for this page
+                        // Text chunk for this page — leave 1 line gap at top
                         Positioned(
-                          top: 0,
+                          top: lineHeight,
                           left: 48.0,
                           right: 24.0,
                           child: Text(
@@ -954,14 +1164,14 @@ class LinedPaperPainter extends CustomPainter {
     required this.lineHeight, 
     required this.startY,
     this.showPageBreaks = true,
-    this.linesPerPage = 15,
+    this.linesPerPage = 20,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = lineColor
-      ..strokeWidth = 1.0;
+      ..color = lineColor.withOpacity(0.5)
+      ..strokeWidth = 0.8;
       
     // Draw vertical margin line (classic school notebook style red margin on the left)
     final marginPaint = Paint()
@@ -971,18 +1181,31 @@ class LinedPaperPainter extends CustomPainter {
       ..strokeWidth = 1.5;
     canvas.drawLine(const Offset(40, 0), Offset(40, size.height), marginPaint);
       
-    int lineCount = 1;
+    // Each page cycle: linesPerPage writing lines + 1 gap + 1 page break + 1 gap = linesPerPage + 3
+    final int cycleLength = linesPerPage + 3;
+    int lineCount = 0;
     for (double y = startY; y < size.height; y += lineHeight) {
-      if (showPageBreaks && lineCount % linesPerPage == 0) {
-        // Draw a page break indicator
+      final int posInPage = lineCount % cycleLength;
+
+      if (!showPageBreaks) {
+        // No page breaks - just draw regular lines (for PDF)
+        canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+      } else if (posInPage < linesPerPage) {
+        // Regular writing lines (0 to 19)
+        canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+      } else if (posInPage == linesPerPage) {
+        // Blank gap after image/page end — don't draw
+      } else if (posInPage == linesPerPage + 1) {
+        // Page break marker
         final breakPaint = Paint()
           ..color = Colors.redAccent.withValues(alpha: 0.5)
           ..strokeWidth = 2.0;
         canvas.drawLine(Offset(0, y), Offset(size.width, y), breakPaint);
         
         // Draw "Page X" text
+        final pageNum = (lineCount ~/ cycleLength) + 2;
         final textSpan = TextSpan(
-          text: 'Page ${(lineCount ~/ linesPerPage) + 1}',
+          text: 'Page $pageNum',
           style: TextStyle(color: Colors.redAccent.withValues(alpha: 0.7), fontSize: 12, fontWeight: FontWeight.bold),
         );
         final textPainter = TextPainter(
@@ -991,9 +1214,9 @@ class LinedPaperPainter extends CustomPainter {
         );
         textPainter.layout();
         textPainter.paint(canvas, Offset(size.width - textPainter.width - 16, y - textPainter.height - 4));
-      } else {
-        canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
       }
+      // posInPage == linesPerPage + 2: blank gap at top of new page — don't draw
+
       lineCount++;
     }
   }

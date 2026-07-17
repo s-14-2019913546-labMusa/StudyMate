@@ -343,6 +343,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   Future<void> _updateUserStatus(bool isOnline) async {
     await FirebaseFirestore.instance.collection('users').doc(user!.uid).set({
       'lastSeen': FieldValue.serverTimestamp(),
+      'appActive': isOnline,
     }, SetOptions(merge: true));
   }
 
@@ -382,11 +383,18 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   final Set<String> _triggeredEndAlerts = {};
   List<Task> _currentTasks = [];
 
+  int _heartbeatCounter = 0;
+
   void _startTaskAlertsTimer() {
     _taskAlertsTimer?.cancel();
     _taskAlertsTimer = Timer.periodic(const Duration(seconds: 15), (timer) {
       if (user == null) return;
       _checkTaskTimes();
+      _heartbeatCounter++;
+      if (_heartbeatCounter >= 4) {
+        _heartbeatCounter = 0;
+        _updateUserStatus(true);
+      }
     });
   }
 
@@ -2885,6 +2893,43 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
     super.dispose();
   }
 
+  void _onTaskTimerComplete() {
+    SoundPlayer.playAlarmNotificationSound(looping: true);
+    
+    // Automatically update the task status to paused
+    widget.onUpdate(widget.task.copyWith(status: 'paused', elapsedSeconds: _elapsedSeconds));
+    if (mounted) {
+      setState(() {
+        _status = 'paused';
+      });
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('⏰ Task Finished!', style: TextStyle(fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+        content: Text(
+          'আপনার টাস্ক "${widget.task.title}" এর সময় শেষ হয়েছে।',
+          textAlign: TextAlign.center,
+        ),
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [
+          ElevatedButton(
+            onPressed: () {
+              SoundPlayer.stopAlarm();
+              Navigator.pop(ctx);
+              _showDoneDialog(); // Show completion notes dialog
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+            child: const Text('⏹ Stop Alarm & Complete', style: TextStyle(color: Colors.white)),
+          )
+        ],
+      ),
+    );
+  }
+
   void _startTimer({bool saveToDb = true}) {
     if (!mounted) return;
     setState(() {
@@ -2896,10 +2941,14 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) {
+        final totalTargetSeconds = widget.task.totalDurationMinutes * 60;
         setState(() {
           _elapsedSeconds++;
         });
-        if (_elapsedSeconds > 0 && _elapsedSeconds % 30 == 0) {
+        if (totalTargetSeconds > 0 && _elapsedSeconds >= totalTargetSeconds) {
+          _timer?.cancel();
+          _onTaskTimerComplete();
+        } else if (_elapsedSeconds > 0 && _elapsedSeconds % 30 == 0) {
           widget.onUpdate(widget.task.copyWith(status: 'running', elapsedSeconds: _elapsedSeconds));
         }
       }

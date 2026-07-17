@@ -170,6 +170,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     _user?.displayName ?? 'StudyMate User',
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
                   ),
+                  if (_user?.email != null && _user!.email!.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      _user!.email!,
+                      style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                    ),
+                  ],
                   
                   // Institution / Year / Major
                   if (_institution.isNotEmpty || _academicYear.isNotEmpty || _major.isNotEmpty) ...[

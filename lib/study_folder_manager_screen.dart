@@ -13,6 +13,7 @@ class StudyFolderManagerScreen extends StatefulWidget {
 
 class _StudyFolderManagerScreenState extends State<StudyFolderManagerScreen> {
   final User? _currentUser = FirebaseAuth.instance.currentUser;
+  bool _isReorderMode = false;
 
   // Modern HSL color palette options
   final List<Color> _paletteColors = [
@@ -202,11 +203,25 @@ class _StudyFolderManagerScreenState extends State<StudyFolderManagerScreen> {
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
-        title: Text('Special Hub'.tr(), style: const TextStyle(fontWeight: FontWeight.bold)),
+        title: Text('Study Map'.tr(), style: const TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
         elevation: 0,
         backgroundColor: Colors.transparent,
         foregroundColor: theme.colorScheme.onSurface,
+        actions: [
+          IconButton(
+            icon: Icon(
+              _isReorderMode ? Icons.grid_view_rounded : Icons.swap_vert_rounded,
+              color: theme.colorScheme.primary,
+            ),
+            tooltip: _isReorderMode ? 'Grid View'.tr() : 'Reorder'.tr(),
+            onPressed: () {
+              setState(() {
+                _isReorderMode = !_isReorderMode;
+              });
+            },
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _createFolder,
@@ -251,6 +266,73 @@ class _StudyFolderManagerScreenState extends State<StudyFolderManagerScreen> {
           }
 
           final docs = snapshot.data!.docs;
+          final sortedDocs = List<QueryDocumentSnapshot>.from(docs);
+          sortedDocs.sort((a, b) {
+            final aData = a.data() as Map<String, dynamic>;
+            final bData = b.data() as Map<String, dynamic>;
+            final aPos = aData['position'] ?? (aData['createdAt'] as Timestamp?)?.millisecondsSinceEpoch ?? 0;
+            final bPos = bData['position'] ?? (bData['createdAt'] as Timestamp?)?.millisecondsSinceEpoch ?? 0;
+            return aPos.compareTo(bPos);
+          });
+
+          if (_isReorderMode) {
+            return ReorderableListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: sortedDocs.length,
+              onReorder: (oldIndex, newIndex) async {
+                if (newIndex > oldIndex) {
+                  newIndex -= 1;
+                }
+                final item = sortedDocs.removeAt(oldIndex);
+                sortedDocs.insert(newIndex, item);
+
+                // Write positions to Firestore in batch
+                final batch = FirebaseFirestore.instance.batch();
+                for (int i = 0; i < sortedDocs.length; i++) {
+                  final docRef = FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(_currentUser.uid)
+                      .collection('studyFolders')
+                      .doc(sortedDocs[i].id);
+                  batch.update(docRef, {'position': i});
+                }
+                await batch.commit();
+              },
+              itemBuilder: (context, index) {
+                final doc = sortedDocs[index];
+                final data = doc.data() as Map<String, dynamic>;
+                final folderId = doc.id;
+                final name = data['name'] ?? '';
+                final colorHex = data['color'] ?? '#6366F1';
+
+                Color folderColor;
+                try {
+                  folderColor = Color(int.parse(colorHex.replaceFirst('#', '0xFF')));
+                } catch (e) {
+                  folderColor = const Color(0xFF6366F1);
+                }
+
+                return Card(
+                  key: ValueKey(folderId),
+                  margin: const EdgeInsets.only(bottom: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: folderColor.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.folder_rounded, color: folderColor, size: 28),
+                    ),
+                    title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    trailing: const Icon(Icons.drag_handle_rounded, color: Colors.grey),
+                  ),
+                );
+              },
+            );
+          }
 
           return GridView.builder(
             padding: const EdgeInsets.all(16),
@@ -260,10 +342,10 @@ class _StudyFolderManagerScreenState extends State<StudyFolderManagerScreen> {
               mainAxisSpacing: 16,
               childAspectRatio: 1.1,
             ),
-            itemCount: docs.length,
+            itemCount: sortedDocs.length,
             itemBuilder: (context, index) {
-              final data = docs[index].data() as Map<String, dynamic>;
-              final folderId = docs[index].id;
+              final data = sortedDocs[index].data() as Map<String, dynamic>;
+              final folderId = sortedDocs[index].id;
               final name = data['name'] ?? '';
               final colorHex = data['color'] ?? '#6366F1';
               final subjects = data['subjects'] as List<dynamic>? ?? [];

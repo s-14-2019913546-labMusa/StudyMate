@@ -124,4 +124,32 @@ class BengaliDateHelper {
     }
     return int.tryParse(englishDigits) ?? 0;
   }
+
+  static int getBengaliMonthIndexFromDate(DateTime date) {
+    DateTime localDate = DateTime(date.year, date.month, date.day);
+    DateTime refDate;
+    DateTime april14ThisYear = DateTime(localDate.year, 4, 14);
+
+    if (localDate.isBefore(april14ThisYear)) {
+      refDate = DateTime(localDate.year - 1, 4, 14);
+    } else {
+      refDate = april14ThisYear;
+    }
+
+    int elapsedDays = localDate.difference(refDate).inDays + 1;
+    List<int> monthLengths = _getMonthLengths(refDate.year);
+    
+    int monthIndex = 0;
+    int day = elapsedDays;
+
+    while (monthIndex < monthLengths.length && day > monthLengths[monthIndex]) {
+      day -= monthLengths[monthIndex];
+      monthIndex++;
+    }
+
+    if (monthIndex >= 12) {
+      monthIndex = 11;
+    }
+    return monthIndex;
+  }
 }
