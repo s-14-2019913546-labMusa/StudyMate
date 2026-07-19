@@ -951,7 +951,16 @@ class _StudyFolderDetailsScreenState extends State<StudyFolderDetailsScreen> wit
 
                 totalMinutesSpent += task.completedDurationMinutes;
                 totalCount++;
-                if (task.isCompleted || task.status == 'completed') {
+                final isCompleted = task.isCompleted || task.status == 'completed';
+                final fromElapsed = task.totalDurationMinutes > 0
+                    ? (task.elapsedSeconds / (task.totalDurationMinutes * 60))
+                    : 0.0;
+                final fromMinutes = task.totalDurationMinutes > 0
+                    ? (task.completedDurationMinutes / task.totalDurationMinutes)
+                    : 0.0;
+                final actualProgress = fromElapsed > fromMinutes ? fromElapsed : fromMinutes;
+
+                if (isCompleted && actualProgress >= 0.70) {
                   successfulCount++;
                 }
               }
@@ -1004,6 +1013,14 @@ class _StudyFolderDetailsScreenState extends State<StudyFolderDetailsScreen> wit
                   final date = item['date'] as DateTime;
                   final task = item['task'] as Task;
                   final isCompleted = task.isCompleted || task.status == 'completed';
+                  final fromElapsed = task.totalDurationMinutes > 0
+                      ? (task.elapsedSeconds / (task.totalDurationMinutes * 60))
+                      : 0.0;
+                  final fromMinutes = task.totalDurationMinutes > 0
+                      ? (task.completedDurationMinutes / task.totalDurationMinutes)
+                      : 0.0;
+                  final actualProgress = fromElapsed > fromMinutes ? fromElapsed : fromMinutes;
+                  final isSuccess = isCompleted && actualProgress >= 0.70;
 
                   return Card(
                     margin: const EdgeInsets.only(bottom: 12),
@@ -1021,12 +1038,12 @@ class _StudyFolderDetailsScreenState extends State<StudyFolderDetailsScreen> wit
                       leading: Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: (isCompleted ? Colors.green : Colors.orange).withValues(alpha: 0.1),
+                          color: (isSuccess ? Colors.green : Colors.orange).withValues(alpha: 0.1),
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
-                          isCompleted ? Icons.check_circle_rounded : Icons.pending_rounded,
-                          color: isCompleted ? Colors.green : Colors.orange,
+                          isSuccess ? Icons.check_circle_rounded : Icons.pending_rounded,
+                          color: isSuccess ? Colors.green : Colors.orange,
                           size: 24,
                         ),
                       ),

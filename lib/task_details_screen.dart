@@ -69,15 +69,27 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
   }
 
   bool _isMissedTask() {
-    if (_task.isCompleted || _task.status == 'completed') return false;
-    if (_task.endTime == null) return false;
-    final progress = _task.totalDurationMinutes > 0
+    final now = DateTime.now();
+    final isCompleted = _task.isCompleted || _task.status == 'completed';
+    
+    final fromElapsed = _task.totalDurationMinutes > 0
         ? (_task.elapsedSeconds / (_task.totalDurationMinutes * 60))
         : 0.0;
-    return _task.endTime!.isBefore(DateTime.now()) && progress < 0.1;
+    final fromMinutes = _task.totalDurationMinutes > 0
+        ? (_task.completedDurationMinutes / _task.totalDurationMinutes)
+        : 0.0;
+    final actualProgress = fromElapsed > fromMinutes ? fromElapsed : fromMinutes;
+
+    if (isCompleted) {
+      // Completed but failed to reach 70% progress
+      return actualProgress < 0.70;
+    } else {
+      // Uncompleted and scheduled end time has passed
+      return _task.endTime != null && _task.endTime!.isBefore(now);
+    }
   }
 
-  void _showRescheduleBottomSheet(BuildContext context) {
+  void _showRescheduleBottomSheet(BuildContext context, {required bool keepProgress}) {
     DateTime selectedDate = DateTime.now();
     TimeOfDay? newStartTime = _task.startTime != null ? TimeOfDay.fromDateTime(_task.startTime!) : null;
     TimeOfDay? newEndTime = _task.endTime != null ? TimeOfDay.fromDateTime(_task.endTime!) : null;
@@ -119,10 +131,10 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
                   const SizedBox(height: 24),
                   Row(
                     children: [
-                      Icon(Icons.update_rounded, color: colorScheme.primary, size: 28),
+                      Icon(keepProgress ? Icons.play_circle_fill_rounded : Icons.update_rounded, color: colorScheme.primary, size: 28),
                       const SizedBox(width: 12),
                       Text(
-                        'Reschedule Task'.tr(),
+                        (keepProgress ? 'Resume Study Today' : 'Reschedule Task').tr(),
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
                               fontWeight: FontWeight.bold,
                               color: onSurfaceColor,
@@ -132,41 +144,43 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
                   ),
                   const SizedBox(height: 24),
                   
-                  // Date Selection
-                  Text('Select Date'.tr(), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: onSurfaceColor)),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ChoiceChip(
-                          label: Center(child: Text('Today'.tr())),
-                          selected: DateUtils.isSameDay(selectedDate, DateTime.now()),
-                          onSelected: (selected) {
-                            if (selected) {
-                              setModalState(() {
-                                selectedDate = DateTime.now();
-                              });
-                            }
-                          },
+                  // Date Selection (resuming is always for today, so only show if rescheduling)
+                  if (!keepProgress) ...[
+                    Text('Select Date'.tr(), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: onSurfaceColor)),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ChoiceChip(
+                            label: Center(child: Text('Today'.tr())),
+                            selected: DateUtils.isSameDay(selectedDate, DateTime.now()),
+                            onSelected: (selected) {
+                              if (selected) {
+                                setModalState(() {
+                                  selectedDate = DateTime.now();
+                                });
+                              }
+                            },
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ChoiceChip(
-                          label: Center(child: Text('Tomorrow'.tr())),
-                          selected: DateUtils.isSameDay(selectedDate, DateTime.now().add(const Duration(days: 1))),
-                          onSelected: (selected) {
-                            if (selected) {
-                              setModalState(() {
-                                selectedDate = DateTime.now().add(const Duration(days: 1));
-                              });
-                            }
-                          },
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ChoiceChip(
+                            label: Center(child: Text('Tomorrow'.tr())),
+                            selected: DateUtils.isSameDay(selectedDate, DateTime.now().add(const Duration(days: 1))),
+                            onSelected: (selected) {
+                              if (selected) {
+                                setModalState(() {
+                                  selectedDate = DateTime.now().add(const Duration(days: 1));
+                                });
+                              }
+                            },
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                   
                   // Time Pickers
                   Row(
@@ -254,13 +268,18 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
                         end = end.add(const Duration(days: 1));
                       }
                       
+                      final String newId = keepProgress
+                          ? (_task.id.startsWith('resumed_') ? _task.id : 'resumed_${_task.id}')
+                          : (_task.id.startsWith('resumed_') ? _task.id.replaceFirst('resumed_', '') : _task.id);
+
                       final updatedTask = _task.copyWith(
+                        id: newId,
                         startTime: start,
                         endTime: end,
                         status: 'pending',
                         isCompleted: false,
-                        elapsedSeconds: 0,
-                        completedDurationMinutes: 0,
+                        elapsedSeconds: keepProgress ? _task.elapsedSeconds : 0,
+                        completedDurationMinutes: keepProgress ? _task.completedDurationMinutes : 0,
                         totalDurationMinutes: end.difference(start).inMinutes,
                       );
                       
@@ -278,7 +297,7 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
                       
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text('Reschedule successful!'.tr()),
+                          content: Text((keepProgress ? 'Resume successful!' : 'Reschedule successful!').tr()),
                           backgroundColor: Colors.green,
                         ),
                       );
@@ -287,7 +306,10 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
                       minimumSize: const Size(double.infinity, 48),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    child: Text('Confirm Reschedule'.tr(), style: const TextStyle(fontWeight: FontWeight.bold)),
+                    child: Text(
+                      (keepProgress ? 'Confirm Resume' : 'Confirm Reschedule').tr(),
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
                   ),
                 ],
               ),
@@ -460,23 +482,41 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
                                   ),
                                 ],
                                 
-                                // Reschedule Button for Missed Tasks
-                                if (_isMissedTask() && !widget.isFriendView) ...[
-                                  const SizedBox(height: 24),
-                                  ElevatedButton.icon(
-                                    onPressed: () => _showRescheduleBottomSheet(context),
-                                    icon: const Icon(Icons.update_rounded),
-                                    label: Text('Reschedule Task'.tr(), style: const TextStyle(fontWeight: FontWeight.bold)),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Theme.of(context).colorScheme.primary,
-                                      foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                                      minimumSize: const Size(double.infinity, 48),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                                // Actions for Missed/Incomplete Tasks
+                                 if (_isMissedTask() && !widget.isFriendView) ...[
+                                   const SizedBox(height: 24),
+                                   Row(
+                                     children: [
+                                       Expanded(
+                                         child: ElevatedButton.icon(
+                                           onPressed: () => _showRescheduleBottomSheet(context, keepProgress: true),
+                                           icon: const Icon(Icons.play_circle_fill_rounded),
+                                           label: Text('Resume Study'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                           style: ElevatedButton.styleFrom(
+                                             backgroundColor: Theme.of(context).colorScheme.primary,
+                                             foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                                             padding: const EdgeInsets.symmetric(vertical: 14),
+                                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                           ),
+                                         ),
+                                       ),
+                                       const SizedBox(width: 12),
+                                       Expanded(
+                                         child: OutlinedButton.icon(
+                                           onPressed: () => _showRescheduleBottomSheet(context, keepProgress: false),
+                                           icon: const Icon(Icons.update_rounded),
+                                           label: Text('Reschedule'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                           style: OutlinedButton.styleFrom(
+                                             foregroundColor: Theme.of(context).colorScheme.primary,
+                                             side: BorderSide(color: Theme.of(context).colorScheme.primary, width: 1.5),
+                                             padding: const EdgeInsets.symmetric(vertical: 14),
+                                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                           ),
+                                         ),
+                                       ),
+                                     ],
+                                   ),
+                                 ],
                               ],
                             ),
                           ),

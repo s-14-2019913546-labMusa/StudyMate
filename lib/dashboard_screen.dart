@@ -54,6 +54,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   bool _hasWeeklyTasksForToday = false;
   List<Task> _todayWeeklyTasks = [];
 
+  bool _hasDailyTasksForToday = false;
+  List<Task> _todayDailyScheduledTasks = [];
+
   Future<void> _checkWeeklyTasksForToday() async {
     if (user == null) return;
     try {
@@ -168,6 +171,270 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     } catch (e) {
       debugPrint("Error importing weekly tasks: $e");
     }
+  }
+
+  Future<void> _checkDailyTasksForToday() async {
+    if (user == null) return;
+    try {
+      final todayDocId = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      final prefs = await SharedPreferences.getInstance();
+      final isAlreadyImported = prefs.getBool('daily_imported_$todayDocId') ?? false;
+      if (isAlreadyImported) {
+        if (mounted) {
+          setState(() {
+            _hasDailyTasksForToday = false;
+            _todayDailyScheduledTasks = [];
+          });
+        }
+        return;
+      }
+
+      final docRef = FirebaseFirestore.instance
+          .collection('users')
+          .doc(user!.uid)
+          .collection('dailyRoutines')
+          .doc(todayDocId);
+
+      final snapshot = await docRef.get();
+      if (snapshot.exists && snapshot.data() != null) {
+        final routine = DailyRoutine.fromMap(snapshot.data()!, snapshot.id);
+        if (routine.tasks.isNotEmpty) {
+          if (mounted) {
+            setState(() {
+              _hasDailyTasksForToday = true;
+              _todayDailyScheduledTasks = routine.tasks;
+            });
+          }
+          return;
+        }
+      }
+
+      // If document doesn't exist or has no tasks, we mark as imported
+      await prefs.setBool('daily_imported_$todayDocId', true);
+      if (mounted) {
+        setState(() {
+          _hasDailyTasksForToday = false;
+          _todayDailyScheduledTasks = [];
+        });
+      }
+    } catch (e) {
+      debugPrint("Error checking daily tasks: $e");
+    }
+  }
+
+  Future<void> _importDailyScheduledTasks() async {
+    if (user == null || _todayDailyScheduledTasks.isEmpty) return;
+
+    try {
+      final todayDocId = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('daily_imported_$todayDocId', true);
+
+      // Trigger alarms/notifications for the imported daily tasks
+      for (var task in _todayDailyScheduledTasks) {
+        if (task.alarmEnabled) {
+          await LocalNotificationService.scheduleTaskNotifications(task);
+        }
+      }
+
+      setState(() {
+        _hasDailyTasksForToday = false;
+        _todayDailyScheduledTasks = [];
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Scheduled tasks activated for today!'.tr()),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint("Error importing daily scheduled tasks: $e");
+    }
+  }
+
+  Future<void> _dismissDailyScheduledTasks() async {
+    if (user == null) return;
+    
+    // Show confirmation dialog before deleting tasks
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Delete Scheduled Tasks?'.tr()),
+        content: Text('These tasks were set for today from the previous day. Do you want to delete them without adding to your task list?'.tr()),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('No'.tr()),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: Text('Yes'.tr(), style: const TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      final todayDocId = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('daily_imported_$todayDocId', true);
+
+      final docRef = FirebaseFirestore.instance
+          .collection('users')
+          .doc(user!.uid)
+          .collection('dailyRoutines')
+          .doc(todayDocId);
+
+      await docRef.delete();
+
+      setState(() {
+        _hasDailyTasksForToday = false;
+        _todayDailyScheduledTasks = [];
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Scheduled tasks dismissed and deleted.'.tr())),
+        );
+      }
+    } catch (e) {
+      debugPrint("Error dismissing daily scheduled tasks: $e");
+    }
+  }
+
+  Widget _buildDailyTasksAlertCard() {
+    if (!_hasDailyTasksForToday || _todayDailyScheduledTasks.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      margin: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: isDark 
+              ? [const Color(0xFF6B21A8), const Color(0xFF0F172A)] 
+              : [const Color(0xFFF5F3FF), const Color(0xFFEDE9FE)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: const Color(0xFF8B5CF6).withValues(alpha: 0.3),
+          width: 1.5,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF8B5CF6).withValues(alpha: 0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.bookmark_added_rounded, color: Color(0xFF8B5CF6), size: 24),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Today's Scheduled Tasks".tr(),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: isDark ? Colors.white : const Color(0xFF4C1D95),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      "${_todayDailyScheduledTasks.length} tasks planned for today".tr(),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? Colors.white70 : const Color(0xFF4C1D95).withValues(alpha: 0.8),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ..._todayDailyScheduledTasks.take(3).map((t) {
+            final timeStr = t.startTime != null && t.endTime != null
+                ? '${DateFormat.jm().format(t.startTime!)} - ${DateFormat.jm().format(t.endTime!)}'
+                : 'No time set';
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8.0, left: 44.0),
+              child: Row(
+                children: [
+                  const Icon(Icons.circle, size: 6, color: Color(0xFF8B5CF6)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      t.title,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: isDark ? Colors.white.withValues(alpha: 0.9) : const Color(0xFF4C1D95),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    timeStr,
+                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                  ),
+                ],
+              ),
+            );
+          }),
+          if (_todayDailyScheduledTasks.length > 3)
+            Padding(
+              padding: const EdgeInsets.only(left: 44.0, bottom: 8.0),
+              child: Text(
+                "+ ${_todayDailyScheduledTasks.length - 3} more tasks...".tr(),
+                style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Colors.grey),
+              ),
+            ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: _dismissDailyScheduledTasks,
+                child: Text('Dismiss'.tr(), style: const TextStyle(color: Colors.grey)),
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton(
+                onPressed: _importDailyScheduledTasks,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF8B5CF6),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                ),
+                child: Text('Add to Today\'s Tasks'.tr()),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildWeeklyTasksAlertCard() {
@@ -319,6 +586,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       _startTaskAlertsTimer();
       _updateUserStatus(true); // Initial status update
       _checkWeeklyTasksForToday();
+      _checkDailyTasksForToday();
       
       Future.delayed(const Duration(seconds: 2), () {
         if (mounted) {
@@ -341,10 +609,14 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   }
 
   Future<void> _updateUserStatus(bool isOnline) async {
-    await FirebaseFirestore.instance.collection('users').doc(user!.uid).set({
-      'lastSeen': FieldValue.serverTimestamp(),
-      'appActive': isOnline,
-    }, SetOptions(merge: true));
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(user!.uid).set({
+        'lastSeen': FieldValue.serverTimestamp(),
+        'appActive': isOnline,
+      }, SetOptions(merge: true));
+    } catch (e) {
+      debugPrint("Error updating user status in Firestore: $e");
+    }
   }
 
   void _listenToTodaysRoutine() {
@@ -364,6 +636,19 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           
           _isLoadingRoutine = false;
         });
+      }
+    }, onError: (err) {
+      debugPrint("Error listening to combined routine: $err");
+      if (mounted) {
+        setState(() {
+          _isLoadingRoutine = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Error loading tasks: $err".tr()),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
       }
     });
   }
@@ -862,6 +1147,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       emitCombined();
     }, onError: (err) {
       debugPrint("Error listening to local routine: $err");
+      if (!controller.isClosed) {
+        controller.addError(err);
+      }
     });
 
     // 2. Listen to partner rooms user is participant in
@@ -930,6 +1218,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             emitCombined();
           }, onError: (err) {
             debugPrint("Error listening to partner room $roomCode tasks: $err");
+            if (!controller.isClosed) {
+              controller.addError(err);
+            }
           });
           roomTasksSubscriptions[roomCode] = sub;
         }
@@ -937,6 +1228,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       emitCombined();
     }, onError: (err) {
       debugPrint("Error listening to partner rooms list: $err");
+      if (!controller.isClosed) {
+        controller.addError(err);
+      }
     });
 
     controller.onCancel = () {
@@ -948,9 +1242,18 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     return controller.stream;
   }
 
-  // টাস্ক ডাটাবেজে যুক্ত করার ফাংশন
   Future<void> _addTaskToFirestore(Task newTask) async {
     if (user == null) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('daily_imported_$_todayDocId', true);
+    if (mounted) {
+      setState(() {
+        _hasDailyTasksForToday = false;
+        _todayDailyScheduledTasks = [];
+      });
+    }
+
     final docRef = FirebaseFirestore.instance
         .collection('users')
         .doc(user!.uid)
@@ -986,9 +1289,18 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Task Added Successfully!'.tr())));
   }
 
-  // একাধিক টাস্ক ডাটাবেজে একসাথে যুক্ত করার ফাংশন (AI Planner এর জন্য)
   Future<void> _addTasksToFirestore(List<Task> newTasks) async {
     if (user == null || newTasks.isEmpty) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('daily_imported_$_todayDocId', true);
+    if (mounted) {
+      setState(() {
+        _hasDailyTasksForToday = false;
+        _todayDailyScheduledTasks = [];
+      });
+    }
+
     final docRef = FirebaseFirestore.instance
         .collection('users')
         .doc(user!.uid)
@@ -1091,9 +1403,11 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     final todaySnapshot = await todayDocRef.get();
     bool updatedInToday = false;
 
+    final String cleanOldId = updatedTask.id.replaceFirst('resumed_', '');
+
     if (todaySnapshot.exists) {
       DailyRoutine routine = DailyRoutine.fromMap(todaySnapshot.data()!, todaySnapshot.id);
-      int index = routine.tasks.indexWhere((t) => t.id == updatedTask.id);
+      int index = routine.tasks.indexWhere((t) => t.id == updatedTask.id || t.id == cleanOldId);
       if (index != -1) {
         if (todayDocId == newDocId) {
           // Same day update in today's document
@@ -1113,7 +1427,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           final newSnapshot = await newDocRef.get();
           if (newSnapshot.exists) {
             DailyRoutine newRoutine = DailyRoutine.fromMap(newSnapshot.data()!, newSnapshot.id);
-            newRoutine.tasks.removeWhere((t) => t.id == updatedTask.id);
+            newRoutine.tasks.removeWhere((t) => t.id == updatedTask.id || t.id == cleanOldId);
             newRoutine.tasks.add(updatedTask);
             await newDocRef.update({'tasks': newRoutine.tasks.map((t) => t.toMap()).toList()});
           } else {
@@ -1144,7 +1458,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       final yesterdaySnapshot = await yesterdayDocRef.get();
       if (yesterdaySnapshot.exists) {
         DailyRoutine routine = DailyRoutine.fromMap(yesterdaySnapshot.data()!, yesterdaySnapshot.id);
-        int index = routine.tasks.indexWhere((t) => t.id == updatedTask.id);
+        int index = routine.tasks.indexWhere((t) => t.id == updatedTask.id || t.id == cleanOldId);
         if (index != -1) {
           if (yesterdayDocId == newDocId) {
             // Same day update in yesterday's document
@@ -1164,7 +1478,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             final newSnapshot = await newDocRef.get();
             if (newSnapshot.exists) {
               DailyRoutine newRoutine = DailyRoutine.fromMap(newSnapshot.data()!, newSnapshot.id);
-              newRoutine.tasks.removeWhere((t) => t.id == updatedTask.id);
+              newRoutine.tasks.removeWhere((t) => t.id == updatedTask.id || t.id == cleanOldId);
               newRoutine.tasks.add(updatedTask);
               await newDocRef.update({'tasks': newRoutine.tasks.map((t) => t.toMap()).toList()});
             } else {
@@ -1403,27 +1717,36 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     List<Task> activeTasks = [];
     List<Task> missedTasks = [];
     List<Task> otherTasks = [];
+    List<Task> oldHistoryTasks = [];
     final activePartnerTasks = _partnerTasks.where((t) => t.status != 'completed' && !t.isCompleted).toList();
 
     if (!_isLoadingRoutine && _currentRoutine != null && _currentRoutine!.tasks.isNotEmpty) {
-      for (var t in _currentRoutine!.tasks) {
-        if (t.status == 'completed') continue;
+      if (!_hasDailyTasksForToday) {
+        for (var t in _currentRoutine!.tasks) {
+          if (t.status == 'completed') continue;
 
-        double progress = t.totalDurationMinutes > 0
-            ? (t.elapsedSeconds / (t.totalDurationMinutes * 60))
-            : 0.0;
+          if (t.id.startsWith('resumed_')) {
+            oldHistoryTasks.add(t);
+            continue;
+          }
 
-        if (t.endTime != null && t.endTime!.isBefore(now) && progress < 0.1) {
-          missedTasks.add(t);
-        } else if (t.startTime == null || t.endTime == null) {
-          otherTasks.add(t);
-        } else {
-          activeTasks.add(t);
+          double progress = t.totalDurationMinutes > 0
+              ? (t.elapsedSeconds / (t.totalDurationMinutes * 60))
+              : 0.0;
+
+          if (t.endTime != null && t.endTime!.isBefore(now) && progress < 0.1) {
+            missedTasks.add(t);
+          } else if (t.startTime == null || t.endTime == null) {
+            otherTasks.add(t);
+          } else {
+            activeTasks.add(t);
+          }
         }
-      }
 
-      activeTasks.sort((a, b) => (a.startTime ?? DateTime.now()).compareTo(b.startTime ?? DateTime.now()));
-      missedTasks.sort((a, b) => (a.startTime ?? DateTime.now()).compareTo(b.startTime ?? DateTime.now()));
+        activeTasks.sort((a, b) => (a.startTime ?? DateTime.now()).compareTo(b.startTime ?? DateTime.now()));
+        missedTasks.sort((a, b) => (a.startTime ?? DateTime.now()).compareTo(b.startTime ?? DateTime.now()));
+        oldHistoryTasks.sort((a, b) => (a.startTime ?? DateTime.now()).compareTo(b.startTime ?? DateTime.now()));
+      }
     }
 
     return SingleChildScrollView(
@@ -1576,6 +1899,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             _buildSpecialIslamicDayBanner(context),
             _buildTodayProgressCard(context),
             _buildWeeklyTasksAlertCard(),
+            _buildDailyTasksAlertCard(),
             const SizedBox(height: 30),
             
             if (_isLoadingRoutine)
@@ -1648,6 +1972,30 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                             showCheckbox: false,
                           );
                         },
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+
+                  if (oldHistoryTasks.isNotEmpty) ...[
+                    Text(
+                      "Old History Tasks".tr(),
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.purple.shade700,
+                          ),
+                    ),
+                    const SizedBox(height: 10),
+                    ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: oldHistoryTasks.length,
+                      itemBuilder: (context, index) {
+                        return ActiveTaskCard(
+                          task: oldHistoryTasks[index], 
+                          onUpdate: _updateTaskInFirestore,
+                          showCheckbox: true,
+                        );
+                      },
                     ),
                     const SizedBox(height: 20),
                   ],

@@ -1285,22 +1285,28 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
                       itemBuilder: (context, index) {
                         final task = routine.tasks[index];
                         
-                        double progress = task.totalDurationMinutes > 0
+                        final isCompleted = task.isCompleted || task.status == 'completed';
+                        final fromElapsed = task.totalDurationMinutes > 0
                             ? (task.elapsedSeconds / (task.totalDurationMinutes * 60))
                             : 0.0;
-                        if (progress > 1.0) progress = 1.0;
-                        int progressPercentage = (progress * 100).toInt();
+                        final fromMinutes = task.totalDurationMinutes > 0
+                            ? (task.completedDurationMinutes / task.totalDurationMinutes)
+                            : 0.0;
+                        final actualProgress = fromElapsed > fromMinutes ? fromElapsed : fromMinutes;
+                        final isSuccess = isCompleted && actualProgress >= 0.70;
+
+                        int progressPercentage = (actualProgress * 100).toInt();
 
                         // Status identification
                         String statusText = 'Pending';
                         Color statusColor = Colors.grey;
                         IconData statusIcon = Icons.pending_actions_rounded;
 
-                        if (task.isCompleted || task.status == 'completed') {
+                        if (isSuccess) {
                           statusText = 'Completed';
                           statusColor = Colors.green;
                           statusIcon = Icons.check_circle_rounded;
-                        } else if (task.endTime != null && task.endTime!.isBefore(DateTime.now()) && progress < 0.1) {
+                        } else if ((task.endTime != null && task.endTime!.isBefore(DateTime.now()) && actualProgress < 0.1) || (isCompleted && actualProgress < 0.70)) {
                           statusText = 'Missed';
                           statusColor = Colors.red;
                           statusIcon = Icons.error_outline_rounded;
@@ -1466,7 +1472,7 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
                                   ClipRRect(
                                     borderRadius: BorderRadius.circular(4),
                                     child: LinearProgressIndicator(
-                                      value: progress,
+                                      value: actualProgress,
                                       backgroundColor: Colors.grey.shade200,
                                       color: statusColor,
                                       minHeight: 6,

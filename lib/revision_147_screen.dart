@@ -361,14 +361,8 @@ class _Revision147ScreenState extends State<Revision147Screen> with SingleTicker
   }
 
   Widget _buildRevisionTab(DateTime date, Stream<DailyRoutine?> stream) {
-    // ৮ সেকেন্ডের মধ্যে ডেটা না আসলে null emit করবে → empty state দেখাবে
-    final timedStream = stream.timeout(
-      const Duration(seconds: 8),
-      onTimeout: (sink) => sink.add(null),
-    );
-
     return StreamBuilder<DailyRoutine?>(
-      stream: timedStream,
+      stream: stream,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Center(

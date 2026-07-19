@@ -412,6 +412,18 @@ class _TaskHistoryScreenState extends State<TaskHistoryScreen> with SingleTicker
                 .doc(dateDocId)
                 .snapshots(),
             builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Text(
+                      'Error loading history: ${snapshot.error}'.tr(),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.redAccent),
+                    ),
+                  ),
+                );
+              }
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
               }
@@ -609,10 +621,25 @@ class _TaskHistoryScreenState extends State<TaskHistoryScreen> with SingleTicker
     return tasks.where((t) => t.category == _selectedCategory).toList();
   }
 
+  bool _isTaskSuccessful(Task task) {
+    final isCompleted = task.isCompleted || task.status == 'completed';
+    if (!isCompleted) return false;
+
+    final fromElapsed = task.totalDurationMinutes > 0
+        ? (task.elapsedSeconds / (task.totalDurationMinutes * 60))
+        : 0.0;
+    final fromMinutes = task.totalDurationMinutes > 0
+        ? (task.completedDurationMinutes / task.totalDurationMinutes)
+        : 0.0;
+    final actualProgress = fromElapsed > fromMinutes ? fromElapsed : fromMinutes;
+
+    return actualProgress >= 0.70;
+  }
+
   Widget _buildTaskList(String dateDocId, List<Task> tasks) {
-    // Separate into Completed and Missed/Pending
-    final successful = tasks.where((t) => t.isCompleted || t.status == 'completed').toList();
-    final missed = tasks.where((t) => !t.isCompleted && t.status != 'completed').toList();
+    // Separate into Completed and Missed/Pending based on >= 70% progress validation
+    final successful = tasks.where((t) => _isTaskSuccessful(t)).toList();
+    final missed = tasks.where((t) => !_isTaskSuccessful(t)).toList();
 
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -651,10 +678,11 @@ class _TaskHistoryScreenState extends State<TaskHistoryScreen> with SingleTicker
 
   Widget _buildTaskTile(String dateDocId, Task task) {
     final theme = Theme.of(context);
-    final isCompleted = task.isCompleted || task.status == 'completed';
-    final progressVal = task.totalDurationMinutes > 0
-        ? (task.completedDurationMinutes / task.totalDurationMinutes).clamp(0.0, 1.0)
-        : 0.0;
+    final isSuccess = _isTaskSuccessful(task);
+    
+    final fromElapsed = task.totalDurationMinutes > 0 ? (task.elapsedSeconds / (task.totalDurationMinutes * 60)) : 0.0;
+    final fromMinutes = task.totalDurationMinutes > 0 ? (task.completedDurationMinutes / task.totalDurationMinutes) : 0.0;
+    final progressVal = (fromElapsed > fromMinutes ? fromElapsed : fromMinutes).clamp(0.0, 1.0);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -666,12 +694,12 @@ class _TaskHistoryScreenState extends State<TaskHistoryScreen> with SingleTicker
         leading: Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: (isCompleted ? Colors.green : Colors.orange).withValues(alpha: 0.1),
+            color: (isSuccess ? Colors.green : Colors.orange).withValues(alpha: 0.1),
             shape: BoxShape.circle,
           ),
           child: Icon(
-            isCompleted ? Icons.check_circle_rounded : Icons.pending_rounded,
-            color: isCompleted ? Colors.green : Colors.orange,
+            isSuccess ? Icons.check_circle_rounded : Icons.pending_rounded,
+            color: isSuccess ? Colors.green : Colors.orange,
             size: 24,
           ),
         ),
@@ -720,7 +748,7 @@ class _TaskHistoryScreenState extends State<TaskHistoryScreen> with SingleTicker
                 value: progressVal,
                 minHeight: 5,
                 backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.08),
-                valueColor: AlwaysStoppedAnimation<Color>(isCompleted ? Colors.green : theme.colorScheme.primary),
+                valueColor: AlwaysStoppedAnimation<Color>(isSuccess ? Colors.green : theme.colorScheme.primary),
               ),
             ),
           ],
@@ -772,33 +800,78 @@ class _TaskHistoryScreenState extends State<TaskHistoryScreen> with SingleTicker
   Future<void> _updateTaskInFirestore(String dateDocId, Task updatedTask) async {
     if (_effectiveUserId.isEmpty) return;
     try {
-      final docRef = FirebaseFirestore.instance
+      final String newDocId = updatedTask.startTime != null
+          ? DateFormat('yyyy-MM-dd').format(updatedTask.startTime!)
+          : dateDocId;
+
+      final oldDocRef = FirebaseFirestore.instance
           .collection('users')
           .doc(_effectiveUserId)
-          .collection('daily_routines')
+          .collection('dailyRoutines')
           .doc(dateDocId);
-          
-      final snapshot = await docRef.get();
-      if (snapshot.exists) {
-        final data = snapshot.data();
-        if (data != null && data['tasks'] != null) {
-          List<dynamic> tasksList = data['tasks'];
-          int index = tasksList.indexWhere((t) => t['id'] == updatedTask.id);
-          if (index != -1) {
-            tasksList[index] = updatedTask.toMap();
-            await docRef.update({'tasks': tasksList});
-            // Update local state if needed
-            setState(() {
-              // Update local cache
-              for (var routine in _loadedRoutines) {
-                if (routine.id == dateDocId) {
-                  int taskIdx = routine.tasks.indexWhere((t) => t.id == updatedTask.id);
-                  if (taskIdx != -1) routine.tasks[taskIdx] = updatedTask;
-                }
-              }
-            });
+
+      final String cleanOldId = updatedTask.id.replaceFirst('resumed_', '');
+
+      if (dateDocId == newDocId) {
+        // Same day update
+        final snapshot = await oldDocRef.get();
+        if (snapshot.exists) {
+          final data = snapshot.data();
+          if (data != null && data['tasks'] != null) {
+            List<dynamic> tasksList = data['tasks'];
+            int index = tasksList.indexWhere((t) => t['id'] == updatedTask.id || t['id'] == cleanOldId);
+            if (index != -1) {
+              tasksList[index] = updatedTask.toMap();
+              await oldDocRef.update({'tasks': tasksList});
+            }
           }
         }
+      } else {
+        // Moved to another day (Rescheduled/Resumed)
+        // 1. Remove from old day
+        final snapshot = await oldDocRef.get();
+        if (snapshot.exists) {
+          final data = snapshot.data();
+          if (data != null && data['tasks'] != null) {
+            List<dynamic> tasksList = data['tasks'];
+            tasksList.removeWhere((t) => t['id'] == updatedTask.id || t['id'] == cleanOldId);
+            await oldDocRef.update({'tasks': tasksList});
+          }
+        }
+
+        // 2. Add to new day
+        final newDocRef = FirebaseFirestore.instance
+            .collection('users')
+            .doc(_effectiveUserId)
+            .collection('dailyRoutines')
+            .doc(newDocId);
+
+        final newSnapshot = await newDocRef.get();
+        if (newSnapshot.exists) {
+          final data = newSnapshot.data();
+          if (data != null) {
+            List<dynamic> tasksList = data['tasks'] ?? [];
+            tasksList.removeWhere((t) => t['id'] == updatedTask.id || t['id'] == cleanOldId);
+            tasksList.add(updatedTask.toMap());
+            await newDocRef.update({'tasks': tasksList});
+          }
+        } else {
+          final newRoutine = DailyRoutine(
+            id: newDocId,
+            userId: _effectiveUserId,
+            date: DateFormat('yyyy-MM-dd').parse(newDocId),
+            tasks: [updatedTask],
+          );
+          await newDocRef.set(newRoutine.toMap());
+        }
+      }
+
+      // Update local cache state
+      if (mounted) {
+        setState(() {
+          _loadMonthData();
+          _loadWeekData();
+        });
       }
     } catch (e) {
       debugPrint("Error updating task in Firestore: $e");

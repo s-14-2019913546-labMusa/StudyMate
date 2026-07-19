@@ -8,27 +8,40 @@ class UpdateService {
 
   static Future<void> checkUpdate(BuildContext context) async {
     try {
+      debugPrint("DEBUG_UPDATE: Start checking updates...");
       final doc = await FirebaseFirestore.instance
           .collection('app_config')
           .doc('update')
-          .get();
+          .get(const GetOptions(source: Source.server));
 
-      if (!doc.exists || doc.data() == null) return;
+      debugPrint("DEBUG_UPDATE: Doc exists = ${doc.exists}");
+      if (!doc.exists || doc.data() == null) {
+        debugPrint("DEBUG_UPDATE: Doc is null or does not exist!");
+        return;
+      }
 
       final data = doc.data()!;
+      debugPrint("DEBUG_UPDATE: Doc data = $data");
       final String latestVersion = data['latestVersion'] as String? ?? currentAppVersion;
       final String apkUrl = data['apkUrl'] as String? ?? '';
       final bool isMandatory = data['isMandatory'] as bool? ?? false;
       final String changelogBn = data['changelog_bn'] as String? ?? '';
       final String changelogEn = data['changelog_en'] as String? ?? '';
 
-      if (_isNewerVersion(currentAppVersion, latestVersion) && apkUrl.isNotEmpty) {
+      debugPrint("DEBUG_UPDATE: currentAppVersion = $currentAppVersion, latestVersion = $latestVersion, apkUrl = $apkUrl");
+      final bool newer = _isNewerVersion(currentAppVersion, latestVersion);
+      debugPrint("DEBUG_UPDATE: _isNewerVersion = $newer");
+
+      if (newer && apkUrl.isNotEmpty) {
+        debugPrint("DEBUG_UPDATE: Showing update dialog...");
         if (context.mounted) {
           _showUpdateDialog(context, latestVersion, apkUrl, isMandatory, changelogBn, changelogEn);
         }
+      } else {
+        debugPrint("DEBUG_UPDATE: Update not needed or apkUrl is empty!");
       }
     } catch (e) {
-      debugPrint("Error checking updates: $e");
+      debugPrint("DEBUG_UPDATE: Error checking updates: $e");
     }
   }
 

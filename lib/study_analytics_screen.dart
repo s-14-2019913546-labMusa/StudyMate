@@ -86,7 +86,16 @@ class _StudyAnalyticsScreenState extends State<StudyAnalyticsScreen> {
         }
 
         for (var task in routine.tasks) {
-          if (task.status == 'completed' || task.isCompleted) {
+          final isCompleted = task.status == 'completed' || task.isCompleted;
+          final fromElapsed = task.totalDurationMinutes > 0
+              ? (task.elapsedSeconds / (task.totalDurationMinutes * 60))
+              : 0.0;
+          final fromMinutes = task.totalDurationMinutes > 0
+              ? (task.completedDurationMinutes / task.totalDurationMinutes)
+              : 0.0;
+          final actualProgress = fromElapsed > fromMinutes ? fromElapsed : fromMinutes;
+
+          if (isCompleted && actualProgress >= 0.70) {
             totalCompleted++;
             dayCompletedCount++;
             
