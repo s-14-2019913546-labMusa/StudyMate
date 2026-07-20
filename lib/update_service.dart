@@ -4,7 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'language_manager.dart';
 
 class UpdateService {
-  static const String currentAppVersion = "1.0.1";
+  static const String currentAppVersion = "1.0.3";
 
   static Future<void> checkUpdate(BuildContext context) async {
     try {
