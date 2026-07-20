@@ -14,10 +14,12 @@ class NotificationSettingsScreen extends StatefulWidget {
   const NotificationSettingsScreen({super.key});
 
   @override
-  State<NotificationSettingsScreen> createState() => _NotificationSettingsScreenState();
+  State<NotificationSettingsScreen> createState() =>
+      _NotificationSettingsScreenState();
 }
 
-class _NotificationSettingsScreenState extends State<NotificationSettingsScreen> {
+class _NotificationSettingsScreenState
+    extends State<NotificationSettingsScreen> {
   final User? _currentUser = FirebaseAuth.instance.currentUser;
   bool _isLoading = true;
   bool _isSaving = false;
@@ -62,37 +64,61 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     setState(() => _isLoading = true);
 
     try {
-      final doc = await FirebaseFirestore.instance.collection('users').doc(_currentUser.uid).get();
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(_currentUser.uid)
+          .get();
       if (doc.exists && doc.data() != null) {
         final data = doc.data()!;
         final settings = data['notificationSettings'] as Map<String, dynamic>?;
         if (settings != null && mounted) {
           setState(() {
-            _globalNotifications = settings['globalNotifications'] as bool? ?? true;
-            _studyGoalReminders = settings['studyGoalReminders'] as bool? ?? true;
+            _globalNotifications =
+                settings['globalNotifications'] as bool? ?? true;
+            _studyGoalReminders =
+                settings['studyGoalReminders'] as bool? ?? true;
             _taskDueWarnings = settings['taskDueWarnings'] as bool? ?? true;
-            _spacedRevisionAlerts = settings['spacedRevisionAlerts'] as bool? ?? true;
-            _socialHubNotifications = settings['socialHubNotifications'] as bool? ?? true;
+            _spacedRevisionAlerts =
+                settings['spacedRevisionAlerts'] as bool? ?? true;
+            _socialHubNotifications =
+                settings['socialHubNotifications'] as bool? ?? true;
             _motivationalPush = settings['motivationalPush'] as bool? ?? true;
 
             _soundEnabled = settings['soundEnabled'] as bool? ?? true;
             _vibrationEnabled = settings['vibrationEnabled'] as bool? ?? true;
             _volumeLevel = (settings['volumeLevel'] as num?)?.toDouble() ?? 0.8;
-            
-            _selectedPushSound = settings['selectedPushSound'] as String? ?? settings['selectedSound'] as String? ?? 'Notification';
-            _selectedPushSoundName = settings['selectedPushSoundName'] as String? ?? settings['selectedSoundName'] as String? ?? 'Notification';
-            _selectedAlarmSound = settings['selectedAlarmSound'] as String? ?? 'Alarm';
-            _selectedAlarmSoundName = settings['selectedAlarmSoundName'] as String? ?? 'Alarm';
-            _alarmRepeatCount = settings['alarmRepeatCount'] as String? ?? 'loop';
 
-            final customPushSoundsRaw = settings['customPushSounds'] as Map<String, dynamic>? ?? {};
-            _customPushSounds = customPushSoundsRaw.map((key, value) => MapEntry(key, value.toString()));
+            _selectedPushSound =
+                settings['selectedPushSound'] as String? ??
+                settings['selectedSound'] as String? ??
+                'Notification';
+            _selectedPushSoundName =
+                settings['selectedPushSoundName'] as String? ??
+                settings['selectedSoundName'] as String? ??
+                'Notification';
+            _selectedAlarmSound =
+                settings['selectedAlarmSound'] as String? ?? 'Alarm';
+            _selectedAlarmSoundName =
+                settings['selectedAlarmSoundName'] as String? ?? 'Alarm';
+            _alarmRepeatCount =
+                settings['alarmRepeatCount'] as String? ?? 'loop';
 
-            final customAlarmSoundsRaw = settings['customAlarmSounds'] as Map<String, dynamic>? ?? {};
-            _customAlarmSounds = customAlarmSoundsRaw.map((key, value) => MapEntry(key, value.toString()));
+            final customPushSoundsRaw =
+                settings['customPushSounds'] as Map<String, dynamic>? ?? {};
+            _customPushSounds = customPushSoundsRaw.map(
+              (key, value) => MapEntry(key, value.toString()),
+            );
+
+            final customAlarmSoundsRaw =
+                settings['customAlarmSounds'] as Map<String, dynamic>? ?? {};
+            _customAlarmSounds = customAlarmSoundsRaw.map(
+              (key, value) => MapEntry(key, value.toString()),
+            );
 
             // Validate saved sound
-            if (!_selectedPushSound.startsWith('content://') && !_selectedPushSound.startsWith('file://') && !_builtInSounds.containsKey(_selectedPushSound)) {
+            if (!_selectedPushSound.startsWith('content://') &&
+                !_selectedPushSound.startsWith('file://') &&
+                !_builtInSounds.containsKey(_selectedPushSound)) {
               _selectedPushSound = 'Notification';
               _selectedPushSoundName = _builtInSounds['Notification']!;
             } else if (_builtInSounds.containsKey(_selectedPushSound)) {
@@ -100,14 +126,17 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
             } else if (_customPushSounds.containsKey(_selectedPushSound)) {
               _selectedPushSoundName = _customPushSounds[_selectedPushSound]!;
             }
-            
-            if (!_selectedAlarmSound.startsWith('content://') && !_selectedAlarmSound.startsWith('file://') && !_builtInSounds.containsKey(_selectedAlarmSound)) {
+
+            if (!_selectedAlarmSound.startsWith('content://') &&
+                !_selectedAlarmSound.startsWith('file://') &&
+                !_builtInSounds.containsKey(_selectedAlarmSound)) {
               _selectedAlarmSound = 'Alarm';
               _selectedAlarmSoundName = _builtInSounds['Alarm']!;
             } else if (_builtInSounds.containsKey(_selectedAlarmSound)) {
               _selectedAlarmSoundName = _builtInSounds[_selectedAlarmSound]!;
             } else if (_customAlarmSounds.containsKey(_selectedAlarmSound)) {
-              _selectedAlarmSoundName = _customAlarmSounds[_selectedAlarmSound]!;
+              _selectedAlarmSoundName =
+                  _customAlarmSounds[_selectedAlarmSound]!;
             }
           });
         }
@@ -130,20 +159,25 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
       if (key == 'studyGoalReminders') _studyGoalReminders = value as bool;
       if (key == 'taskDueWarnings') _taskDueWarnings = value as bool;
       if (key == 'spacedRevisionAlerts') _spacedRevisionAlerts = value as bool;
-      if (key == 'socialHubNotifications') _socialHubNotifications = value as bool;
+      if (key == 'socialHubNotifications')
+        _socialHubNotifications = value as bool;
       if (key == 'motivationalPush') _motivationalPush = value as bool;
 
       if (key == 'soundEnabled') _soundEnabled = value as bool;
       if (key == 'vibrationEnabled') _vibrationEnabled = value as bool;
       if (key == 'volumeLevel') _volumeLevel = value as double;
       if (key == 'selectedPushSound') _selectedPushSound = value as String;
-      if (key == 'selectedPushSoundName') _selectedPushSoundName = value as String;
+      if (key == 'selectedPushSoundName')
+        _selectedPushSoundName = value as String;
       if (key == 'selectedAlarmSound') _selectedAlarmSound = value as String;
-      if (key == 'selectedAlarmSoundName') _selectedAlarmSoundName = value as String;
+      if (key == 'selectedAlarmSoundName')
+        _selectedAlarmSoundName = value as String;
       if (key == 'alarmRepeatCount') _alarmRepeatCount = value as String;
     });
 
-    if (key == 'soundEnabled' || key == 'vibrationEnabled' || key == 'volumeLevel') {
+    if (key == 'soundEnabled' ||
+        key == 'vibrationEnabled' ||
+        key == 'volumeLevel') {
       _playPreview(false);
     } else if (key == 'selectedPushSound') {
       _playPreview(false);
@@ -177,14 +211,18 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
       await prefs.setString('selectedAlarmSound', _selectedAlarmSound);
       await prefs.setString('alarmRepeatCount', _alarmRepeatCount);
 
-      await FirebaseFirestore.instance.collection('users').doc(_currentUser.uid).set({
-        'notificationSettings': settingsMap,
-      }, SetOptions(merge: true));
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(_currentUser.uid)
+          .set({'notificationSettings': settingsMap}, SetOptions(merge: true));
     } catch (e) {
       debugPrint("Error saving notification settings: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error updating settings: $e'), backgroundColor: Colors.redAccent),
+          SnackBar(
+            content: Text('Error updating settings: $e'),
+            backgroundColor: Colors.redAccent,
+          ),
         );
       }
     } finally {
@@ -208,14 +246,17 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('customPushSounds', jsonEncode(_customPushSounds));
     await prefs.setString('customAlarmSounds', jsonEncode(_customAlarmSounds));
-    
+
     if (_currentUser != null) {
-      await FirebaseFirestore.instance.collection('users').doc(_currentUser.uid).set({
-        'notificationSettings': {
-          'customPushSounds': _customPushSounds,
-          'customAlarmSounds': _customAlarmSounds,
-        }
-      }, SetOptions(merge: true));
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(_currentUser.uid)
+          .set({
+            'notificationSettings': {
+              'customPushSounds': _customPushSounds,
+              'customAlarmSounds': _customAlarmSounds,
+            },
+          }, SetOptions(merge: true));
     }
   }
 
@@ -223,7 +264,9 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     // This feature is only for Android.
     if (!Platform.isAndroid) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('This feature is available on Android only.')),
+        const SnackBar(
+          content: Text('This feature is available on Android only.'),
+        ),
       );
       return;
     }
@@ -232,7 +275,11 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
 
     if (targetList.length >= 4) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Maximum 4 custom sounds allowed. Please remove one first.'.tr())),
+        SnackBar(
+          content: Text(
+            'Maximum 4 custom sounds allowed. Please remove one first.'.tr(),
+          ),
+        ),
       );
       return;
     }
@@ -244,21 +291,54 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     );
 
     if (result != null && result.files.single.path != null) {
-      final file = result.files.single;
-      final soundUri = 'file://${file.path}'; // URI format for sounds
-      
+      final pickedFile = File(result.files.single.path!);
+      String finalSoundUri = 'file://${pickedFile.path}';
+
+      // Try to copy to external storage so NotificationManager can read it
+      try {
+        if (Platform.isAndroid) {
+          final externalDirs = await getExternalStorageDirectories(
+            type: StorageDirectory.alarms,
+          );
+          if (externalDirs != null && externalDirs.isNotEmpty) {
+            final targetDir = externalDirs.first;
+            if (!await targetDir.exists()) {
+              await targetDir.create(recursive: true);
+            }
+            // Create a safe file name
+            final safeName = result.files.single.name.replaceAll(
+              RegExp(r'[^a-zA-Z0-9._-]'),
+              '_',
+            );
+            final targetFile = File('${targetDir.path}/$safeName');
+            await pickedFile.copy(targetFile.path);
+            finalSoundUri = 'file://${targetFile.path}';
+          }
+        }
+      } catch (e) {
+        debugPrint('Failed to copy to external directory: $e');
+      }
+
       setState(() {
         if (isAlarm) {
-          _customAlarmSounds[soundUri] = file.name;
+          _customAlarmSounds[finalSoundUri] = result.files.single.name;
+          _selectedAlarmSound = finalSoundUri;
+          _selectedAlarmSoundName = result.files.single.name;
+          _saveSettings('selectedAlarmSound', finalSoundUri);
+          _saveSettings('selectedAlarmSoundName', result.files.single.name);
         } else {
-          _customPushSounds[soundUri] = file.name;
+          _customPushSounds[finalSoundUri] = result.files.single.name;
+          _selectedPushSound = finalSoundUri;
+          _selectedPushSoundName = result.files.single.name;
+          _saveSettings('selectedPushSound', finalSoundUri);
+          _saveSettings('selectedPushSoundName', result.files.single.name);
         }
       });
       await _saveCustomSounds();
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Sound added to your list!'.tr())),
-      );
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Sound added to your list!'.tr())));
     }
   }
 
@@ -273,7 +353,10 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Notification Settings'.tr(), style: const TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(
+          'Notification Settings'.tr(),
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
         flexibleSpace: Container(
@@ -281,7 +364,9 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
             gradient: LinearGradient(
               colors: [
                 primaryColor,
-                isDark ? primaryColor.withValues(alpha: 0.6) : primaryColor.withValues(alpha: 0.8),
+                isDark
+                    ? primaryColor.withValues(alpha: 0.6)
+                    : primaryColor.withValues(alpha: 0.8),
               ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -300,7 +385,9 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                   Card(
                     elevation: 2,
                     shadowColor: Colors.black.withValues(alpha: 0.05),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                     child: Padding(
                       padding: const EdgeInsets.all(16.0),
                       child: Row(
@@ -311,7 +398,11 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                               color: primaryColor.withValues(alpha: 0.1),
                               shape: BoxShape.circle,
                             ),
-                            child: Icon(Icons.notifications_active_outlined, color: primaryColor, size: 28),
+                            child: Icon(
+                              Icons.notifications_active_outlined,
+                              color: primaryColor,
+                              size: 28,
+                            ),
                           ),
                           const SizedBox(width: 16),
                           Expanded(
@@ -321,15 +412,19 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                                 Text(
                                   'Notification Configuration'.tr(),
                                   style: TextStyle(
-                                    fontWeight: FontWeight.bold, 
-                                    fontSize: 16, 
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
                                     color: primaryColor,
                                   ),
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  'Customize your study alerts and reminders.'.tr(),
-                                  style: TextStyle(fontSize: 12, color: onSurfaceVariant),
+                                  'Customize your study alerts and reminders.'
+                                      .tr(),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: onSurfaceVariant,
+                                  ),
                                 ),
                               ],
                             ),
@@ -346,7 +441,8 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                     subtitle: 'Keep all app notifications on or off'.tr(),
                     value: _globalNotifications,
                     icon: Icons.power_settings_new_rounded,
-                    onChanged: (val) => _saveSettings('globalNotifications', val),
+                    onChanged: (val) =>
+                        _saveSettings('globalNotifications', val),
                     isHeader: true,
                   ),
                   const SizedBox(height: 16),
@@ -360,38 +456,52 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                         children: [
                           _buildSwitchTile(
                             title: 'Study Goal Reminders'.tr(),
-                            subtitle: 'Remind if daily study goal is not met'.tr(),
+                            subtitle: 'Remind if daily study goal is not met'
+                                .tr(),
                             value: _studyGoalReminders,
                             icon: Icons.timer_outlined,
-                            onChanged: (val) => _saveSettings('studyGoalReminders', val),
+                            onChanged: (val) =>
+                                _saveSettings('studyGoalReminders', val),
                           ),
                           _buildSwitchTile(
                             title: 'Task Deadline Alerts'.tr(),
-                            subtitle: 'Send notification before a specific task ends'.tr(),
+                            subtitle:
+                                'Send notification before a specific task ends'
+                                    .tr(),
                             value: _taskDueWarnings,
                             icon: Icons.alarm_on_rounded,
-                            onChanged: (val) => _saveSettings('taskDueWarnings', val),
+                            onChanged: (val) =>
+                                _saveSettings('taskDueWarnings', val),
                           ),
                           _buildSwitchTile(
                             title: 'Revision Reminders'.tr(),
-                            subtitle: 'Remind of revision for 1-4-7 spaced revision schedule'.tr(),
+                            subtitle:
+                                'Remind of revision for 1-4-7 spaced revision schedule'
+                                    .tr(),
                             value: _spacedRevisionAlerts,
                             icon: Icons.sync_problem_rounded,
-                            onChanged: (val) => _saveSettings('spacedRevisionAlerts', val),
+                            onChanged: (val) =>
+                                _saveSettings('spacedRevisionAlerts', val),
                           ),
                           _buildSwitchTile(
                             title: 'Social Notifications'.tr(),
-                            subtitle: 'New friend requests or Social Hub update notifications'.tr(),
+                            subtitle:
+                                'New friend requests or Social Hub update notifications'
+                                    .tr(),
                             value: _socialHubNotifications,
                             icon: Icons.people_outline_rounded,
-                            onChanged: (val) => _saveSettings('socialHubNotifications', val),
+                            onChanged: (val) =>
+                                _saveSettings('socialHubNotifications', val),
                           ),
                           _buildSwitchTile(
                             title: 'Motivational Push'.tr(),
-                            subtitle: 'Motivational messages to start studying every day'.tr(),
+                            subtitle:
+                                'Motivational messages to start studying every day'
+                                    .tr(),
                             value: _motivationalPush,
                             icon: Icons.wb_incandescent_outlined,
-                            onChanged: (val) => _saveSettings('motivationalPush', val),
+                            onChanged: (val) =>
+                                _saveSettings('motivationalPush', val),
                           ),
                         ],
                       ),
@@ -404,7 +514,9 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                   Card(
                     elevation: 2,
                     shadowColor: Colors.black.withValues(alpha: 0.05),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                     child: Padding(
                       padding: const EdgeInsets.all(16.0),
                       child: Column(
@@ -412,20 +524,23 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                         children: [
                           Row(
                             children: [
-                              Icon(Icons.volume_up_rounded, color: primaryColor),
+                              Icon(
+                                Icons.volume_up_rounded,
+                                color: primaryColor,
+                              ),
                               const SizedBox(width: 8),
                               Text(
                                 'Sound & Vibration Settings'.tr(),
                                 style: TextStyle(
-                                  fontWeight: FontWeight.bold, 
-                                  fontSize: 16, 
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
                                   color: primaryColor,
                                 ),
                               ),
                             ],
                           ),
                           const Divider(height: 24),
-                          
+
                           // Sound Toggle
                           Padding(
                             padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -433,17 +548,26 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                               children: [
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Text(
-                                        'Notification Sound'.tr(), 
-                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: onSurface),
+                                        'Notification Sound'.tr(),
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                          color: onSurface,
+                                        ),
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
-                                        'Play sound when receiving notifications'.tr(), 
-                                        style: TextStyle(fontSize: 11, color: onSurfaceVariant),
+                                        'Play sound when receiving notifications'
+                                            .tr(),
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: onSurfaceVariant,
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -459,21 +583,32 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                                         scale: 0.75,
                                         child: Switch(
                                           value: _soundEnabled,
-                                          onChanged: _globalNotifications ? (val) => _saveSettings('soundEnabled', val) : null,
+                                          onChanged: _globalNotifications
+                                              ? (val) => _saveSettings(
+                                                  'soundEnabled',
+                                                  val,
+                                                )
+                                              : null,
                                           activeThumbColor: primaryColor,
-                                          activeTrackColor: primaryColor.withValues(alpha: 0.3),
-                                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                          activeTrackColor: primaryColor
+                                              .withValues(alpha: 0.3),
+                                          materialTapTargetSize:
+                                              MaterialTapTargetSize.shrinkWrap,
                                         ),
                                       ),
                                     ),
                                     const SizedBox(height: 2),
                                     Text(
-                                      _soundEnabled ? 'Active (ON)'.tr() : 'Disabled (OFF)'.tr(),
+                                      _soundEnabled
+                                          ? 'Active (ON)'.tr()
+                                          : 'Disabled (OFF)'.tr(),
                                       style: TextStyle(
                                         fontSize: 9,
                                         fontWeight: FontWeight.w800,
-                                        color: _soundEnabled 
-                                            ? (isDark ? Colors.green.shade300 : Colors.green.shade700) 
+                                        color: _soundEnabled
+                                            ? (isDark
+                                                  ? Colors.green.shade300
+                                                  : Colors.green.shade700)
                                             : onSurfaceVariant,
                                       ),
                                     ),
@@ -482,7 +617,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                               ],
                             ),
                           ),
-                          
+
                           // Vibration Toggle
                           Padding(
                             padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -490,17 +625,26 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                               children: [
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Text(
-                                        'Vibration'.tr(), 
-                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: onSurface),
+                                        'Vibration'.tr(),
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                          color: onSurface,
+                                        ),
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
-                                        'Vibrate device when receiving notifications'.tr(), 
-                                        style: TextStyle(fontSize: 11, color: onSurfaceVariant),
+                                        'Vibrate device when receiving notifications'
+                                            .tr(),
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: onSurfaceVariant,
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -516,21 +660,32 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                                         scale: 0.75,
                                         child: Switch(
                                           value: _vibrationEnabled,
-                                          onChanged: _globalNotifications ? (val) => _saveSettings('vibrationEnabled', val) : null,
+                                          onChanged: _globalNotifications
+                                              ? (val) => _saveSettings(
+                                                  'vibrationEnabled',
+                                                  val,
+                                                )
+                                              : null,
                                           activeThumbColor: primaryColor,
-                                          activeTrackColor: primaryColor.withValues(alpha: 0.3),
-                                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                          activeTrackColor: primaryColor
+                                              .withValues(alpha: 0.3),
+                                          materialTapTargetSize:
+                                              MaterialTapTargetSize.shrinkWrap,
                                         ),
                                       ),
                                     ),
                                     const SizedBox(height: 2),
                                     Text(
-                                      _vibrationEnabled ? 'Active (ON)'.tr() : 'Disabled (OFF)'.tr(),
+                                      _vibrationEnabled
+                                          ? 'Active (ON)'.tr()
+                                          : 'Disabled (OFF)'.tr(),
                                       style: TextStyle(
                                         fontSize: 9,
                                         fontWeight: FontWeight.w800,
-                                        color: _vibrationEnabled 
-                                            ? (isDark ? Colors.green.shade300 : Colors.green.shade700) 
+                                        color: _vibrationEnabled
+                                            ? (isDark
+                                                  ? Colors.green.shade300
+                                                  : Colors.green.shade700)
                                             : onSurfaceVariant,
                                       ),
                                     ),
@@ -539,27 +694,42 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                               ],
                             ),
                           ),
-                          
+
                           if (_soundEnabled) ...[
                             const SizedBox(height: 12),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
-                                  'Push Notification Sound'.tr(), 
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: onSurface),
+                                  'Push Notification Sound'.tr(),
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                    color: onSurface,
+                                  ),
                                 ),
                                 TextButton.icon(
-                                  onPressed: _globalNotifications ? () => _playPreview(false) : null,
-                                  icon: Icon(Icons.play_circle_outline_rounded, size: 18, color: primaryColor),
+                                  onPressed: _globalNotifications
+                                      ? () => _playPreview(false)
+                                      : null,
+                                  icon: Icon(
+                                    Icons.play_circle_outline_rounded,
+                                    size: 18,
+                                    color: primaryColor,
+                                  ),
                                   label: Text(
                                     'Test Sound'.tr(),
-                                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: primaryColor),
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: primaryColor,
+                                    ),
                                   ),
                                   style: TextButton.styleFrom(
                                     padding: EdgeInsets.zero,
                                     minimumSize: Size.zero,
-                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    tapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
                                   ),
                                 ),
                               ],
@@ -567,100 +737,173 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                             const SizedBox(height: 8),
                             // Push Sound Picker UI
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 4,
+                              ),
                               decoration: BoxDecoration(
-                                border: Border.all(color: onSurfaceVariant.withValues(alpha: 0.3)),
+                                border: Border.all(
+                                  color: onSurfaceVariant.withValues(
+                                    alpha: 0.3,
+                                  ),
+                                ),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   Expanded(
                                     child: Text(
                                       _selectedPushSoundName,
-                                      style: TextStyle(color: onSurface, fontWeight: FontWeight.w500),
+                                      style: TextStyle(
+                                        color: onSurface,
+                                        fontWeight: FontWeight.w500,
+                                      ),
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
                                   PopupMenuButton<String>(
-                                    icon: const Icon(Icons.arrow_drop_down_rounded),
+                                    icon: const Icon(
+                                      Icons.arrow_drop_down_rounded,
+                                    ),
                                     onSelected: (String value) async {
                                       if (value.startsWith('delete_')) {
                                         final keyToRemove = value.substring(7);
                                         setState(() {
                                           _customPushSounds.remove(keyToRemove);
-                                          if (_selectedPushSound == keyToRemove) {
+                                          if (_selectedPushSound ==
+                                              keyToRemove) {
                                             _selectedPushSound = 'Notification';
-                                            _selectedPushSoundName = _builtInSounds['Notification']!;
+                                            _selectedPushSoundName =
+                                                _builtInSounds['Notification']!;
                                           }
                                         });
                                         await _saveCustomSounds();
-                                        await _saveSettings('selectedPushSound', _selectedPushSound);
-                                        await _saveSettings('selectedPushSoundName', _selectedPushSoundName);
+                                        await _saveSettings(
+                                          'selectedPushSound',
+                                          _selectedPushSound,
+                                        );
+                                        await _saveSettings(
+                                          'selectedPushSoundName',
+                                          _selectedPushSoundName,
+                                        );
                                         return;
                                       }
                                       if (value == 'pick_custom') {
                                         _pickRingtone(false);
                                       } else {
-                                        _saveSettings('selectedPushSound', value);
-                                        _saveSettings('selectedPushSoundName', _builtInSounds[value] ?? _customPushSounds[value] ?? value);
+                                        _saveSettings(
+                                          'selectedPushSound',
+                                          value,
+                                        );
+                                        _saveSettings(
+                                          'selectedPushSoundName',
+                                          _builtInSounds[value] ??
+                                              _customPushSounds[value] ??
+                                              value,
+                                        );
                                       }
                                     },
                                     itemBuilder: (BuildContext context) {
                                       return [
                                         ..._builtInSounds.entries.map((entry) {
-                                          final isSelected = entry.key == _selectedPushSound;
+                                          final isSelected =
+                                              entry.key == _selectedPushSound;
                                           return PopupMenuItem<String>(
                                             value: entry.key,
                                             child: Row(
-                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment
+                                                      .spaceBetween,
                                               children: [
-                                                Expanded(child: Text(entry.value)),
+                                                Expanded(
+                                                  child: Text(entry.value),
+                                                ),
                                                 if (isSelected)
-                                                  const Icon(Icons.check_circle_rounded, size: 18, color: Colors.green),
+                                                  const Icon(
+                                                    Icons.check_circle_rounded,
+                                                    size: 18,
+                                                    color: Colors.green,
+                                                  ),
                                               ],
                                             ),
                                           );
                                         }),
-                                        if (_customPushSounds.isNotEmpty) const PopupMenuDivider(),
-                                        ..._customPushSounds.entries.map((entry) {
-                                          final isSelected = entry.key == _selectedPushSound;
+                                        if (_customPushSounds.isNotEmpty)
+                                          const PopupMenuDivider(),
+                                        ..._customPushSounds.entries.map((
+                                          entry,
+                                        ) {
+                                          final isSelected =
+                                              entry.key == _selectedPushSound;
                                           return PopupMenuItem<String>(
                                             value: entry.key,
                                             child: Row(
-                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment
+                                                      .spaceBetween,
                                               children: [
                                                 Expanded(
                                                   child: Row(
                                                     children: [
-                                                      Icon(Icons.music_note, size: 16, color: onSurfaceVariant),
+                                                      Icon(
+                                                        Icons.music_note,
+                                                        size: 16,
+                                                        color: onSurfaceVariant,
+                                                      ),
                                                       const SizedBox(width: 8),
-                                                      Expanded(child: Text(entry.value, overflow: TextOverflow.ellipsis)),
+                                                      Expanded(
+                                                        child: Text(
+                                                          entry.value,
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
+                                                        ),
+                                                      ),
                                                     ],
                                                   ),
                                                 ),
                                                 if (isSelected)
-                                                  const Icon(Icons.check_circle_rounded, size: 18, color: Colors.green),
+                                                  const Icon(
+                                                    Icons.check_circle_rounded,
+                                                    size: 18,
+                                                    color: Colors.green,
+                                                  ),
                                                 GestureDetector(
                                                   onTap: () {
-                                                    Navigator.pop(context, 'delete_${entry.key}');
+                                                    Navigator.pop(
+                                                      context,
+                                                      'delete_${entry.key}',
+                                                    );
                                                   },
                                                   child: const Padding(
-                                                    padding: EdgeInsets.only(left: 12.0, right: 4.0),
-                                                    child: Icon(Icons.delete_outline, size: 20, color: Colors.red),
+                                                    padding: EdgeInsets.only(
+                                                      left: 12.0,
+                                                      right: 4.0,
+                                                    ),
+                                                    child: Icon(
+                                                      Icons.delete_outline,
+                                                      size: 20,
+                                                      color: Colors.red,
+                                                    ),
                                                   ),
                                                 ),
                                               ],
                                             ),
                                           );
                                         }),
-                                        if (Platform.isAndroid) const PopupMenuDivider(),
-                                        if (Platform.isAndroid && _customPushSounds.length < 4)
+                                        if (Platform.isAndroid)
+                                          const PopupMenuDivider(),
+                                        if (Platform.isAndroid &&
+                                            _customPushSounds.length < 4)
                                           const PopupMenuItem<String>(
                                             value: 'pick_custom',
                                             child: Row(
                                               children: [
-                                                Icon(Icons.add_circle_outline, size: 18),
+                                                Icon(
+                                                  Icons.add_circle_outline,
+                                                  size: 18,
+                                                ),
                                                 SizedBox(width: 8),
                                                 Text('Add custom sound...'),
                                               ],
@@ -673,25 +916,40 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                               ),
                             ),
                             const SizedBox(height: 16),
-                            
+
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
-                                  'Alarm Sound'.tr(), 
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: onSurface),
+                                  'Alarm Sound'.tr(),
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                    color: onSurface,
+                                  ),
                                 ),
                                 TextButton.icon(
-                                  onPressed: _globalNotifications ? () => _playPreview(true) : null,
-                                  icon: Icon(Icons.play_circle_outline_rounded, size: 18, color: primaryColor),
+                                  onPressed: _globalNotifications
+                                      ? () => _playPreview(true)
+                                      : null,
+                                  icon: Icon(
+                                    Icons.play_circle_outline_rounded,
+                                    size: 18,
+                                    color: primaryColor,
+                                  ),
                                   label: Text(
                                     'Test Sound'.tr(),
-                                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: primaryColor),
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: primaryColor,
+                                    ),
                                   ),
                                   style: TextButton.styleFrom(
                                     padding: EdgeInsets.zero,
                                     minimumSize: Size.zero,
-                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    tapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
                                   ),
                                 ),
                               ],
@@ -699,100 +957,175 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                             const SizedBox(height: 8),
                             // Alarm Sound Picker UI
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 4,
+                              ),
                               decoration: BoxDecoration(
-                                border: Border.all(color: onSurfaceVariant.withValues(alpha: 0.3)),
+                                border: Border.all(
+                                  color: onSurfaceVariant.withValues(
+                                    alpha: 0.3,
+                                  ),
+                                ),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   Expanded(
                                     child: Text(
                                       _selectedAlarmSoundName,
-                                      style: TextStyle(color: onSurface, fontWeight: FontWeight.w500),
+                                      style: TextStyle(
+                                        color: onSurface,
+                                        fontWeight: FontWeight.w500,
+                                      ),
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
                                   PopupMenuButton<String>(
-                                    icon: const Icon(Icons.arrow_drop_down_rounded),
+                                    icon: const Icon(
+                                      Icons.arrow_drop_down_rounded,
+                                    ),
                                     onSelected: (String value) async {
                                       if (value.startsWith('delete_')) {
                                         final keyToRemove = value.substring(7);
                                         setState(() {
-                                          _customAlarmSounds.remove(keyToRemove);
-                                          if (_selectedAlarmSound == keyToRemove) {
+                                          _customAlarmSounds.remove(
+                                            keyToRemove,
+                                          );
+                                          if (_selectedAlarmSound ==
+                                              keyToRemove) {
                                             _selectedAlarmSound = 'Alarm';
-                                            _selectedAlarmSoundName = _builtInSounds['Alarm']!;
+                                            _selectedAlarmSoundName =
+                                                _builtInSounds['Alarm']!;
                                           }
                                         });
                                         await _saveCustomSounds();
-                                        await _saveSettings('selectedAlarmSound', _selectedAlarmSound);
-                                        await _saveSettings('selectedAlarmSoundName', _selectedAlarmSoundName);
+                                        await _saveSettings(
+                                          'selectedAlarmSound',
+                                          _selectedAlarmSound,
+                                        );
+                                        await _saveSettings(
+                                          'selectedAlarmSoundName',
+                                          _selectedAlarmSoundName,
+                                        );
                                         return;
                                       }
                                       if (value == 'pick_custom') {
                                         _pickRingtone(true);
                                       } else {
-                                        _saveSettings('selectedAlarmSound', value);
-                                        _saveSettings('selectedAlarmSoundName', _builtInSounds[value] ?? _customAlarmSounds[value] ?? value);
+                                        _saveSettings(
+                                          'selectedAlarmSound',
+                                          value,
+                                        );
+                                        _saveSettings(
+                                          'selectedAlarmSoundName',
+                                          _builtInSounds[value] ??
+                                              _customAlarmSounds[value] ??
+                                              value,
+                                        );
                                       }
                                     },
                                     itemBuilder: (BuildContext context) {
                                       return [
                                         ..._builtInSounds.entries.map((entry) {
-                                          final isSelected = entry.key == _selectedAlarmSound;
+                                          final isSelected =
+                                              entry.key == _selectedAlarmSound;
                                           return PopupMenuItem<String>(
                                             value: entry.key,
                                             child: Row(
-                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment
+                                                      .spaceBetween,
                                               children: [
-                                                Expanded(child: Text(entry.value)),
+                                                Expanded(
+                                                  child: Text(entry.value),
+                                                ),
                                                 if (isSelected)
-                                                  const Icon(Icons.check_circle_rounded, size: 18, color: Colors.green),
+                                                  const Icon(
+                                                    Icons.check_circle_rounded,
+                                                    size: 18,
+                                                    color: Colors.green,
+                                                  ),
                                               ],
                                             ),
                                           );
                                         }),
-                                        if (_customAlarmSounds.isNotEmpty) const PopupMenuDivider(),
-                                        ..._customAlarmSounds.entries.map((entry) {
-                                          final isSelected = entry.key == _selectedAlarmSound;
+                                        if (_customAlarmSounds.isNotEmpty)
+                                          const PopupMenuDivider(),
+                                        ..._customAlarmSounds.entries.map((
+                                          entry,
+                                        ) {
+                                          final isSelected =
+                                              entry.key == _selectedAlarmSound;
                                           return PopupMenuItem<String>(
                                             value: entry.key,
                                             child: Row(
-                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment
+                                                      .spaceBetween,
                                               children: [
                                                 Expanded(
                                                   child: Row(
                                                     children: [
-                                                      Icon(Icons.music_note, size: 16, color: onSurfaceVariant),
+                                                      Icon(
+                                                        Icons.music_note,
+                                                        size: 16,
+                                                        color: onSurfaceVariant,
+                                                      ),
                                                       const SizedBox(width: 8),
-                                                      Expanded(child: Text(entry.value, overflow: TextOverflow.ellipsis)),
+                                                      Expanded(
+                                                        child: Text(
+                                                          entry.value,
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
+                                                        ),
+                                                      ),
                                                     ],
                                                   ),
                                                 ),
                                                 if (isSelected)
-                                                  const Icon(Icons.check_circle_rounded, size: 18, color: Colors.green),
+                                                  const Icon(
+                                                    Icons.check_circle_rounded,
+                                                    size: 18,
+                                                    color: Colors.green,
+                                                  ),
                                                 GestureDetector(
                                                   onTap: () {
-                                                    Navigator.pop(context, 'delete_${entry.key}');
+                                                    Navigator.pop(
+                                                      context,
+                                                      'delete_${entry.key}',
+                                                    );
                                                   },
                                                   child: const Padding(
-                                                    padding: EdgeInsets.only(left: 12.0, right: 4.0),
-                                                    child: Icon(Icons.delete_outline, size: 20, color: Colors.red),
+                                                    padding: EdgeInsets.only(
+                                                      left: 12.0,
+                                                      right: 4.0,
+                                                    ),
+                                                    child: Icon(
+                                                      Icons.delete_outline,
+                                                      size: 20,
+                                                      color: Colors.red,
+                                                    ),
                                                   ),
                                                 ),
                                               ],
                                             ),
                                           );
                                         }),
-                                        if (Platform.isAndroid) const PopupMenuDivider(),
-                                        if (Platform.isAndroid && _customAlarmSounds.length < 4)
+                                        if (Platform.isAndroid)
+                                          const PopupMenuDivider(),
+                                        if (Platform.isAndroid &&
+                                            _customAlarmSounds.length < 4)
                                           const PopupMenuItem<String>(
                                             value: 'pick_custom',
                                             child: Row(
                                               children: [
-                                                Icon(Icons.add_circle_outline, size: 18),
+                                                Icon(
+                                                  Icons.add_circle_outline,
+                                                  size: 18,
+                                                ),
                                                 SizedBox(width: 8),
                                                 Text('Add custom sound...'),
                                               ],
@@ -805,17 +1138,25 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                               ),
                             ),
                             const SizedBox(height: 16),
-                            
+
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
-                                  'Volume Level'.tr(), 
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: onSurface),
+                                  'Volume Level'.tr(),
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                    color: onSurface,
+                                  ),
                                 ),
                                 Text(
-                                  '${(_volumeLevel * 100).toInt()}%', 
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: primaryColor),
+                                  '${(_volumeLevel * 100).toInt()}%',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                    color: primaryColor,
+                                  ),
                                 ),
                               ],
                             ),
@@ -825,7 +1166,9 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                               max: 1.0,
                               divisions: 10,
                               activeColor: primaryColor,
-                              inactiveColor: primaryColor.withValues(alpha: 0.2),
+                              inactiveColor: primaryColor.withValues(
+                                alpha: 0.2,
+                              ),
                               onChanged: _globalNotifications
                                   ? (val) => _saveSettings('volumeLevel', val)
                                   : null,
@@ -835,25 +1178,52 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
-                                  'Alarm Repeat'.tr(), 
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: onSurface),
+                                  'Alarm Repeat'.tr(),
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                    color: onSurface,
+                                  ),
                                 ),
                                 DropdownButton<String>(
                                   value: _alarmRepeatCount,
                                   dropdownColor: Theme.of(context).cardColor,
                                   underline: Container(),
-                                  style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold, fontSize: 13),
+                                  style: TextStyle(
+                                    color: primaryColor,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                  ),
                                   onChanged: _globalNotifications
                                       ? (val) {
-                                          if (val != null) _saveSettings('alarmRepeatCount', val);
+                                          if (val != null)
+                                            _saveSettings(
+                                              'alarmRepeatCount',
+                                              val,
+                                            );
                                         }
                                       : null,
                                   items: [
-                                    DropdownMenuItem(value: 'loop', child: Text('Loop Continuously'.tr())),
-                                    DropdownMenuItem(value: '1', child: Text('1 Time'.tr())),
-                                    DropdownMenuItem(value: '2', child: Text('2 Times'.tr())),
-                                    DropdownMenuItem(value: '3', child: Text('3 Times'.tr())),
-                                    DropdownMenuItem(value: '4', child: Text('4 Times'.tr())),
+                                    DropdownMenuItem(
+                                      value: 'loop',
+                                      child: Text('Loop Continuously'.tr()),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: '1',
+                                      child: Text('1 Time'.tr()),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: '2',
+                                      child: Text('2 Times'.tr()),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: '3',
+                                      child: Text('3 Times'.tr()),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: '4',
+                                      child: Text('4 Times'.tr()),
+                                    ),
                                   ],
                                 ),
                               ],
@@ -872,7 +1242,9 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                     decoration: BoxDecoration(
                       color: Colors.amber.withValues(alpha: 0.1),
                       border: Border.all(
-                        color: isDark ? Colors.amber.shade700.withValues(alpha: 0.5) : Colors.amber.shade300, 
+                        color: isDark
+                            ? Colors.amber.shade700.withValues(alpha: 0.5)
+                            : Colors.amber.shade300,
                         width: 1,
                       ),
                       borderRadius: BorderRadius.circular(16),
@@ -881,8 +1253,10 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Icon(
-                          Icons.info_outline_rounded, 
-                          color: isDark ? Colors.amber.shade300 : Colors.amber.shade800, 
+                          Icons.info_outline_rounded,
+                          color: isDark
+                              ? Colors.amber.shade300
+                              : Colors.amber.shade800,
                           size: 22,
                         ),
                         const SizedBox(width: 12),
@@ -890,7 +1264,9 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                           child: Text(
                             'বিশেষ দ্রষ্টব্য: ইসলামিক লাইফ ফিচারের নামাজের ওয়াক্ত ও আযানের অ্যালার্মগুলো এই গ্লোবাল সেটিং এর আওতামুক্ত। নামাজের নোটিফিকেশনগুলো সম্পূর্ণভাবে নিয়ন্ত্রণ করতে দয়া করে "Islamic Life" অপশনে যান।',
                             style: TextStyle(
-                              color: isDark ? Colors.amber.shade200 : Colors.amber.shade900,
+                              color: isDark
+                                  ? Colors.amber.shade200
+                                  : Colors.amber.shade900,
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
                               height: 1.5,
@@ -907,9 +1283,12 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                       padding: const EdgeInsets.symmetric(vertical: 16.0),
                       child: Center(
                         child: SizedBox(
-                          width: 20, 
-                          height: 20, 
-                          child: CircularProgressIndicator(strokeWidth: 2, color: primaryColor),
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: primaryColor,
+                          ),
                         ),
                       ),
                     ),
@@ -929,17 +1308,17 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
   }) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    
+
     final primaryColor = theme.colorScheme.primary;
     final onSurface = theme.colorScheme.onSurface;
     final onSurfaceVariant = theme.colorScheme.onSurfaceVariant;
-    
-    Color cardBgColor = isHeader 
-        ? primaryColor.withValues(alpha: 0.08) 
+
+    Color cardBgColor = isHeader
+        ? primaryColor.withValues(alpha: 0.08)
         : theme.cardColor;
-        
-    Color cardBorderColor = isHeader 
-        ? primaryColor.withValues(alpha: 0.25) 
+
+    Color cardBorderColor = isHeader
+        ? primaryColor.withValues(alpha: 0.25)
         : theme.colorScheme.onSurface.withValues(alpha: 0.08);
 
     return Card(
@@ -978,7 +1357,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    subtitle, 
+                    subtitle,
                     style: TextStyle(fontSize: 11, color: onSurfaceVariant),
                   ),
                 ],
@@ -1008,8 +1387,10 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                   style: TextStyle(
                     fontSize: 9,
                     fontWeight: FontWeight.w800,
-                    color: value 
-                        ? (isDark ? Colors.green.shade300 : Colors.green.shade700) 
+                    color: value
+                        ? (isDark
+                              ? Colors.green.shade300
+                              : Colors.green.shade700)
                         : onSurfaceVariant,
                   ),
                 ),

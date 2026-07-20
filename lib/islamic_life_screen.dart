@@ -14,6 +14,7 @@ import 'quran_reader_screen.dart';
 import 'qibla_compass_screen.dart';
 import 'tasbeeh_counter_screen.dart';
 import 'prayer_history_screen.dart';
+import 'language_manager.dart';
 
 class IslamicLifeScreen extends StatefulWidget {
   const IslamicLifeScreen({super.key});
@@ -28,11 +29,11 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
   Map<String, String>? _prayerTimes;
   Map<String, String>? _dailyVerse;
   Map<String, String>? _dailyHadith;
-  
+
   Timer? _countdownTimer;
   String _nextPrayerName = "";
   Duration _nextPrayerRemaining = Duration.zero;
-  
+
   // Custom states
   bool _isCloseToEnd = false;
   final AudioPlayer _audioPlayer = AudioPlayer();
@@ -61,11 +62,36 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
 
   // Friday Special Checklist States
   final List<Map<String, dynamic>> _jummaSunnahs = [
-    {'title': 'গোসল করা', 'done': false},
-    {'title': 'পরিষ্কার পোশাক পরা ও সুগন্ধি লাগানো', 'done': false},
-    {'title': 'সূরা আল-কাহাফ তেলাওয়াত করা', 'done': false},
-    {'title': 'রাসূলুল্লাহ (সা.) এর ওপর দরুদ পাঠ করা', 'done': false},
-    {'title': 'জুমার সালাতে আগে যাওয়া', 'done': false},
+    {
+      'title': LanguageManager().isBengali
+          ? 'গোসল করা'
+          : 'Perform Ghusl (Bath)',
+      'done': false,
+    },
+    {
+      'title': LanguageManager().isBengali
+          ? 'পরিষ্কার পোশাক পরা ও সুগন্ধি লাগানো'
+          : 'Wear Clean Clothes & Apply Attar',
+      'done': false,
+    },
+    {
+      'title': LanguageManager().isBengali
+          ? 'সূরা আল-কাহাফ তেলাওয়াত করা'
+          : 'Recite Surah Al-Kahf',
+      'done': false,
+    },
+    {
+      'title': LanguageManager().isBengali
+          ? 'রাসূলুল্লাহ (সা.) এর ওপর দরুদ পাঠ করা'
+          : 'Send Salawat / Durood upon Prophet (pbuh)',
+      'done': false,
+    },
+    {
+      'title': LanguageManager().isBengali
+          ? 'জুমার সালাতে আগে যাওয়া'
+          : 'Go Early to Mosque for Jummah',
+      'done': false,
+    },
   ];
 
   @override
@@ -75,7 +101,7 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
     _loadHistoryData();
     _loadIslamicNotifSettings();
     _loadLocationAndPrayerTimes();
-    
+
     // Periodically update the countdown timer and check notifications every second
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_prayerTimes != null) {
@@ -102,10 +128,10 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
 
   Future<void> _loadLocationAndPrayerTimes() async {
     setState(() => _isLoading = true);
-    
+
     // 1. Get position
     final position = await IslamicService.determinePosition();
-    
+
     double lat = 23.8103; // Dhaka default
     double lng = 90.4125;
     String locName = "ঢাকা বিভাগ (ডিফল্ট)";
@@ -113,12 +139,13 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
     if (position != null) {
       lat = position.latitude;
       lng = position.longitude;
-      locName = "ডিভাইস লোকেশন (${lat.toStringAsFixed(2)}, ${lng.toStringAsFixed(2)})";
+      locName =
+          "ডিভাইস লোকেশন (${lat.toStringAsFixed(2)}, ${lng.toStringAsFixed(2)})";
     }
 
     // 2. Fetch timings
     final timings = await IslamicService.fetchPrayerTimes(lat, lng);
-    
+
     if (mounted) {
       setState(() {
         _prayerTimes = timings;
@@ -126,22 +153,25 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
         _isLoading = false;
       });
       _updateCountdown();
-      LocalNotificationService.schedulePrayerNotifications(timings, _islamicNotifSettings);
+      LocalNotificationService.schedulePrayerNotifications(
+        timings,
+        _islamicNotifSettings,
+      );
     }
   }
 
   Future<void> _loadPrayerTimesForDivision(String divisionKey) async {
     setState(() => _isLoading = true);
-    
+
     final division = IslamicService.divisionData[divisionKey];
     if (division == null) return;
-    
+
     double lat = division['lat'] as double;
     double lng = division['lng'] as double;
     String nameBangla = division['name'] as String;
-    
+
     final timings = await IslamicService.fetchPrayerTimes(lat, lng);
-    
+
     if (mounted) {
       setState(() {
         _prayerTimes = timings;
@@ -149,7 +179,10 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
         _isLoading = false;
       });
       _updateCountdown();
-      LocalNotificationService.schedulePrayerNotifications(timings, _islamicNotifSettings);
+      LocalNotificationService.schedulePrayerNotifications(
+        timings,
+        _islamicNotifSettings,
+      );
     }
   }
 
@@ -193,26 +226,33 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
       final directory = await getApplicationDocumentsDirectory();
       final file = File('${directory.path}/$_islamicNotifFile');
       final prefs = await SharedPreferences.getInstance();
-      
+
       // Load custom alarm sounds
       try {
         final customAlarmSoundsStr = prefs.getString('customAlarmSounds');
         if (customAlarmSoundsStr != null) {
-          _customAlarmSounds = Map<String, String>.from(jsonDecode(customAlarmSoundsStr));
+          _customAlarmSounds = Map<String, String>.from(
+            jsonDecode(customAlarmSoundsStr),
+          );
         }
       } catch (_) {}
 
       if (await file.exists()) {
-        final decoded = json.decode(await file.readAsString()) as Map<String, dynamic>;
+        final decoded =
+            json.decode(await file.readAsString()) as Map<String, dynamic>;
         if (mounted) {
           setState(() {
             _islamicNotifSettings = {
-              'prayerStart':    decoded['prayerStart']    as bool? ?? true,
-              'prayerWarning':  decoded['prayerWarning']  as bool? ?? true,
-              'jummaReminder':  decoded['jummaReminder']  as bool? ?? true,
-              'prayerAlarmEnabled': decoded['prayerAlarmEnabled'] as bool? ?? false,
-              'selectedPrayerAlarmSound': decoded['selectedPrayerAlarmSound'] as String? ?? 'Alarm',
-              'selectedPrayerAlarmSoundName': decoded['selectedPrayerAlarmSoundName'] as String? ?? 'System Default Alarm',
+              'prayerStart': decoded['prayerStart'] as bool? ?? true,
+              'prayerWarning': decoded['prayerWarning'] as bool? ?? true,
+              'jummaReminder': decoded['jummaReminder'] as bool? ?? true,
+              'prayerAlarmEnabled':
+                  decoded['prayerAlarmEnabled'] as bool? ?? false,
+              'selectedPrayerAlarmSound':
+                  decoded['selectedPrayerAlarmSound'] as String? ?? 'Alarm',
+              'selectedPrayerAlarmSoundName':
+                  decoded['selectedPrayerAlarmSoundName'] as String? ??
+                  'System Default Alarm',
             };
           });
         }
@@ -228,7 +268,10 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
       final file = File('${directory.path}/$_islamicNotifFile');
       await file.writeAsString(json.encode(_islamicNotifSettings));
       if (_prayerTimes != null) {
-        await LocalNotificationService.schedulePrayerNotifications(_prayerTimes!, _islamicNotifSettings);
+        await LocalNotificationService.schedulePrayerNotifications(
+          _prayerTimes!,
+          _islamicNotifSettings,
+        );
       }
     } catch (e) {
       debugPrint('Error saving Islamic notif settings: $e');
@@ -243,7 +286,9 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
   Future<void> _pickPrayerRingtone(StateSetter setModal) async {
     if (!Platform.isAndroid) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('This feature is available on Android only.')),
+        const SnackBar(
+          content: Text('This feature is available on Android only.'),
+        ),
       );
       return;
     }
@@ -263,7 +308,7 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
     if (result != null && result.files.single.path != null) {
       final file = result.files.single;
       final soundUri = 'file://${file.path}';
-      
+
       setModal(() {
         _customAlarmSounds[soundUri] = file.name;
         _islamicNotifSettings['selectedPrayerAlarmSound'] = soundUri;
@@ -333,225 +378,326 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (ctx) {
-        return StatefulBuilder(builder: (ctx, setModal) {
-          return SafeArea(
-            top: true,
-            bottom: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 20, 24, 36),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 40, height: 4,
-                      decoration: const BoxDecoration(
-                        color: Colors.white24,
-                        borderRadius: BorderRadius.all(Radius.circular(2)),
+        return StatefulBuilder(
+          builder: (ctx, setModal) {
+            return SafeArea(
+              top: true,
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 20, 24, 36),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: const BoxDecoration(
+                          color: Colors.white24,
+                          borderRadius: BorderRadius.all(Radius.circular(2)),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 18),
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: goldAccent.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(12),
+                    const SizedBox(height: 18),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: goldAccent.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                            Icons.notifications_active_rounded,
+                            color: goldAccent,
+                            size: 22,
+                          ),
                         ),
-                        child: const Icon(Icons.notifications_active_rounded, color: goldAccent, size: 22),
-                      ),
-                      const SizedBox(width: 14),
-                      const Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('ইসলামিক নোটিফিকেশন',
-                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-                          Text('শুধুমাত্র এখান থেকে নিয়ন্ত্রণ করা যাবে',
-                              style: TextStyle(color: Colors.white54, fontSize: 11)),
-                        ],
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  const Divider(color: Colors.white12),
-                  const SizedBox(height: 8),
-                  _buildNotifTile(
-                    ctx, setModal,
-                    icon: Icons.alarm_rounded,
-                    title: 'নামাজ শুরুর নোটিফিকেশন',
-                    subtitle: 'ওয়াক্ত শুরুর ৫ মিনিট পর অনুস্মারক',
-                    key: 'prayerStart',
-                    goldAccent: goldAccent,
-                  ),
-                  _buildNotifTile(
-                    ctx, setModal,
-                    icon: Icons.timer_off_rounded,
-                    title: 'ওয়াক্ত শেষের সতর্কতা',
-                    subtitle: 'ওয়াক্ত শেষ হওয়ার ২০ মিনিট আগে সতর্কতা',
-                    key: 'prayerWarning',
-                    goldAccent: goldAccent,
-                  ),
-                  _buildNotifTile(
-                    ctx, setModal,
-                    icon: Icons.mosque_rounded,
-                    title: 'জুমার অনুস্মারক',
-                    subtitle: 'প্রতি শুক্রবার বিশেষ জুমার নোটিফিকেশন',
-                    key: 'jummaReminder',
-                    goldAccent: goldAccent,
-                  ),
-                  _buildNotifTile(
-                    ctx, setModal,
-                    icon: Icons.notifications_active_rounded,
-                    title: 'সালাতের ওয়াক্তে আযান/অ্যালার্ম বাজবে',
-                    subtitle: 'ওয়াক্ত শুরু হলে নোটিফিকেশনের সাথে আযান/অ্যালার্ম বাজবে',
-                    key: 'prayerAlarmEnabled',
-                    goldAccent: goldAccent,
-                  ),
-                  if (_islamicNotifSettings['prayerAlarmEnabled'] ?? false) ...[
-                    const SizedBox(height: 8),
-                    Padding(
-                      padding: const EdgeInsets.only(left: 8.0, right: 8.0, bottom: 8.0),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.04),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.white12),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        const SizedBox(width: 14),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('সালাত অ্যালার্ম সাউন্ড', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                children: [
-                                  IconButton(
-                                    icon: Icon(
-                                      _isPlayingPreview ? Icons.stop_circle_rounded : Icons.play_circle_fill_rounded,
-                                      color: goldAccent,
-                                      size: 24,
-                                    ),
-                                    constraints: const BoxConstraints(),
-                                    padding: const EdgeInsets.only(right: 8.0),
-                                    onPressed: () => _togglePreviewSound(_islamicNotifSettings['selectedPrayerAlarmSound'] ?? 'Alarm', setModal),
-                                  ),
-                                  Flexible(
-                                    child: PopupMenuButton<String>(
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Flexible(
-                                            child: Text(
-                                              _islamicNotifSettings['selectedPrayerAlarmSoundName'] ?? 'System Default Alarm',
-                                              style: const TextStyle(color: goldAccent, fontSize: 12),
-                                              overflow: TextOverflow.ellipsis,
-                                              maxLines: 1,
-                                            ),
-                                          ),
-                                          const Icon(Icons.arrow_drop_down_rounded, color: goldAccent),
-                                        ],
+                            Text(
+                              'ইসলামিক নোটিফিকেশন',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                            Text(
+                              'শুধুমাত্র এখান থেকে নিয়ন্ত্রণ করা যাবে',
+                              style: TextStyle(
+                                color: Colors.white54,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    const Divider(color: Colors.white12),
+                    const SizedBox(height: 8),
+                    _buildNotifTile(
+                      ctx,
+                      setModal,
+                      icon: Icons.alarm_rounded,
+                      title: 'নামাজ শুরুর নোটিফিকেশন',
+                      subtitle: 'ওয়াক্ত শুরুর ৫ মিনিট পর অনুস্মারক',
+                      key: 'prayerStart',
+                      goldAccent: goldAccent,
+                    ),
+                    _buildNotifTile(
+                      ctx,
+                      setModal,
+                      icon: Icons.timer_off_rounded,
+                      title: 'ওয়াক্ত শেষের সতর্কতা',
+                      subtitle: 'ওয়াক্ত শেষ হওয়ার ২০ মিনিট আগে সতর্কতা',
+                      key: 'prayerWarning',
+                      goldAccent: goldAccent,
+                    ),
+                    _buildNotifTile(
+                      ctx,
+                      setModal,
+                      icon: Icons.mosque_rounded,
+                      title: 'জুমার অনুস্মারক',
+                      subtitle: 'প্রতি শুক্রবার বিশেষ জুমার নোটিফিকেশন',
+                      key: 'jummaReminder',
+                      goldAccent: goldAccent,
+                    ),
+                    _buildNotifTile(
+                      ctx,
+                      setModal,
+                      icon: Icons.notifications_active_rounded,
+                      title: 'সালাতের ওয়াক্তে আযান/অ্যালার্ম বাজবে',
+                      subtitle:
+                          'ওয়াক্ত শুরু হলে নোটিফিকেশনের সাথে আযান/অ্যালার্ম বাজবে',
+                      key: 'prayerAlarmEnabled',
+                      goldAccent: goldAccent,
+                    ),
+                    if (_islamicNotifSettings['prayerAlarmEnabled'] ??
+                        false) ...[
+                      const SizedBox(height: 8),
+                      Padding(
+                        padding: const EdgeInsets.only(
+                          left: 8.0,
+                          right: 8.0,
+                          bottom: 8.0,
+                        ),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.04),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.white12),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                'সালাত অ্যালার্ম সাউন্ড',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  children: [
+                                    IconButton(
+                                      icon: Icon(
+                                        _isPlayingPreview
+                                            ? Icons.stop_circle_rounded
+                                            : Icons.play_circle_fill_rounded,
+                                        color: goldAccent,
+                                        size: 24,
                                       ),
-                                  onSelected: (String value) async {
-                                    if (value == 'pick_custom_prayer') {
-                                      await _pickPrayerRingtone(setModal);
-                                      return;
-                                    }
-                                    final selectedName = _builtInSounds[value] ?? _customAlarmSounds[value] ?? value;
-                                    setModal(() {
-                                      _islamicNotifSettings['selectedPrayerAlarmSound'] = value;
-                                      _islamicNotifSettings['selectedPrayerAlarmSoundName'] = selectedName;
-                                    });
-                                    setState(() {
-                                      _islamicNotifSettings['selectedPrayerAlarmSound'] = value;
-                                      _islamicNotifSettings['selectedPrayerAlarmSoundName'] = selectedName;
-                                    });
-                                    await _saveIslamicNotifSettings();
-                                  },
-                                  itemBuilder: (BuildContext context) {
-                                    return [
-                                      ..._builtInSounds.entries.map((entry) {
-                                        final isSelected = entry.key == _islamicNotifSettings['selectedPrayerAlarmSound'];
-                                        return PopupMenuItem<String>(
-                                          value: entry.key,
-                                          child: Row(
-                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              Expanded(child: Text(entry.value)),
-                                              if (isSelected)
-                                                const Icon(Icons.check_circle_rounded, size: 18, color: Colors.green),
-                                            ],
-                                          ),
-                                        );
-                                      }),
-                                      if (_customAlarmSounds.isNotEmpty) const PopupMenuDivider(),
-                                      ..._customAlarmSounds.entries.map((entry) {
-                                        final isSelected = entry.key == _islamicNotifSettings['selectedPrayerAlarmSound'];
-                                        return PopupMenuItem<String>(
-                                          value: entry.key,
-                                          child: Row(
-                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              Expanded(child: Text(entry.value)),
-                                              if (isSelected)
-                                                const Icon(Icons.check_circle_rounded, size: 18, color: Colors.green),
-                                            ],
-                                          ),
-                                        );
-                                      }),
-                                      const PopupMenuDivider(),
-                                      const PopupMenuItem<String>(
-                                        value: 'pick_custom_prayer',
+                                      constraints: const BoxConstraints(),
+                                      padding: const EdgeInsets.only(
+                                        right: 8.0,
+                                      ),
+                                      onPressed: () => _togglePreviewSound(
+                                        _islamicNotifSettings['selectedPrayerAlarmSound'] ??
+                                            'Alarm',
+                                        setModal,
+                                      ),
+                                    ),
+                                    Flexible(
+                                      child: PopupMenuButton<String>(
                                         child: Row(
+                                          mainAxisSize: MainAxisSize.min,
                                           children: [
-                                            Icon(Icons.add_circle_outline_rounded, size: 18),
-                                            SizedBox(width: 8),
-                                            Text('নিজের ডিভাইস থেকে যোগ করুন...'),
+                                            Flexible(
+                                              child: Text(
+                                                _islamicNotifSettings['selectedPrayerAlarmSoundName'] ??
+                                                    'System Default Alarm',
+                                                style: const TextStyle(
+                                                  color: goldAccent,
+                                                  fontSize: 12,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                                maxLines: 1,
+                                              ),
+                                            ),
+                                            const Icon(
+                                              Icons.arrow_drop_down_rounded,
+                                              color: goldAccent,
+                                            ),
                                           ],
                                         ),
+                                        onSelected: (String value) async {
+                                          if (value == 'pick_custom_prayer') {
+                                            await _pickPrayerRingtone(setModal);
+                                            return;
+                                          }
+                                          final selectedName =
+                                              _builtInSounds[value] ??
+                                              _customAlarmSounds[value] ??
+                                              value;
+                                          setModal(() {
+                                            _islamicNotifSettings['selectedPrayerAlarmSound'] =
+                                                value;
+                                            _islamicNotifSettings['selectedPrayerAlarmSoundName'] =
+                                                selectedName;
+                                          });
+                                          setState(() {
+                                            _islamicNotifSettings['selectedPrayerAlarmSound'] =
+                                                value;
+                                            _islamicNotifSettings['selectedPrayerAlarmSoundName'] =
+                                                selectedName;
+                                          });
+                                          await _saveIslamicNotifSettings();
+                                        },
+                                        itemBuilder: (BuildContext context) {
+                                          return [
+                                            ..._builtInSounds.entries.map((
+                                              entry,
+                                            ) {
+                                              final isSelected =
+                                                  entry.key ==
+                                                  _islamicNotifSettings['selectedPrayerAlarmSound'];
+                                              return PopupMenuItem<String>(
+                                                value: entry.key,
+                                                child: Row(
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment
+                                                          .spaceBetween,
+                                                  children: [
+                                                    Expanded(
+                                                      child: Text(entry.value),
+                                                    ),
+                                                    if (isSelected)
+                                                      const Icon(
+                                                        Icons
+                                                            .check_circle_rounded,
+                                                        size: 18,
+                                                        color: Colors.green,
+                                                      ),
+                                                  ],
+                                                ),
+                                              );
+                                            }),
+                                            if (_customAlarmSounds.isNotEmpty)
+                                              const PopupMenuDivider(),
+                                            ..._customAlarmSounds.entries.map((
+                                              entry,
+                                            ) {
+                                              final isSelected =
+                                                  entry.key ==
+                                                  _islamicNotifSettings['selectedPrayerAlarmSound'];
+                                              return PopupMenuItem<String>(
+                                                value: entry.key,
+                                                child: Row(
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment
+                                                          .spaceBetween,
+                                                  children: [
+                                                    Expanded(
+                                                      child: Text(entry.value),
+                                                    ),
+                                                    if (isSelected)
+                                                      const Icon(
+                                                        Icons
+                                                            .check_circle_rounded,
+                                                        size: 18,
+                                                        color: Colors.green,
+                                                      ),
+                                                  ],
+                                                ),
+                                              );
+                                            }),
+                                            const PopupMenuDivider(),
+                                            const PopupMenuItem<String>(
+                                              value: 'pick_custom_prayer',
+                                              child: Row(
+                                                children: [
+                                                  Icon(
+                                                    Icons
+                                                        .add_circle_outline_rounded,
+                                                    size: 18,
+                                                  ),
+                                                  SizedBox(width: 8),
+                                                  Text(
+                                                    'নিজের ডিভাইস থেকে যোগ করুন...',
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ];
+                                        },
                                       ),
-                                    ];
-                                  },
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.04),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.white12),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.info_outline_rounded,
+                            color: Colors.white38,
+                            size: 16,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'এই সেটিংসগুলো গলোবাল অ্যাপ সেটিংস থেকে আলাদা এবং শুধুমাত্র ইসলামিক লাইফ সেকশন থেকেই নিয়ন্ত্রণ করা যাবে।',
+                              style: TextStyle(
+                                color: Colors.white38,
+                                fontSize: 11,
+                                height: 1.5,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.04),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.white12),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.info_outline_rounded, color: Colors.white38, size: 16),
-                        const SizedBox(width: 10),
-                        const Expanded(
-                          child: Text(
-                            'এই সেটিংসগুলো গলোবাল অ্যাপ সেটিংস থেকে আলাদা এবং শুধুমাত্র ইসলামিক লাইফ সেকশন থেকেই নিয়ন্ত্রণ করা যাবে।',
-                            style: TextStyle(color: Colors.white38, fontSize: 11, height: 1.5),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
-          );
-        });
+            );
+          },
+        );
       },
     );
   }
@@ -571,24 +717,32 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
         leading: Container(
-          width: 40, height: 40,
+          width: 40,
+          height: 40,
           decoration: BoxDecoration(
             color: isOn
                 ? goldAccent.withValues(alpha: 0.12)
                 : Colors.white.withValues(alpha: 0.04),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Icon(icon,
-              color: isOn ? goldAccent : Colors.white38, size: 20),
+          child: Icon(
+            icon,
+            color: isOn ? goldAccent : Colors.white38,
+            size: 20,
+          ),
         ),
-        title: Text(title,
-            style: TextStyle(
-              color: isOn ? Colors.white : Colors.white54,
-              fontWeight: FontWeight.w600,
-              fontSize: 14,
-            )),
-        subtitle: Text(subtitle,
-            style: const TextStyle(color: Colors.white38, fontSize: 11)),
+        title: Text(
+          title,
+          style: TextStyle(
+            color: isOn ? Colors.white : Colors.white54,
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+          ),
+        ),
+        subtitle: Text(
+          subtitle,
+          style: const TextStyle(color: Colors.white38, fontSize: 11),
+        ),
         trailing: Switch(
           value: isOn,
           activeTrackColor: goldAccent.withValues(alpha: 0.5),
@@ -622,8 +776,10 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
   }
 
   void _playNotificationSound({bool isSalatAlarm = false}) async {
-    if (isSalatAlarm && (_islamicNotifSettings['prayerAlarmEnabled'] ?? false)) {
-      final soundName = _islamicNotifSettings['selectedPrayerAlarmSound'] ?? 'Alarm';
+    if (isSalatAlarm &&
+        (_islamicNotifSettings['prayerAlarmEnabled'] ?? false)) {
+      final soundName =
+          _islamicNotifSettings['selectedPrayerAlarmSound'] ?? 'Alarm';
       await SoundPlayer.playNotificationSoundAndVibration(
         soundName: soundName,
         volume: 1.0,
@@ -635,7 +791,9 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
     } else {
       try {
         await _audioPlayer.play(
-          UrlSource('https://assets.mixkit.co/active_storage/sfx/2869/2869-600.wav'),
+          UrlSource(
+            'https://assets.mixkit.co/active_storage/sfx/2869/2869-600.wav',
+          ),
         );
       } catch (e) {
         SystemSound.play(SystemSoundType.click);
@@ -736,7 +894,12 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
     }
   }
 
-  void _triggerNotification(String title, String body, bool isWarning, {bool isSalatAlarm = false}) {
+  void _triggerNotification(
+    String title,
+    String body,
+    bool isWarning, {
+    bool isSalatAlarm = false,
+  }) {
     _playNotificationSound(isSalatAlarm: isSalatAlarm);
     if (!mounted) return;
     showDialog(
@@ -751,25 +914,37 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
           backgroundColor: cardBg,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
-            side: BorderSide(color: accentColor.withValues(alpha: 0.4), width: 1.5),
+            side: BorderSide(
+              color: accentColor.withValues(alpha: 0.4),
+              width: 1.5,
+            ),
           ),
           title: Row(
             children: [
               Icon(
-                isWarning ? Icons.warning_amber_rounded : Icons.notifications_active_rounded,
+                isWarning
+                    ? Icons.warning_amber_rounded
+                    : Icons.notifications_active_rounded,
                 color: accentColor,
                 size: 28,
               ),
               const SizedBox(width: 12),
               Text(
                 title,
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ],
           ),
           content: Text(
             body,
-            style: const TextStyle(color: Colors.white, fontSize: 15, height: 1.5),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 15,
+              height: 1.5,
+            ),
           ),
           actions: [
             TextButton(
@@ -779,9 +954,12 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
               },
               child: Text(
                 "ঠিক আছে",
-                style: TextStyle(color: accentColor, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: accentColor,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-            )
+            ),
           ],
         );
       },
@@ -795,10 +973,13 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
       final yesterday = today.subtract(const Duration(days: 1));
 
       if (dateKey == DateFormat('yyyy-MM-dd').format(today)) {
-        return "আজ (Today)";
+        return LanguageManager().isBengali ? 'আজ (Today)' : 'Today';
       } else if (dateKey == DateFormat('yyyy-MM-dd').format(yesterday)) {
-        return "গতকাল (Yesterday)";
+        return LanguageManager().isBengali ? 'গতকাল (Yesterday)' : 'Yesterday';
       } else {
+        if (!LanguageManager().isBengali) {
+          return DateFormat('d MMM').format(date);
+        }
         final monthBangla = {
           1: 'জানুয়ারি',
           2: 'ফেব্রুয়ারি',
@@ -811,7 +992,7 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
           9: 'সেপ্টেম্বর',
           10: 'অক্টোবর',
           11: 'নভেম্বর',
-          12: 'ডিসেম্বর'
+          12: 'ডিসেম্বর',
         }[date.month];
         return "${date.day} $monthBangla";
       }
@@ -849,7 +1030,7 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
     if (_prayerTimes == null) return;
 
     final now = DateTime.now();
-    
+
     // Convert all prayer times to DateTimes
     final fajrTime = _parseTime(_prayerTimes!['Fajr']!);
     final sunriseTime = _parseTime(_prayerTimes!['Sunrise']!);
@@ -860,17 +1041,43 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
 
     // We will check if any prayer is currently active and within 20 minutes of ending
     final List<Map<String, dynamic>> prayers = [
-      {'name': 'ফজর (Fajr)', 'start': fajrTime, 'end': sunriseTime},
-      {'name': DateTime.now().weekday == DateTime.friday ? 'জুমা (Jumma)' : 'যোহর (Dhuhr)', 'start': dhuhrTime, 'end': asrTime},
-      {'name': 'আসর (Asr)', 'start': asrTime, 'end': maghribTime},
-      {'name': 'মাগরিব (Maghrib)', 'start': maghribTime, 'end': ishaTime},
-      {'name': 'এশা (Isha)', 'start': ishaTime, 'end': _parseTime(_prayerTimes!['Fajr']!, tomorrow: true)},
+      {
+        'name': LanguageManager().isBengali ? 'ফজর (Fajr)' : 'Fajr',
+        'start': fajrTime,
+        'end': sunriseTime,
+      },
+      {
+        'name': DateTime.now().weekday == DateTime.friday
+            ? LanguageManager().isBengali
+                  ? 'জুমা (Jumma)'
+                  : 'Jumma'
+            : LanguageManager().isBengali
+            ? 'যোহর (Dhuhr)'
+            : 'Dhuhr',
+        'start': dhuhrTime,
+        'end': asrTime,
+      },
+      {
+        'name': LanguageManager().isBengali ? 'আসর (Asr)' : 'Asr',
+        'start': asrTime,
+        'end': maghribTime,
+      },
+      {
+        'name': LanguageManager().isBengali ? 'মাগরিব (Maghrib)' : 'Maghrib',
+        'start': maghribTime,
+        'end': ishaTime,
+      },
+      {
+        'name': LanguageManager().isBengali ? 'এশা (Isha)' : 'Isha',
+        'start': ishaTime,
+        'end': _parseTime(_prayerTimes!['Fajr']!, tomorrow: true),
+      },
     ];
 
     // Special check for Isha before midnight vs after midnight
     if (now.hour < 12 && now.isBefore(fajrTime)) {
       prayers[4] = {
-        'name': 'এশা (Isha)',
+        'name': LanguageManager().isBengali ? 'এশা (Isha)' : 'Isha',
         'start': ishaTime.subtract(const Duration(days: 1)),
         'end': fajrTime,
       };
@@ -887,7 +1094,9 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
         final diff = end.difference(now);
         if (diff.inMinutes < 20 && diff.inSeconds >= 0) {
           foundCloseToEnd = true;
-          warningName = "${prayer['name']} ওয়াক্ত শেষ হতে বাকি";
+          warningName = LanguageManager().isBengali
+              ? '${prayer['name']} ওয়াক্ত শেষ হতে বাকি'
+              : 'Time left for ${prayer['name']}';
           remaining = diff;
           break;
         }
@@ -910,7 +1119,9 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
         standardNextName = "ফজর (Fajr)";
         nextTime = fajrTime;
       } else if (now.isBefore(dhuhrTime)) {
-        standardNextName = DateTime.now().weekday == DateTime.friday ? "জুমা (Jumma)" : "যোহর (Dhuhr)";
+        standardNextName = DateTime.now().weekday == DateTime.friday
+            ? "জুমা (Jumma)"
+            : "যোহর (Dhuhr)";
         nextTime = dhuhrTime;
       } else if (now.isBefore(asrTime)) {
         standardNextName = "আসর (Asr)";
@@ -952,7 +1163,7 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
   bool _isPrayerActive(String start24h, String end24h) {
     if (_prayerTimes == null) return false;
     final now = DateTime.now();
-    
+
     var start = _parseTime(start24h);
     var end = _parseTime(end24h);
 
@@ -974,7 +1185,11 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
     Clipboard.setData(ClipboardData(text: text));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('$label কপি করা হয়েছে!'),
+        content: Text(
+          LanguageManager().isBengali
+              ? '$label কপি করা হয়েছে!'
+              : '$label copied!',
+        ),
         backgroundColor: Colors.teal.shade700,
         duration: const Duration(seconds: 2),
       ),
@@ -985,7 +1200,7 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
   Widget build(BuildContext context) {
     final now = DateTime.now();
     final bool isFriday = now.weekday == DateTime.friday;
-    
+
     // Modern colors matching the Islamic theme
     const primaryBg = Color(0xFF0F1E19); // Dark Islamic green tint
     const cardBg = Color(0xFF162D24);
@@ -995,24 +1210,36 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
     return Scaffold(
       backgroundColor: primaryBg,
       appBar: AppBar(
-        title: const Text('Islamic Life & Prayer Times', style: TextStyle(fontWeight: FontWeight.bold, color: textLight)),
+        title: const Text(
+          'Islamic Life & Prayer Times',
+          style: TextStyle(fontWeight: FontWeight.bold, color: textLight),
+        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
         iconTheme: const IconThemeData(color: textLight),
         actions: [
           IconButton(
-            icon: const Icon(Icons.notifications_active_rounded, color: goldAccent),
-            tooltip: 'নোটিফিকেশন সেটিংস',
+            icon: const Icon(
+              Icons.notifications_active_rounded,
+              color: goldAccent,
+            ),
+            tooltip: LanguageManager().isBengali
+                ? 'নোটিফিকেশন সেটিংস'
+                : 'Notification Settings',
             onPressed: _showIslamicNotificationSettings,
           ),
           IconButton(
             icon: const Icon(Icons.my_location_rounded, color: goldAccent),
-            tooltip: 'জিপিএস লোকেশন আপডেট',
+            tooltip: LanguageManager().isBengali
+                ? 'জিপিএস লোকেশন আপডেট'
+                : 'Update GPS Location',
             onPressed: _loadLocationAndPrayerTimes,
           ),
           PopupMenuButton<String>(
             icon: const Icon(Icons.map_rounded, color: goldAccent),
-            tooltip: 'বিভাগ নির্বাচন করুন',
+            tooltip: LanguageManager().isBengali
+                ? 'বিভাগ নির্বাচন করুন'
+                : 'Select Division',
             color: cardBg,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
@@ -1027,7 +1254,11 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                   value: entry.key,
                   child: Text(
                     entry.value['name'] as String,
-                    style: const TextStyle(color: textLight, fontSize: 14, fontWeight: FontWeight.w500),
+                    style: const TextStyle(
+                      color: textLight,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 );
               }).toList();
@@ -1036,7 +1267,7 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: goldAccent))
+          ? Center(child: CircularProgressIndicator(color: goldAccent))
           : SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               child: Column(
@@ -1046,8 +1277,10 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        'আজকের হিজরি তারিখ:',
+                      Text(
+                        LanguageManager().isBengali
+                            ? 'আজকের হিজরি তারিখ:'
+                            : 'Today\'s Hijri Date:',
                         style: TextStyle(
                           color: Colors.white70,
                           fontSize: 14,
@@ -1065,7 +1298,7 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  
+
                   // Special Islamic Day Info Card
                   _buildSpecialDayCard(context, cardBg, goldAccent),
 
@@ -1078,7 +1311,7 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                           _isCloseToEnd
                               ? Colors.redAccent.withValues(alpha: 0.15)
                               : goldAccent.withValues(alpha: 0.15),
-                          cardBg
+                          cardBg,
                         ],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
@@ -1097,7 +1330,7 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                               : goldAccent.withValues(alpha: 0.05),
                           blurRadius: 15,
                           spreadRadius: 2,
-                        )
+                        ),
                       ],
                     ),
                     child: Column(
@@ -1109,16 +1342,28 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                               _isCloseToEnd
                                   ? Icons.warning_amber_rounded
                                   : Icons.star_half_rounded,
-                              color: _isCloseToEnd ? Colors.redAccent : goldAccent,
+                              color: _isCloseToEnd
+                                  ? Colors.redAccent
+                                  : goldAccent,
                               size: 20,
                             ),
                             const SizedBox(width: 8),
                             Text(
                               _isCloseToEnd
-                                  ? 'জরুরী ওয়াক্ত শেষ হওয়ার কাউন্টডাউন'
-                                  : (isFriday ? 'জুম্মাবার মোবারক' : 'নামাজের কাউন্টডাউন'),
+                                  ? LanguageManager().isBengali
+                                        ? 'জরুরী ওয়াক্ত শেষ হওয়ার কাউন্টডাউন'
+                                        : 'Countdown to end of urgent prayer time'
+                                  : (isFriday
+                                        ? LanguageManager().isBengali
+                                              ? 'জুম্মাবার মোবারক'
+                                              : 'Jumma Mubarak'
+                                        : LanguageManager().isBengali
+                                        ? 'নামাজের কাউন্টডাউন'
+                                        : 'Prayer Countdown'),
                               style: TextStyle(
-                                color: _isCloseToEnd ? Colors.redAccent : goldAccent,
+                                color: _isCloseToEnd
+                                    ? Colors.redAccent
+                                    : goldAccent,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 14,
                                 letterSpacing: 1,
@@ -1129,18 +1374,33 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                         const SizedBox(height: 12),
                         Text(
                           _nextPrayerName,
-                          style: const TextStyle(color: textLight, fontSize: 26, fontWeight: FontWeight.w800),
+                          style: const TextStyle(
+                            color: textLight,
+                            fontSize: 26,
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          _isCloseToEnd ? 'ওয়াক্ত শেষ হতে বাকি সময়' : 'শুরু হতে বাকি সময়',
-                          style: const TextStyle(color: Colors.white70, fontSize: 13),
+                          _isCloseToEnd
+                              ? LanguageManager().isBengali
+                                    ? 'ওয়াক্ত শেষ হতে বাকি সময়'
+                                    : 'Time remaining to end'
+                              : LanguageManager().isBengali
+                              ? 'শুরু হতে বাকি সময়'
+                              : 'Time remaining to start',
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 13,
+                          ),
                         ),
                         const SizedBox(height: 12),
                         Text(
                           _formatDuration(_nextPrayerRemaining),
                           style: TextStyle(
-                            color: _isCloseToEnd ? Colors.redAccent : goldAccent,
+                            color: _isCloseToEnd
+                                ? Colors.redAccent
+                                : goldAccent,
                             fontSize: 42,
                             fontWeight: FontWeight.w900,
                             fontFamily: 'monospace',
@@ -1149,7 +1409,10 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                         ),
                         const SizedBox(height: 12),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 6,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.black.withValues(alpha: 0.3),
                             borderRadius: BorderRadius.circular(12),
@@ -1159,17 +1422,23 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                             children: [
                               Icon(
                                 Icons.location_on_rounded,
-                                color: _isCloseToEnd ? Colors.redAccent : goldAccent,
+                                color: _isCloseToEnd
+                                    ? Colors.redAccent
+                                    : goldAccent,
                                 size: 14,
                               ),
                               const SizedBox(width: 6),
                               Text(
                                 _locationName,
-                                style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w500),
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
                             ],
                           ),
-                        )
+                        ),
                       ],
                     ),
                   ),
@@ -1180,15 +1449,22 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                     Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF0F3625), // Glowing green card for Friday
+                        color: const Color(
+                          0xFF0F3625,
+                        ), // Glowing green card for Friday
                         borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: Colors.tealAccent.shade400.withValues(alpha: 0.4), width: 1.5),
+                        border: Border.all(
+                          color: Colors.tealAccent.shade400.withValues(
+                            alpha: 0.4,
+                          ),
+                          width: 1.5,
+                        ),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.teal.withValues(alpha: 0.1),
                             blurRadius: 15,
                             spreadRadius: 2,
-                          )
+                          ),
                         ],
                       ),
                       child: Column(
@@ -1199,22 +1475,39 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                               Container(
                                 padding: const EdgeInsets.all(8),
                                 decoration: BoxDecoration(
-                                  color: Colors.tealAccent.shade400.withValues(alpha: 0.15),
+                                  color: Colors.tealAccent.shade400.withValues(
+                                    alpha: 0.15,
+                                  ),
                                   shape: BoxShape.circle,
                                 ),
-                                child: const Icon(Icons.wb_sunny_rounded, color: Colors.tealAccent, size: 20),
+                                child: const Icon(
+                                  Icons.wb_sunny_rounded,
+                                  color: Colors.tealAccent,
+                                  size: 20,
+                                ),
                               ),
                               const SizedBox(width: 12),
-                              const Column(
+                              Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'জুম্মাবারের বিশেষ আমলসমূহ',
-                                    style: TextStyle(color: textLight, fontWeight: FontWeight.bold, fontSize: 16),
+                                    LanguageManager().isBengali
+                                        ? 'জুম্মাবারের বিশেষ আমলসমূহ'
+                                        : 'Special Jumma Deeds',
+                                    style: TextStyle(
+                                      color: textLight,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
                                   ),
                                   Text(
-                                    'আজকের দিনের সুন্নত আমলগুলো সম্পন্ন করুন',
-                                    style: TextStyle(color: Colors.white60, fontSize: 12),
+                                    LanguageManager().isBengali
+                                        ? 'আজকের দিনের সুন্নত আমলগুলো সম্পন্ন করুন'
+                                        : 'Complete today\'s sunnah deeds',
+                                    style: TextStyle(
+                                      color: Colors.white60,
+                                      fontSize: 12,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -1222,7 +1515,9 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                           ),
                           const Divider(height: 24, color: Colors.white12),
                           Column(
-                            children: List.generate(_jummaSunnahs.length, (index) {
+                            children: List.generate(_jummaSunnahs.length, (
+                              index,
+                            ) {
                               final item = _jummaSunnahs[index];
                               return CheckboxListTile(
                                 contentPadding: EdgeInsets.zero,
@@ -1231,9 +1526,13 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                                 title: Text(
                                   item['title'],
                                   style: TextStyle(
-                                    color: item['done'] ? Colors.white54 : textLight,
+                                    color: item['done']
+                                        ? Colors.white54
+                                        : textLight,
                                     fontSize: 14,
-                                    decoration: item['done'] ? TextDecoration.lineThrough : null,
+                                    decoration: item['done']
+                                        ? TextDecoration.lineThrough
+                                        : null,
                                   ),
                                 ),
                                 value: item['done'],
@@ -1257,7 +1556,9 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                     decoration: BoxDecoration(
                       color: cardBg,
                       borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.05),
+                      ),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1265,9 +1566,22 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text('আজকের আয়াত', style: TextStyle(color: goldAccent, fontWeight: FontWeight.bold, fontSize: 14)),
+                            Text(
+                              LanguageManager().isBengali
+                                  ? 'আজকের আয়াত'
+                                  : 'Verse of the Day',
+                              style: TextStyle(
+                                color: goldAccent,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
                             IconButton(
-                              icon: const Icon(Icons.copy_rounded, color: Colors.white54, size: 18),
+                              icon: const Icon(
+                                Icons.copy_rounded,
+                                color: Colors.white54,
+                                size: 18,
+                              ),
                               constraints: const BoxConstraints(),
                               padding: EdgeInsets.zero,
                               onPressed: () => _copyToClipboard(
@@ -1281,29 +1595,44 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                         Text(
                           _dailyVerse?['arabic'] ?? '',
                           textAlign: TextAlign.right,
-                          style: TextStyle(color: goldAccent.withValues(alpha: 0.9), fontSize: 16, height: 1.6, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            color: goldAccent.withValues(alpha: 0.9),
+                            fontSize: 16,
+                            height: 1.6,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                         const SizedBox(height: 10),
                         Text(
                           _dailyVerse?['translation'] ?? '',
-                          style: const TextStyle(color: textLight, fontSize: 13, height: 1.5),
+                          style: const TextStyle(
+                            color: textLight,
+                            fontSize: 13,
+                            height: 1.5,
+                          ),
                         ),
                         const SizedBox(height: 12),
                         Text(
                           _dailyVerse?['reference'] ?? '',
-                          style: const TextStyle(color: Colors.white54, fontSize: 11, fontStyle: FontStyle.italic),
+                          style: const TextStyle(
+                            color: Colors.white54,
+                            fontSize: 11,
+                            fontStyle: FontStyle.italic,
+                          ),
                         ),
                       ],
                     ),
                   ),
                   const SizedBox(height: 16),
-                  
+
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
                       color: cardBg,
                       borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.05),
+                      ),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1311,13 +1640,28 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text('আজকের হাদিস', style: TextStyle(color: goldAccent, fontWeight: FontWeight.bold, fontSize: 14)),
+                            Text(
+                              LanguageManager().isBengali
+                                  ? 'আজকের হাদিস'
+                                  : 'Hadith of the Day',
+                              style: TextStyle(
+                                color: goldAccent,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
                             IconButton(
-                              icon: const Icon(Icons.copy_rounded, color: Colors.white54, size: 18),
+                              icon: const Icon(
+                                Icons.copy_rounded,
+                                color: Colors.white54,
+                                size: 18,
+                              ),
                               constraints: const BoxConstraints(),
                               padding: EdgeInsets.zero,
                               onPressed: () => _copyToClipboard(
-                                "হাদিস: ${_dailyHadith?['text']} (বর্ণনায়: ${_dailyHadith?['narrator']}) - ${_dailyHadith?['reference']}",
+                                LanguageManager().isBengali
+                                    ? 'হাদিস: ${_dailyHadith?['text']} (বর্ণনায়: ${_dailyHadith?['narrator']}) - ${_dailyHadith?['reference']}'
+                                    : 'Hadith: ${_dailyHadith?['text']} (Narrated by: ${_dailyHadith?['narrator']}) - ${_dailyHadith?['reference']}',
                                 "আজকের হাদিস",
                               ),
                             ),
@@ -1326,17 +1670,31 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                         const SizedBox(height: 12),
                         Text(
                           _dailyHadith?['text'] ?? '',
-                          style: const TextStyle(color: textLight, fontSize: 13, height: 1.5),
+                          style: const TextStyle(
+                            color: textLight,
+                            fontSize: 13,
+                            height: 1.5,
+                          ),
                         ),
                         const SizedBox(height: 12),
                         Text(
-                          "বর্ণনায়: ${_dailyHadith?['narrator'] ?? ''}",
-                          style: const TextStyle(color: Colors.white60, fontSize: 11, fontWeight: FontWeight.w500),
+                          LanguageManager().isBengali
+                              ? 'বর্ণনায়: ${_dailyHadith?['narrator'] ?? ''}'
+                              : 'Narrated by: ${_dailyHadith?['narrator'] ?? ''}',
+                          style: const TextStyle(
+                            color: Colors.white60,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           _dailyHadith?['reference'] ?? '',
-                          style: const TextStyle(color: Colors.white54, fontSize: 11, fontStyle: FontStyle.italic),
+                          style: const TextStyle(
+                            color: Colors.white54,
+                            fontSize: 11,
+                            fontStyle: FontStyle.italic,
+                          ),
                         ),
                       ],
                     ),
@@ -1374,7 +1732,7 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                             color: goldAccent.withValues(alpha: 0.08),
                             blurRadius: 16,
                             spreadRadius: 2,
-                          )
+                          ),
                         ],
                       ),
                       child: Row(
@@ -1389,7 +1747,7 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                                 color: goldAccent.withValues(alpha: 0.3),
                               ),
                             ),
-                            child: const Center(
+                            child: Center(
                               child: Text(
                                 'القرآن',
                                 textAlign: TextAlign.center,
@@ -1406,8 +1764,10 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
-                                  'পবিত্র কুরআন শরীফ',
+                                Text(
+                                  LanguageManager().isBengali
+                                      ? 'পবিত্র কুরআন শরীফ'
+                                      : 'Holy Quran',
                                   style: TextStyle(
                                     color: Colors.white,
                                     fontSize: 17,
@@ -1416,7 +1776,9 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  'সুরা-ভিত্তিক পাঠ • হাফেজি কুরআন (৬০৪ পৃষ্ঠা) • অফলাইন সাপোর্ট',
+                                  LanguageManager().isBengali
+                                      ? 'সুরা-ভিত্তিক পাঠ • হাফেজি কুরআন (৬০৪ পৃষ্ঠা) • অফলাইন সাপোর্ট'
+                                      : 'Surah-based • Hafezi Quran (604 pages) • Offline Support',
                                   style: TextStyle(
                                     color: Colors.white.withValues(alpha: 0.55),
                                     fontSize: 12,
@@ -1446,28 +1808,47 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => const QiblaCompassScreen(),
+                                builder: (context) =>
+                                    const QiblaCompassScreen(),
                               ),
                             );
                           },
                           child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 18,
+                              horizontal: 16,
+                            ),
                             decoration: BoxDecoration(
                               color: cardBg,
                               borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.05),
+                              ),
                             ),
-                            child: const Column(
+                            child: Column(
                               children: [
-                                Icon(Icons.explore_rounded, color: goldAccent, size: 32),
+                                Icon(
+                                  Icons.explore_rounded,
+                                  color: goldAccent,
+                                  size: 32,
+                                ),
                                 SizedBox(height: 8),
                                 Text(
-                                  'কিবলা কম্পাস',
-                                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                                  LanguageManager().isBengali
+                                      ? 'কিবলা কম্পাস'
+                                      : 'Qibla Compass',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
                                 ),
                                 Text(
                                   'Qibla Direction',
-                                  style: TextStyle(color: Colors.white38, fontSize: 11),
+                                  style: TextStyle(
+                                    color: Colors.white38,
+                                    fontSize: 11,
+                                  ),
                                 ),
                               ],
                             ),
@@ -1481,28 +1862,47 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => const TasbeehCounterScreen(),
+                                builder: (context) =>
+                                    const TasbeehCounterScreen(),
                               ),
                             );
                           },
                           child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 18,
+                              horizontal: 16,
+                            ),
                             decoration: BoxDecoration(
                               color: cardBg,
                               borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.05),
+                              ),
                             ),
-                            child: const Column(
+                            child: Column(
                               children: [
-                                Icon(Icons.radar_rounded, color: goldAccent, size: 32),
+                                Icon(
+                                  Icons.radar_rounded,
+                                  color: goldAccent,
+                                  size: 32,
+                                ),
                                 SizedBox(height: 8),
                                 Text(
-                                  'তাসবীহ কাউন্টার',
-                                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                                  LanguageManager().isBengali
+                                      ? 'তাসবীহ কাউন্টার'
+                                      : 'Tasbeeh Counter',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
                                 ),
                                 Text(
                                   'Tasbeeh Counter',
-                                  style: TextStyle(color: Colors.white38, fontSize: 11),
+                                  style: TextStyle(
+                                    color: Colors.white38,
+                                    fontSize: 11,
+                                  ),
                                 ),
                               ],
                             ),
@@ -1512,7 +1912,7 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  
+
                   // 3d. Study Supplications Entry Card
                   GestureDetector(
                     onTap: () => _showStudyDuasBottomSheet(context),
@@ -1520,10 +1920,7 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
-                          colors: [
-                            Color(0xFF162D24),
-                            Color(0xFF0F1E19),
-                          ],
+                          colors: [Color(0xFF162D24), Color(0xFF0F1E19)],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
@@ -1537,7 +1934,7 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                             color: goldAccent.withValues(alpha: 0.05),
                             blurRadius: 16,
                             spreadRadius: 2,
-                          )
+                          ),
                         ],
                       ),
                       child: Row(
@@ -1552,7 +1949,7 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                                 color: goldAccent.withValues(alpha: 0.3),
                               ),
                             ),
-                            child: const Center(
+                            child: Center(
                               child: Icon(
                                 Icons.menu_book_rounded,
                                 color: goldAccent,
@@ -1565,8 +1962,10 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
-                                  'পড়াশোনার দোয়া ও আমল',
+                                Text(
+                                  LanguageManager().isBengali
+                                      ? 'পড়াশোনার দোয়া ও আমল'
+                                      : 'Study Duas & Deeds',
                                   style: TextStyle(
                                     color: Colors.white,
                                     fontSize: 17,
@@ -1575,7 +1974,9 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  'স্মৃতিশক্তি বৃদ্ধি • কঠিন বিষয় সহজ হওয়া • পড়াশোনা শুরুর দোয়া',
+                                  LanguageManager().isBengali
+                                      ? 'স্মৃতিশক্তি বৃদ্ধি • কঠিন বিষয় সহজ হওয়া • পড়াশোনা শুরুর দোয়া'
+                                      : 'Memory Boost • Ease Difficulties • Starting Study Dua',
                                   style: TextStyle(
                                     color: Colors.white.withValues(alpha: 0.55),
                                     fontSize: 12,
@@ -1597,166 +1998,256 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                   const SizedBox(height: 24),
 
                   // 4. Prayer Times List
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.only(left: 4.0, bottom: 12.0),
                     child: Text(
-                      'নামাজের সময়সূচী',
-                      style: TextStyle(color: textLight, fontWeight: FontWeight.bold, fontSize: 18),
+                      LanguageManager().isBengali
+                          ? LanguageManager().isBengali
+                                ? 'নামাজের সময়সূচী'
+                                : 'Prayer Times'
+                          : 'Prayer Times',
+                      style: const TextStyle(
+                        color: textLight,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
                     ),
                   ),
                   _buildPrayerTile(
-                    'ফজর (Fajr)',
+                    LanguageManager().isBengali ? 'ফজর (Fajr)' : 'Fajr',
                     _prayerTimes?['Fajr'] ?? '03:52',
                     _prayerTimes?['Sunrise'] ?? '05:15',
                     'Fajr',
                     _prayerTimes?['Sunrise'] ?? '05:15',
                   ),
                   _buildPrayerTile(
-                    isFriday ? 'জুমা (Jumma)' : 'যোহর (Dhuhr)',
+                    isFriday
+                        ? LanguageManager().isBengali
+                              ? 'জুমা (Jumma)'
+                              : 'Jumma'
+                        : LanguageManager().isBengali
+                        ? 'যোহর (Dhuhr)'
+                        : 'Dhuhr',
                     _prayerTimes?['Dhuhr'] ?? '12:03',
                     _prayerTimes?['Asr'] ?? '04:34',
                     'Dhuhr',
                     _prayerTimes?['Asr'] ?? '04:34',
                   ),
                   _buildPrayerTile(
-                    'আসর (Asr)',
+                    LanguageManager().isBengali ? 'আসর (Asr)' : 'Asr',
                     _prayerTimes?['Asr'] ?? '04:34',
                     _prayerTimes?['Maghrib'] ?? '06:48',
                     'Asr',
                     _prayerTimes?['Maghrib'] ?? '06:48',
                   ),
                   _buildPrayerTile(
-                    'মাগরিব (Maghrib)',
+                    LanguageManager().isBengali
+                        ? 'মাগরিব (Maghrib)'
+                        : 'Maghrib',
                     _prayerTimes?['Maghrib'] ?? '06:48',
                     _prayerTimes?['Isha'] ?? '08:15',
                     'Maghrib',
                     _prayerTimes?['Isha'] ?? '08:15',
                   ),
                   _buildPrayerTile(
-                    'এশা (Isha)',
+                    LanguageManager().isBengali ? 'এশা (Isha)' : 'Isha',
                     _prayerTimes?['Isha'] ?? '08:15',
                     _prayerTimes?['Fajr'] ?? '03:52',
                     'Isha',
                     _prayerTimes?['Fajr'] ?? '03:52',
                   ),
-                  
+
                   const SizedBox(height: 16),
-                  
+
                   // Sunrise & Sunset Info Card
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       color: cardBg,
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.05),
+                      ),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
                         Column(
                           children: [
-                            const Row(
+                            Row(
                               children: [
-                                Icon(Icons.wb_sunny_rounded, color: Colors.orangeAccent, size: 20),
+                                Icon(
+                                  Icons.wb_sunny_rounded,
+                                  color: Colors.orangeAccent,
+                                  size: 20,
+                                ),
                                 SizedBox(width: 8),
-                                Text('সূর্যোদয় (Sunrise)', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                                Text(
+                                  LanguageManager().isBengali
+                                      ? 'সূর্যোদয় (Sunrise)'
+                                      : 'Sunrise',
+                                  style: TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 13,
+                                  ),
+                                ),
                               ],
                             ),
                             const SizedBox(height: 6),
                             Text(
-                              _formatTo12Hour(_prayerTimes?['Sunrise'] ?? '05:15'),
-                              style: const TextStyle(color: textLight, fontSize: 16, fontWeight: FontWeight.bold),
+                              _formatTo12Hour(
+                                _prayerTimes?['Sunrise'] ?? '05:15',
+                              ),
+                              style: const TextStyle(
+                                color: textLight,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ],
                         ),
                         Container(width: 1, height: 40, color: Colors.white10),
                         Column(
                           children: [
-                            const Row(
+                            Row(
                               children: [
-                                Icon(Icons.wb_twilight_rounded, color: Colors.redAccent, size: 20),
+                                Icon(
+                                  Icons.wb_twilight_rounded,
+                                  color: Colors.redAccent,
+                                  size: 20,
+                                ),
                                 SizedBox(width: 8),
-                                Text('সূর্যাস্ত (Sunset)', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                                Text(
+                                  LanguageManager().isBengali
+                                      ? 'সূর্যাস্ত (Sunset)'
+                                      : 'Sunset',
+                                  style: TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 13,
+                                  ),
+                                ),
                               ],
                             ),
                             const SizedBox(height: 6),
                             Text(
-                              _formatTo12Hour(_prayerTimes?['Maghrib'] ?? '06:48'),
-                              style: const TextStyle(color: textLight, fontSize: 16, fontWeight: FontWeight.bold),
+                              _formatTo12Hour(
+                                _prayerTimes?['Maghrib'] ?? '06:48',
+                              ),
+                              style: const TextStyle(
+                                color: textLight,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ],
                         ),
                       ],
                     ),
                   ),
-                  
+
                   const SizedBox(height: 24),
-                  
+
                   // 5. Prayer History Section
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Padding(
+                      Padding(
                         padding: EdgeInsets.only(left: 4.0, bottom: 12.0),
                         child: Text(
-                          'নামাজের ইতিহাস',
-                          style: TextStyle(color: textLight, fontWeight: FontWeight.bold, fontSize: 18),
+                          LanguageManager().isBengali
+                              ? 'নামাজের ইতিহাস'
+                              : 'Prayer History',
+                          style: TextStyle(
+                            color: textLight,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                          ),
                         ),
                       ),
                       TextButton.icon(
-                        style: TextButton.styleFrom(foregroundColor: goldAccent),
+                        style: TextButton.styleFrom(
+                          foregroundColor: goldAccent,
+                        ),
                         icon: const Icon(Icons.analytics_rounded, size: 16),
-                        label: const Text('বিস্তারিত রিপোর্ট', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                        label: Text(
+                          LanguageManager().isBengali
+                              ? 'বিস্তারিত রিপোর্ট'
+                              : 'Detailed Report',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
                         onPressed: () {
                           Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (context) => const PrayerHistoryScreen()),
+                            MaterialPageRoute(
+                              builder: (context) => const PrayerHistoryScreen(),
+                            ),
                           ).then((_) => _loadHistoryData());
                         },
                       ),
                     ],
                   ),
-                  
+
                   Builder(
                     builder: (context) {
-                      final todayKey = DateFormat('yyyy-MM-dd').format(DateTime.now());
+                      final todayKey = DateFormat(
+                        'yyyy-MM-dd',
+                      ).format(DateTime.now());
                       final dayData = _historyData[todayKey] ?? {};
                       int todayMissed = 0;
-                      for (final p in ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha']) {
+                      for (final p in [
+                        'Fajr',
+                        'Dhuhr',
+                        'Asr',
+                        'Maghrib',
+                        'Isha',
+                      ]) {
                         if (!(dayData[p] ?? false)) {
                           todayMissed++;
                         }
                       }
-                      
+
                       return Container(
                         margin: const EdgeInsets.only(bottom: 12),
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: todayMissed > 0 
-                              ? Colors.redAccent.withValues(alpha: 0.1) 
+                          color: todayMissed > 0
+                              ? Colors.redAccent.withValues(alpha: 0.1)
                               : Colors.green.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
-                            color: todayMissed > 0 
-                                ? Colors.redAccent.withValues(alpha: 0.3) 
-                                : Colors.green.withValues(alpha: 0.3)
+                            color: todayMissed > 0
+                                ? Colors.redAccent.withValues(alpha: 0.3)
+                                : Colors.green.withValues(alpha: 0.3),
                           ),
                         ),
                         child: Row(
                           children: [
                             Icon(
-                              todayMissed > 0 ? Icons.info_outline_rounded : Icons.check_circle_outline_rounded,
-                              color: todayMissed > 0 ? Colors.redAccent : Colors.greenAccent,
+                              todayMissed > 0
+                                  ? Icons.info_outline_rounded
+                                  : Icons.check_circle_outline_rounded,
+                              color: todayMissed > 0
+                                  ? Colors.redAccent
+                                  : Colors.greenAccent,
                               size: 20,
                             ),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Text(
                                 todayMissed == 0
-                                    ? 'আলহামদুলিল্লাহ, আজ কোনো ওয়াক্ত নামাজ মিস নাই।'
-                                    : 'আজ আপনার $todayMissed ওয়াক্ত নামাজ মিস গেছে।',
+                                    ? LanguageManager().isBengali
+                                          ? 'আলহামদুলিল্লাহ, আজ কোনো ওয়াক্ত নামাজ মিস নাই।'
+                                          : 'Alhamdulillah, no prayers were missed today.'
+                                    : LanguageManager().isBengali
+                                    ? 'আজ আপনার $todayMissed ওয়াক্ত নামাজ মিস গেছে।'
+                                    : '$todayMissed prayers missed today.',
                                 style: TextStyle(
-                                  color: todayMissed > 0 ? Colors.redAccent : Colors.greenAccent,
+                                  color: todayMissed > 0
+                                      ? Colors.redAccent
+                                      : Colors.greenAccent,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 13,
                                 ),
@@ -1765,9 +2256,9 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                           ],
                         ),
                       );
-                    }
+                    },
                   ),
-                  
+
                   // Sort history dates descending
                   if (_historyData.isEmpty)
                     Container(
@@ -1775,11 +2266,15 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                       decoration: BoxDecoration(
                         color: cardBg,
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.05),
+                        ),
                       ),
-                      child: const Center(
+                      child: Center(
                         child: Text(
-                          'এখনো নামাজের কোনো রেকর্ড নেই। ওয়াক্ত আদায় করে টিক দিন!',
+                          LanguageManager().isBengali
+                              ? 'এখনো নামাজের কোনো রেকর্ড নেই। ওয়াক্ত আদায় করে টিক দিন!'
+                              : 'No prayer records yet. Pray and check them off!',
                           style: TextStyle(color: Colors.white54, fontSize: 13),
                         ),
                       ),
@@ -1790,36 +2285,63 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                         final sortedDateKeys = _historyData.keys.toList()
                           ..sort((a, b) => b.compareTo(a));
                         final recentDates = sortedDateKeys.take(7).toList();
-                        
+
                         return Column(
                           children: recentDates.map((dateKey) {
                             final dayData = _historyData[dateKey] ?? {};
                             return Container(
                               margin: const EdgeInsets.only(bottom: 8),
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
                               decoration: BoxDecoration(
                                 color: cardBg,
                                 borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: Colors.white.withValues(alpha: 0.03)),
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.03),
+                                ),
                               ),
                               child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
                                     _formatHistoryDate(dateKey),
-                                    style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600),
+                                    style: const TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                                   Row(
                                     children: [
-                                      _buildHistoryBadge('ফ', dayData['Fajr'] ?? false),
+                                      _buildHistoryBadge(
+                                        LanguageManager().isBengali ? 'ফ' : 'F',
+                                        dayData['Fajr'] ?? false,
+                                      ),
                                       const SizedBox(width: 6),
-                                      _buildHistoryBadge('য', dayData['Dhuhr'] ?? false),
+                                      _buildHistoryBadge(
+                                        LanguageManager().isBengali ? 'য' : 'D',
+                                        dayData['Dhuhr'] ?? false,
+                                      ),
                                       const SizedBox(width: 6),
-                                      _buildHistoryBadge('আ', dayData['Asr'] ?? false),
+                                      _buildHistoryBadge(
+                                        LanguageManager().isBengali ? 'আ' : 'A',
+                                        dayData['Asr'] ?? false,
+                                      ),
                                       const SizedBox(width: 6),
-                                      _buildHistoryBadge('মা', dayData['Maghrib'] ?? false),
+                                      _buildHistoryBadge(
+                                        LanguageManager().isBengali
+                                            ? 'মা'
+                                            : 'M',
+                                        dayData['Maghrib'] ?? false,
+                                      ),
                                       const SizedBox(width: 6),
-                                      _buildHistoryBadge('এ', dayData['Isha'] ?? false),
+                                      _buildHistoryBadge(
+                                        LanguageManager().isBengali ? 'এ' : 'I',
+                                        dayData['Isha'] ?? false,
+                                      ),
                                     ],
                                   ),
                                 ],
@@ -1827,7 +2349,7 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                             );
                           }).toList(),
                         );
-                      }
+                      },
                     ),
                   const SizedBox(height: 16),
                 ],
@@ -1846,7 +2368,7 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
     final bool isActive = _isPrayerActive(start24h, end24h);
     const goldAccent = Color(0xFFE5B842);
     const cardBg = Color(0xFF162D24);
-    
+
     // Check if completed today
     final todayKey = DateFormat('yyyy-MM-dd').format(DateTime.now());
     final bool isCompleted = _historyData[todayKey]?[prayerKey] ?? false;
@@ -1857,7 +2379,9 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
         color: isActive ? const Color(0xFF1D3E32) : cardBg,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isActive ? goldAccent.withValues(alpha: 0.7) : Colors.white.withValues(alpha: 0.05),
+          color: isActive
+              ? goldAccent.withValues(alpha: 0.7)
+              : Colors.white.withValues(alpha: 0.05),
           width: isActive ? 1.5 : 1.0,
         ),
         boxShadow: isActive
@@ -1866,7 +2390,7 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                   color: goldAccent.withValues(alpha: 0.08),
                   blurRadius: 10,
                   spreadRadius: 1,
-                )
+                ),
               ]
             : null,
       ),
@@ -1887,7 +2411,7 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                           color: goldAccent.withValues(alpha: 0.6),
                           blurRadius: 6,
                           spreadRadius: 2,
-                        )
+                        ),
                       ]
                     : null,
               ),
@@ -1901,13 +2425,17 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                     name,
                     style: TextStyle(
                       color: isActive ? goldAccent : Colors.white,
-                      fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                      fontWeight: isActive
+                          ? FontWeight.bold
+                          : FontWeight.normal,
                       fontSize: 16,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    "শুরু: ${_formatTo12Hour(start24h)}  •  শেষ: ${_formatTo12Hour(endLabel24h)}",
+                    LanguageManager().isBengali
+                        ? 'শুরু: ${_formatTo12Hour(start24h)}  •  শেষ: ${_formatTo12Hour(endLabel24h)}'
+                        : 'Start: ${_formatTo12Hour(start24h)}  •  End: ${_formatTo12Hour(endLabel24h)}',
                     style: const TextStyle(color: Colors.white54, fontSize: 12),
                   ),
                 ],
@@ -1921,9 +2449,13 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                   color: goldAccent.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Text(
-                  'চলমান',
-                  style: TextStyle(color: goldAccent, fontSize: 10, fontWeight: FontWeight.bold),
+                child: Text(
+                  LanguageManager().isBengali ? 'চলমান' : 'Ongoing',
+                  style: TextStyle(
+                    color: goldAccent,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             // Custom Rounded Checkbox
@@ -1942,7 +2474,11 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                   ),
                 ),
                 child: isCompleted
-                    ? const Icon(Icons.check_rounded, color: Colors.black, size: 18)
+                    ? const Icon(
+                        Icons.check_rounded,
+                        color: Colors.black,
+                        size: 18,
+                      )
                     : null,
               ),
             ),
@@ -1961,7 +2497,9 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
         shape: BoxShape.circle,
         color: isCompleted ? const Color(0xFF0F3625) : Colors.transparent,
         border: Border.all(
-          color: isCompleted ? goldAccent.withValues(alpha: 0.6) : Colors.white24,
+          color: isCompleted
+              ? goldAccent.withValues(alpha: 0.6)
+              : Colors.white24,
           width: 1.0,
         ),
       ),
@@ -1978,7 +2516,11 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
     );
   }
 
-  Widget _buildSpecialDayCard(BuildContext context, Color cardBg, Color goldAccent) {
+  Widget _buildSpecialDayCard(
+    BuildContext context,
+    Color cardBg,
+    Color goldAccent,
+  ) {
     final specialDay = IslamicService.getSpecialIslamicDay(DateTime.now());
     if (specialDay == null) return const SizedBox.shrink();
 
@@ -1988,13 +2530,16 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
       decoration: BoxDecoration(
         color: cardBg,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: goldAccent.withValues(alpha: 0.3), width: 1.5),
+        border: Border.all(
+          color: goldAccent.withValues(alpha: 0.3),
+          width: 1.5,
+        ),
         boxShadow: [
           BoxShadow(
             color: goldAccent.withValues(alpha: 0.05),
             blurRadius: 15,
             spreadRadius: 2,
-          )
+          ),
         ],
       ),
       child: Column(
@@ -2008,7 +2553,11 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                   color: goldAccent.withValues(alpha: 0.15),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(Icons.brightness_3_rounded, color: goldAccent, size: 22),
+                child: Icon(
+                  Icons.brightness_3_rounded,
+                  color: goldAccent,
+                  size: 22,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -2023,12 +2572,11 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                         fontSize: 16,
                       ),
                     ),
-                    const Text(
-                      'আজকের বিশেষ দিনের গুরুত্ব ও তাৎপর্য',
-                      style: TextStyle(
-                        color: Colors.white54,
-                        fontSize: 11,
-                      ),
+                    Text(
+                      LanguageManager().isBengali
+                          ? 'আজকের বিশেষ দিনের গুরুত্ব ও তাৎপর্য'
+                          : 'Importance & Significance of Today',
+                      style: TextStyle(color: Colors.white54, fontSize: 11),
                     ),
                   ],
                 ),
@@ -2057,32 +2605,67 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
 
     final List<Map<String, String>> studyDuas = [
       {
-        'title': '১. জ্ঞান বৃদ্ধির দোয়া (পড়াশোনা শুরুর আগে)',
+        'title': LanguageManager().isBengali
+            ? '১. জ্ঞান বৃদ্ধির দোয়া (পড়াশোনা শুরুর আগে)'
+            : '1. Dua for Increasing Knowledge (Before Studying)',
         'arabic': 'رَّبِّ زِدْنِي عِلْمًا',
-        'pronunciation': 'উচ্চারণ: রাব্বি যিদনি ইলমা।',
-        'translation': 'অর্থ: "হে আমার পালনকর্তা! আমার জ্ঞান বৃদ্ধি করে দিন।" (সূরা তাহা: ১১৪)',
-        'note': 'পড়াশোনা শুরু করার আগে এই দোয়াটি বেশি বেশি পড়া উচিত।'
+        'pronunciation': LanguageManager().isBengali
+            ? 'উচ্চারণ: রাব্বি যিদনি ইলমা।'
+            : 'Pronunciation: Rabbi zidni ilma.',
+        'translation': LanguageManager().isBengali
+            ? 'অর্থ: "হে আমার পালনকর্তা! আমার জ্ঞান বৃদ্ধি করে দিন।" (সূরা তাহা: ১১৪)'
+            : 'Meaning: "O my Lord! Increase me in knowledge." (Surah Taha: 114)',
+        'note': LanguageManager().isBengali
+            ? 'পড়াশোনা শুরু করার আগে এই দোয়াটি বেশি বেশি পড়া উচিত।'
+            : 'This dua should be recited frequently before starting to study.',
       },
       {
-        'title': '২. কঠিন বিষয় সহজ হওয়া ও জড়তা কাটার দোয়া',
-        'arabic': 'رَبِّ اشْرَحْ لِي صَدْرِي * وَيَسِّرْ لِي أَمْرِي * وَاحْلُلْ عُقْدَةً مِّন لِّسَانِي * يَفْقَهُوا قَوْلِي',
-        'pronunciation': 'উচ্চারণ: রাব্বিশ রাহলি সাদরি, ওয়া ইয়াসসিরলি আমরি, ওয়াহলুল উকদাতাম মিল লিসানি, ইয়াফকাহু কাওলি।',
-        'translation': 'অর্থ: "হে আমার পালনকর্তা! আমার বক্ষ প্রশস্ত করে দিন, আমার কাজ সহজ করে দিন এবং আমার জিহ্বার জড়তা দূর করে দিন যাতে তারা আমার কথা বুঝতে পারে।" (সূরা তাহা: ২৫-২৮)',
-        'note': 'পড়াশোনায় মন বসাতে বা কঠিন কোনো অধ্যায় বুঝতে এটি অত্যন্ত কার্যকর।'
+        'title': LanguageManager().isBengali
+            ? '২. কঠিন বিষয় সহজ হওয়া ও জড়তা কাটার দোয়া'
+            : '2. Dua for Easing Difficulties and Removing Stutter',
+        'arabic':
+            'رَبِّ اشْرَحْ لِي صَدْرِي * وَيَسِّرْ لِي أَمْرِي * وَاحْلُلْ عُقْدَةً مِّন لِّسَانِي * يَفْقَهُوا قَوْلِي',
+        'pronunciation': LanguageManager().isBengali
+            ? 'উচ্চারণ: রাব্বিশ রাহলি সাদরি, ওয়া ইয়াসসিরলি আমরি, ওয়াহলুল উকদাতাম মিল লিসানি, ইয়াফকাহু কাওলি।'
+            : 'Pronunciation: Rabbish rahli sadri, wa yassirli amri, wahlul uqdatam mil lisani, yafqahu qawli.',
+        'translation': LanguageManager().isBengali
+            ? 'অর্থ: "হে আমার পালনকর্তা! আমার বক্ষ প্রশস্ত করে দিন, আমার কাজ সহজ করে দিন এবং আমার জিহ্বার জড়তা দূর করে দিন যাতে তারা আমার কথা বুঝতে পারে।" (সূরা তাহা: ২৫-২৮)'
+            : 'Meaning: "O my Lord! Expand for me my breast, ease for me my task, and untie the knot from my tongue that they may understand my speech." (Surah Taha: 25-28)',
+        'note': LanguageManager().isBengali
+            ? 'পড়াশোনায় মন বসাতে বা কঠিন কোনো অধ্যায় বুঝতে এটি অত্যন্ত কার্যকর।'
+            : 'Very effective for focus and understanding difficult topics.',
       },
       {
-        'title': '৩. যেকোনো কঠিন কাজ সহজ করার দোয়া',
-        'arabic': 'اللَّهُمَّ لَا سَهْلَ إِلَّا مَا جَعَلْتَهُ سَهْلًا وَأَنْتَ تَجْعَلُ الْحَزْنَ إِذَا شِئْتَ سَهْلًا',
-        'pronunciation': 'উচ্চারণ: আল্লাহুম্মা লা সাহলা ইল্লা মা জা‘আলতাহু সাহলা, ওয়া আনতা তাজ‘আলুল হাযনা ইযা শি’তা সাহলা।',
-        'translation': 'অর্থ: "হে আল্লাহ! আপনি যা সহজ করেছেন তা ছাড়া কোনো কিছুই সহজ নয়। আর আপনি চাইলে কঠিন কাজকেও সহজ করে দিতে পারেন।" (সহীহ ইবনে হিব্বান)',
-        'note': 'পরীক্ষার হলে বা কঠিন প্রশ্ন দেখলে মনে মনে এই দোয়াটি পড়তে পারেন।'
+        'title': LanguageManager().isBengali
+            ? '৩. যেকোনো কঠিন কাজ সহজ করার দোয়া'
+            : '3. Dua for Making Difficult Tasks Easy',
+        'arabic':
+            'اللَّهُمَّ لَا سَهْلَ إِلَّا مَا جَعَلْتَهُ سَهْلًا وَأَنْتَ تَجْعَلُ الْحَزْنَ إِذَا شِئْتَ سَهْلًا',
+        'pronunciation': LanguageManager().isBengali
+            ? 'উচ্চারণ: আল্লাহুম্মা লা সাহলা ইল্লা মা জা‘আলতাহু সাহলা, ওয়া আনতা তাজ‘আলুল হাযনা ইযা শি’তা সাহলা।'
+            : 'Pronunciation: Allahumma la sahla illa ma ja’altahu sahla, wa anta taj’alul hazna iza shi’ta sahla.',
+        'translation': LanguageManager().isBengali
+            ? 'অর্থ: "হে আল্লাহ! আপনি যা সহজ করেছেন তা ছাড়া কোনো কিছুই সহজ নয়। আর আপনি চাইলে কঠিন কাজকেও সহজ করে দিতে পারেন।" (সহীহ ইবনে হিব্বান)'
+            : 'Meaning: "O Allah, nothing is easy except what You have made easy, and You can make difficulty easy if You wish." (Sahih Ibn Hibban)',
+        'note': LanguageManager().isBengali
+            ? 'পরীক্ষার হলে বা কঠিন প্রশ্ন দেখলে মনে মনে এই দোয়াটি পড়তে পারেন।'
+            : 'Recite this silently during exams or when facing difficult questions.',
       },
       {
-        'title': '৪. মেধা ও স্মৃতিশক্তি বৃদ্ধির দোয়া',
-        'arabic': 'اللَّهُمَّ انْفَعْنِي بِمَا عَلَّمْتَنِي وَعَلِّمْنِي مَا يَنْفَعُنِي وَزِدْنِي عِلْمًا',
-        'pronunciation': 'উচ্চারণ: আল্লাহুম্মান ফানি বিমা আল্লামতানি, ওয়া আল্লিমনি মা ইয়ানফাউনি, ওয়া যিদনি ইলমা।',
-        'translation': 'অর্থ: "হে আল্লাহ! আপনি আমাকে যা শিখিয়েছেন তা দিয়ে আমাকে উপকৃত করুন, আমার জন্য যা উপকারী তা আমাকে শেখান এবং আমার জ্ঞান বৃদ্ধি করে দিন।" (সুনানে ইবনে মাজাহ)',
-        'note': 'পড়া মনে রাখার এবং ব্রেইনের কার্যক্ষমতা বৃদ্ধির জন্য এই দোয়াটি পঠিত হয়।'
+        'title': LanguageManager().isBengali
+            ? '৪. মেধা ও স্মৃতিশক্তি বৃদ্ধির দোয়া'
+            : '4. Dua for Memory Retention & Intelligence',
+        'arabic':
+            'اللَّهُمَّ انْفَعْنِي بِمَا عَلَّمْتَنِي وَعَلِّمْنِي مَا يَنْفَعُنِي وَزِدْنِي عِلْمًا',
+        'pronunciation': LanguageManager().isBengali
+            ? 'উচ্চারণ: আল্লাহুম্মান ফানি বিমা আল্লামতানি, ওয়া আল্লিমনি মা ইয়ানফাউনি, ওয়া যিদনি ইলমা।'
+            : 'Pronunciation: Allahumman fa’ni bima ‘allamtani, wa ‘allimni ma yanfa’uni, wa zidni ‘ilma.',
+        'translation': LanguageManager().isBengali
+            ? 'অর্থ: "হে আল্লাহ! আপনি আমাকে যা শিখিয়েছেন তা দিয়ে আমাকে উপকৃত করুন, আমার জন্য যা উপকারী তা আমাকে শেখান এবং আমার জ্ঞান বৃদ্ধি করে দিন।" (সুনানে ইবনে মাজাহ)'
+            : 'Meaning: "O Allah! Benefit me with what You have taught me, teach me what will benefit me, and increase my knowledge." (Sunan Ibn Majah)',
+        'note': LanguageManager().isBengali
+            ? 'পড়া মনে রাখার এবং ব্রেইনের কার্যক্ষমতা বৃদ্ধির জন্য এই দোয়াটি পঠিত হয়।'
+            : 'Recite this to boost brain power and memory retention.',
       },
     ];
 
@@ -2126,15 +2709,21 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                             color: goldAccent.withValues(alpha: 0.15),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.menu_book_rounded, color: goldAccent, size: 24),
+                          child: const Icon(
+                            Icons.menu_book_rounded,
+                            color: goldAccent,
+                            size: 24,
+                          ),
                         ),
                         const SizedBox(width: 14),
-                        const Expanded(
+                        Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'পড়াশোনার দোয়া ও আমল',
+                                LanguageManager().isBengali
+                                    ? 'পড়াশোনার দোয়া ও আমল'
+                                    : 'Study Duas & Deeds',
                                 style: TextStyle(
                                   color: textLight,
                                   fontSize: 18,
@@ -2152,7 +2741,10 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                           ),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.close_rounded, color: Colors.white54),
+                          icon: const Icon(
+                            Icons.close_rounded,
+                            color: Colors.white54,
+                          ),
                           onPressed: () => Navigator.pop(context),
                         ),
                       ],
@@ -2161,7 +2753,10 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                   const Divider(color: Colors.white12, height: 24),
                   Expanded(
                     child: ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 8,
+                      ),
                       itemCount: studyDuas.length,
                       itemBuilder: (context, index) {
                         final dua = studyDuas[index];
@@ -2179,7 +2774,8 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   Expanded(
                                     child: Text(
@@ -2192,18 +2788,29 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                                     ),
                                   ),
                                   IconButton(
-                                    icon: const Icon(Icons.copy_rounded, color: Colors.white54, size: 18),
+                                    icon: const Icon(
+                                      Icons.copy_rounded,
+                                      color: Colors.white54,
+                                      size: 18,
+                                    ),
                                     constraints: const BoxConstraints(),
                                     padding: EdgeInsets.zero,
                                     onPressed: () {
                                       Clipboard.setData(
                                         ClipboardData(
-                                          text: "${dua['title']}\n${dua['arabic']}\n${dua['pronunciation']}\n${dua['translation']}",
+                                          text:
+                                              "${dua['title']}\n${dua['arabic']}\n${dua['pronunciation']}\n${dua['translation']}",
                                         ),
                                       );
-                                      ScaffoldMessenger.of(context).showSnackBar(
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
                                         SnackBar(
-                                          content: Text('${dua['title']} কপি হয়েছে'),
+                                          content: Text(
+                                            LanguageManager().isBengali
+                                                ? '${dua["title"]} কপি হয়েছে'
+                                                : '${dua["title"]} copied',
+                                          ),
                                           backgroundColor: cardBg,
                                           behavior: SnackBarBehavior.floating,
                                           duration: const Duration(seconds: 2),
@@ -2245,7 +2852,11 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                               const Divider(color: Colors.white10, height: 20),
                               Row(
                                 children: [
-                                  const Icon(Icons.info_outline_rounded, color: goldAccent, size: 14),
+                                  const Icon(
+                                    Icons.info_outline_rounded,
+                                    color: goldAccent,
+                                    size: 14,
+                                  ),
                                   const SizedBox(width: 6),
                                   Expanded(
                                     child: Text(

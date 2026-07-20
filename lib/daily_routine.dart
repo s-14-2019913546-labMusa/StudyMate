@@ -52,16 +52,25 @@ class Task {
   });
 
   factory Task.fromMap(Map<String, dynamic> data, String id) {
+    final DateTime? startTime = data['startTime'] != null ? (data['startTime'] as Timestamp).toDate() : null;
+    final DateTime? endTime = data['endTime'] != null ? (data['endTime'] as Timestamp).toDate() : null;
+    int duration = data['totalDurationMinutes'] ?? 0;
+    if (duration <= 0 && startTime != null && endTime != null) {
+      final computed = endTime.difference(startTime).inMinutes;
+      if (computed > 0) {
+        duration = computed;
+      }
+    }
     return Task(
       id: id,
       title: data['title'] ?? '',
       isCompleted: data['isCompleted'] ?? false,
-      totalDurationMinutes: data['totalDurationMinutes'] ?? 0,
+      totalDurationMinutes: duration,
       completedDurationMinutes: data['completedDurationMinutes'] ?? 0,
       subject: data['subject'],
       notes: data['notes'],
-      startTime: data['startTime'] != null ? (data['startTime'] as Timestamp).toDate() : null,
-      endTime: data['endTime'] != null ? (data['endTime'] as Timestamp).toDate() : null,
+      startTime: startTime,
+      endTime: endTime,
       isPrivate: data['isPrivate'] ?? false,
       category: data['category'],
       status: data['status'] ?? 'pending',

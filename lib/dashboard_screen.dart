@@ -37,10 +37,16 @@ class DashboardScreen extends StatefulWidget {
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingObserver {
+class _DashboardScreenState extends State<DashboardScreen>
+    with WidgetsBindingObserver {
   final User? user = FirebaseAuth.instance.currentUser;
-  String get _todayDateFormatted => DateFormat('EEEE, d MMMM', LanguageManager().currentLanguage).format(DateTime.now());
-  final String _todayDocId = DateFormat('yyyy-MM-dd').format(DateTime.now()); // e.g., "2023-10-27"
+  String get _todayDateFormatted => DateFormat(
+    'EEEE, d MMMM',
+    LanguageManager().currentLanguage,
+  ).format(DateTime.now());
+  final String _todayDocId = DateFormat(
+    'yyyy-MM-dd',
+  ).format(DateTime.now()); // e.g., "2023-10-27"
 
   DailyRoutine? _currentRoutine;
   List<Task> _partnerTasks = [];
@@ -62,7 +68,8 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     try {
       final todayDocId = DateFormat('yyyy-MM-dd').format(DateTime.now());
       final prefs = await SharedPreferences.getInstance();
-      final isAlreadyImported = prefs.getBool('weekly_imported_$todayDocId') ?? false;
+      final isAlreadyImported =
+          prefs.getBool('weekly_imported_$todayDocId') ?? false;
       if (isAlreadyImported) {
         if (mounted) {
           setState(() {
@@ -122,25 +129,48 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
         DateTime? newStart;
         DateTime? newEnd;
         if (t.startTime != null) {
-          newStart = DateTime(now.year, now.month, now.day, t.startTime!.hour, t.startTime!.minute);
+          newStart = DateTime(
+            now.year,
+            now.month,
+            now.day,
+            t.startTime!.hour,
+            t.startTime!.minute,
+          );
         }
         if (t.endTime != null) {
-          newEnd = DateTime(now.year, now.month, now.day, t.endTime!.hour, t.endTime!.minute);
+          newEnd = DateTime(
+            now.year,
+            now.month,
+            now.day,
+            t.endTime!.hour,
+            t.endTime!.minute,
+          );
         }
 
-        return t.copyWith(
-          title: '[WR] ${t.title}',
-          subject: t.subject != null ? '[WR] ${t.subject}' : '[WR] ${t.title}',
-          startTime: newStart,
-          endTime: newEnd,
-        ).toMap();
+        int duration = t.totalDurationMinutes;
+        if (duration <= 0 && newStart != null && newEnd != null) {
+          final computed = newEnd.difference(newStart).inMinutes;
+          if (computed > 0) {
+            duration = computed;
+          }
+        }
+
+        return t
+            .copyWith(
+              title: '[WR] ${t.title}',
+              subject: t.subject != null
+                  ? '[WR] ${t.subject}'
+                  : '[WR] ${t.title}',
+              startTime: newStart,
+              endTime: newEnd,
+              totalDurationMinutes: duration,
+            )
+            .toMap();
       }).toList();
 
       final snapshot = await docRef.get();
       if (snapshot.exists) {
-        await docRef.update({
-          'tasks': FieldValue.arrayUnion(importedTasks)
-        });
+        await docRef.update({'tasks': FieldValue.arrayUnion(importedTasks)});
       } else {
         final newRoutine = DailyRoutine(
           id: todayDocId,
@@ -165,7 +195,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Weekly tasks imported to Today\'s Tasks!'.tr())),
+          SnackBar(
+            content: Text('Weekly tasks imported to Today\'s Tasks!'.tr()),
+          ),
         );
       }
     } catch (e) {
@@ -178,7 +210,8 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     try {
       final todayDocId = DateFormat('yyyy-MM-dd').format(DateTime.now());
       final prefs = await SharedPreferences.getInstance();
-      final isAlreadyImported = prefs.getBool('daily_imported_$todayDocId') ?? false;
+      final isAlreadyImported =
+          prefs.getBool('daily_imported_$todayDocId') ?? false;
       if (isAlreadyImported) {
         if (mounted) {
           setState(() {
@@ -257,13 +290,16 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
 
   Future<void> _dismissDailyScheduledTasks() async {
     if (user == null) return;
-    
+
     // Show confirmation dialog before deleting tasks
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('Delete Scheduled Tasks?'.tr()),
-        content: Text('These tasks were set for today from the previous day. Do you want to delete them without adding to your task list?'.tr()),
+        content: Text(
+          'These tasks were set for today from the previous day. Do you want to delete them without adding to your task list?'
+              .tr(),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -272,7 +308,10 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: Text('Yes'.tr(), style: const TextStyle(color: Colors.white)),
+            child: Text(
+              'Yes'.tr(),
+              style: const TextStyle(color: Colors.white),
+            ),
           ),
         ],
       ),
@@ -300,7 +339,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Scheduled tasks dismissed and deleted.'.tr())),
+          SnackBar(
+            content: Text('Scheduled tasks dismissed and deleted.'.tr()),
+          ),
         );
       }
     } catch (e) {
@@ -320,8 +361,8 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: isDark 
-              ? [const Color(0xFF6B21A8), const Color(0xFF0F172A)] 
+          colors: isDark
+              ? [const Color(0xFF6B21A8), const Color(0xFF0F172A)]
               : [const Color(0xFFF5F3FF), const Color(0xFFEDE9FE)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -343,7 +384,11 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                   color: const Color(0xFF8B5CF6).withValues(alpha: 0.2),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.bookmark_added_rounded, color: Color(0xFF8B5CF6), size: 24),
+                child: const Icon(
+                  Icons.bookmark_added_rounded,
+                  color: Color(0xFF8B5CF6),
+                  size: 24,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -360,10 +405,13 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      "${_todayDailyScheduledTasks.length} tasks planned for today".tr(),
+                      "${_todayDailyScheduledTasks.length} tasks planned for today"
+                          .tr(),
                       style: TextStyle(
                         fontSize: 12,
-                        color: isDark ? Colors.white70 : const Color(0xFF4C1D95).withValues(alpha: 0.8),
+                        color: isDark
+                            ? Colors.white70
+                            : const Color(0xFF4C1D95).withValues(alpha: 0.8),
                       ),
                     ),
                   ],
@@ -388,7 +436,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
-                        color: isDark ? Colors.white.withValues(alpha: 0.9) : const Color(0xFF4C1D95),
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.9)
+                            : const Color(0xFF4C1D95),
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -408,7 +458,11 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               padding: const EdgeInsets.only(left: 44.0, bottom: 8.0),
               child: Text(
                 "+ ${_todayDailyScheduledTasks.length - 3} more tasks...".tr(),
-                style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Colors.grey),
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontStyle: FontStyle.italic,
+                  color: Colors.grey,
+                ),
               ),
             ),
           const SizedBox(height: 12),
@@ -417,7 +471,10 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             children: [
               TextButton(
                 onPressed: _dismissDailyScheduledTasks,
-                child: Text('Dismiss'.tr(), style: const TextStyle(color: Colors.grey)),
+                child: Text(
+                  'Dismiss'.tr(),
+                  style: const TextStyle(color: Colors.grey),
+                ),
               ),
               const SizedBox(width: 8),
               ElevatedButton(
@@ -425,8 +482,13 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF8B5CF6),
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                 ),
                 child: Text('Add to Today\'s Tasks'.tr()),
               ),
@@ -449,8 +511,8 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: isDark 
-              ? [const Color(0xFF1E3A8A), const Color(0xFF0F172A)] 
+          colors: isDark
+              ? [const Color(0xFF1E3A8A), const Color(0xFF0F172A)]
               : [const Color(0xFFEFF6FF), const Color(0xFFDBEAFE)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -472,7 +534,11 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                   color: const Color(0xFF3B82F6).withValues(alpha: 0.2),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.calendar_view_week_rounded, color: Color(0xFF3B82F6), size: 24),
+                child: const Icon(
+                  Icons.calendar_view_week_rounded,
+                  color: Color(0xFF3B82F6),
+                  size: 24,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -489,10 +555,13 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      "${_todayWeeklyTasks.length} tasks scheduled for today".tr(),
+                      "${_todayWeeklyTasks.length} tasks scheduled for today"
+                          .tr(),
                       style: TextStyle(
                         fontSize: 12,
-                        color: isDark ? Colors.white70 : const Color(0xFF1E3A8A).withValues(alpha: 0.8),
+                        color: isDark
+                            ? Colors.white70
+                            : const Color(0xFF1E3A8A).withValues(alpha: 0.8),
                       ),
                     ),
                   ],
@@ -517,7 +586,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
-                        color: isDark ? Colors.white.withValues(alpha: 0.9) : const Color(0xFF1E3A8A),
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.9)
+                            : const Color(0xFF1E3A8A),
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -537,7 +608,11 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               padding: const EdgeInsets.only(left: 44.0, bottom: 8.0),
               child: Text(
                 "+ ${_todayWeeklyTasks.length - 3} more tasks...".tr(),
-                style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Colors.grey),
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontStyle: FontStyle.italic,
+                  color: Colors.grey,
+                ),
               ),
             ),
           const SizedBox(height: 12),
@@ -547,13 +622,18 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               TextButton(
                 onPressed: () async {
                   final prefs = await SharedPreferences.getInstance();
-                  final todayDocId = DateFormat('yyyy-MM-dd').format(DateTime.now());
+                  final todayDocId = DateFormat(
+                    'yyyy-MM-dd',
+                  ).format(DateTime.now());
                   await prefs.setBool('weekly_imported_$todayDocId', true);
                   setState(() {
                     _hasWeeklyTasksForToday = false;
                   });
                 },
-                child: Text('Dismiss'.tr(), style: const TextStyle(color: Colors.grey)),
+                child: Text(
+                  'Dismiss'.tr(),
+                  style: const TextStyle(color: Colors.grey),
+                ),
               ),
               const SizedBox(width: 8),
               ElevatedButton(
@@ -561,8 +641,13 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF3B82F6),
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                 ),
                 child: Text('Add to Today\'s Tasks'.tr()),
               ),
@@ -587,7 +672,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       _updateUserStatus(true); // Initial status update
       _checkWeeklyTasksForToday();
       _checkDailyTasksForToday();
-      
+
       Future.delayed(const Duration(seconds: 2), () {
         if (mounted) {
           UpdateService.checkUpdate(context);
@@ -621,36 +706,39 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
 
   void _listenToTodaysRoutine() {
     _routineSubscription?.cancel();
-    _routineSubscription = _fetchCombinedRoutine().listen((data) {
-      if (mounted) {
-        setState(() {
-          _currentRoutine = data.localRoutine;
-          _partnerTasks = data.partnerTasks;
-          
-          final List<Task> allTasks = [];
-          if (data.localRoutine != null) {
-            allTasks.addAll(data.localRoutine!.tasks);
-          }
-          allTasks.addAll(data.partnerTasks);
-          _currentTasks = allTasks;
-          
-          _isLoadingRoutine = false;
-        });
-      }
-    }, onError: (err) {
-      debugPrint("Error listening to combined routine: $err");
-      if (mounted) {
-        setState(() {
-          _isLoadingRoutine = false;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Error loading tasks: $err".tr()),
-            backgroundColor: Colors.redAccent,
-          ),
-        );
-      }
-    });
+    _routineSubscription = _fetchCombinedRoutine().listen(
+      (data) {
+        if (mounted) {
+          setState(() {
+            _currentRoutine = data.localRoutine;
+            _partnerTasks = data.partnerTasks;
+
+            final List<Task> allTasks = [];
+            if (data.localRoutine != null) {
+              allTasks.addAll(data.localRoutine!.tasks);
+            }
+            allTasks.addAll(data.partnerTasks);
+            _currentTasks = allTasks;
+
+            _isLoadingRoutine = false;
+          });
+        }
+      },
+      onError: (err) {
+        debugPrint("Error listening to combined routine: $err");
+        if (mounted) {
+          setState(() {
+            _isLoadingRoutine = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("Error loading tasks: $err".tr()),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        }
+      },
+    );
   }
 
   @override
@@ -686,7 +774,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   void _checkTaskTimes() {
     if (!mounted) return;
     final now = DateTime.now();
-    debugPrint('[TaskAlerts] Timer ticked. Current task count: ${_currentTasks.length}');
+    debugPrint(
+      '[TaskAlerts] Timer ticked. Current task count: ${_currentTasks.length}',
+    );
 
     if (_currentTasks.isEmpty) {
       debugPrint('[TaskAlerts] No tasks in _currentTasks yet.');
@@ -694,24 +784,31 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     }
 
     for (var task in _currentTasks) {
-      debugPrint('[TaskAlerts] Task: "${task.title}", Status: "${task.status}", alarmEnabled: ${task.alarmEnabled}, isCompleted: ${task.isCompleted}, startTime: ${task.startTime}, endTime: ${task.endTime}');
+      debugPrint(
+        '[TaskAlerts] Task: "${task.title}", Status: "${task.status}", alarmEnabled: ${task.alarmEnabled}, isCompleted: ${task.isCompleted}, startTime: ${task.startTime}, endTime: ${task.endTime}',
+      );
       if (!task.alarmEnabled) continue;
 
       // 1. Check Start Time
       if (task.startTime != null) {
         final diff = now.difference(task.startTime!);
         final isAfterStart = now.isAfter(task.startTime!);
-        debugPrint('[TaskAlerts] Start check for "${task.title}": isAfterStart=$isAfterStart, diffInMinutes=${diff.inMinutes}, status=${task.status}');
-        
-        if (task.status == 'pending' && 
-            !task.isCompleted && 
-            isAfterStart && 
+        final isBeforeEnd = task.endTime == null || now.isBefore(task.endTime!);
+        debugPrint(
+          '[TaskAlerts] Start check for "${task.title}": isAfterStart=$isAfterStart, isBeforeEnd=$isBeforeEnd, diffInMinutes=${diff.inMinutes}, status=${task.status}',
+        );
+
+        if (task.status == 'pending' &&
+            !task.isCompleted &&
+            isAfterStart &&
+            isBeforeEnd &&
             diff.inMinutes < 15) {
-          
           final alertKey = '${task.id}_start';
           if (!_triggeredStartAlerts.contains(alertKey)) {
             _triggeredStartAlerts.add(alertKey);
-            debugPrint('[TaskAlerts] Triggering start dialog for task "${task.title}"');
+            debugPrint(
+              '[TaskAlerts] Triggering start dialog for task "${task.title}"',
+            );
             _showInAppTaskStartDialog(task);
           }
         }
@@ -721,16 +818,17 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       if (task.endTime != null) {
         final diff = now.difference(task.endTime!);
         final isAfterEnd = now.isAfter(task.endTime!);
-        debugPrint('[TaskAlerts] End check for "${task.title}": isAfterEnd=$isAfterEnd, diffInMinutes=${diff.inMinutes}, status=${task.status}');
+        debugPrint(
+          '[TaskAlerts] End check for "${task.title}": isAfterEnd=$isAfterEnd, diffInMinutes=${diff.inMinutes}, status=${task.status}',
+        );
 
-        if (task.status == 'running' && 
-            isAfterEnd && 
-            diff.inMinutes < 15) {
-            
+        if (task.status == 'running' && isAfterEnd && diff.inMinutes < 15) {
           final alertKey = '${task.id}_end';
           if (!_triggeredEndAlerts.contains(alertKey)) {
             _triggeredEndAlerts.add(alertKey);
-            debugPrint('[TaskAlerts] Triggering end dialog for task "${task.title}"');
+            debugPrint(
+              '[TaskAlerts] Triggering end dialog for task "${task.title}"',
+            );
             _showInAppTaskEndDialog(task);
           }
         }
@@ -740,18 +838,28 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
 
   void _showInAppTaskStartDialog(Task task) {
     SoundPlayer.playPushNotificationSound();
-    final String timeRange = '${task.startTime != null ? DateFormat('h:mm a').format(task.startTime!) : 'N/A'} - ${task.endTime != null ? DateFormat('h:mm a').format(task.endTime!) : 'N/A'}';
+    final String timeRange =
+        '${task.startTime != null ? DateFormat('h:mm a').format(task.startTime!) : 'N/A'} - ${task.endTime != null ? DateFormat('h:mm a').format(task.endTime!) : 'N/A'}';
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (ctx) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           title: Row(
             children: [
-              Icon(Icons.alarm_on_rounded, color: Theme.of(context).colorScheme.primary, size: 28),
+              Icon(
+                Icons.alarm_on_rounded,
+                color: Theme.of(context).colorScheme.primary,
+                size: 28,
+              ),
               const SizedBox(width: 8),
-              const Text('টাস্ক শুরুর সময়!', style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text(
+                'টাস্ক শুরুর সময়!',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
             ],
           ),
           content: Column(
@@ -765,11 +873,18 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               const SizedBox(height: 12),
               Row(
                 children: [
-                  Icon(Icons.schedule_rounded, size: 16, color: Theme.of(context).colorScheme.primary),
+                  Icon(
+                    Icons.schedule_rounded,
+                    size: 16,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
                   const SizedBox(width: 6),
                   Text(
                     'নির্ধারিত সময়: $timeRange',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
                   ),
                 ],
               ),
@@ -785,7 +900,10 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               onPressed: () => Navigator.pop(ctx),
               child: Text(
                 'এখন না',
-                style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: Colors.grey.shade600,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
             ElevatedButton(
@@ -795,11 +913,16 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.primary,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               child: const Text(
                 'হ্যাঁ, শুরু করুন',
-                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
               ),
             ),
           ],
@@ -810,18 +933,28 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
 
   void _showInAppTaskEndDialog(Task task) {
     SoundPlayer.playPushNotificationSound();
-    final String timeRange = '${task.startTime != null ? DateFormat('h:mm a').format(task.startTime!) : 'N/A'} - ${task.endTime != null ? DateFormat('h:mm a').format(task.endTime!) : 'N/A'}';
+    final String timeRange =
+        '${task.startTime != null ? DateFormat('h:mm a').format(task.startTime!) : 'N/A'} - ${task.endTime != null ? DateFormat('h:mm a').format(task.endTime!) : 'N/A'}';
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (ctx) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           title: Row(
             children: [
-              const Icon(Icons.timer_off_rounded, color: Colors.redAccent, size: 28),
+              const Icon(
+                Icons.timer_off_rounded,
+                color: Colors.redAccent,
+                size: 28,
+              ),
               const SizedBox(width: 8),
-              const Text('টাস্কের সময় শেষ!', style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text(
+                'টাস্কের সময় শেষ!',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
             ],
           ),
           content: Column(
@@ -835,11 +968,19 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               const SizedBox(height: 12),
               Row(
                 children: [
-                  Icon(Icons.schedule_rounded, size: 16, color: Colors.redAccent),
+                  Icon(
+                    Icons.schedule_rounded,
+                    size: 16,
+                    color: Colors.redAccent,
+                  ),
                   const SizedBox(width: 6),
                   Text(
                     'নির্ধারিত সময়: $timeRange',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.redAccent),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: Colors.redAccent,
+                    ),
                   ),
                 ],
               ),
@@ -855,21 +996,35 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               onPressed: () => Navigator.pop(ctx),
               child: Text(
                 'পরে করব',
-                style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: Colors.grey.shade600,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
             ElevatedButton(
               onPressed: () {
                 Navigator.pop(ctx);
-                _updateTaskInFirestore(task.copyWith(status: 'completed', isCompleted: true, completedDurationMinutes: task.totalDurationMinutes));
+                _updateTaskInFirestore(
+                  task.copyWith(
+                    status: 'completed',
+                    isCompleted: true,
+                    completedDurationMinutes: task.totalDurationMinutes,
+                  ),
+                );
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.green,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               child: const Text(
                 'সম্পন্ন (Done)',
-                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
               ),
             ),
           ],
@@ -878,21 +1033,23 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     );
   }
 
-
   Future<void> _checkMissedTasksFromYesterday() async {
     final prefs = await SharedPreferences.getInstance();
     final now = DateTime.now();
     final todayStr = DateFormat('yyyy-MM-dd').format(now);
     final shownKey = 'shown_missed_tasks_v2_$todayStr';
     final snoozeKey = 'snooze_yesterday_missed_$todayStr';
-    
+
     if (prefs.getBool(shownKey) == true) return;
-    
+
     // Check base time (11:10 AM)
     final targetTime = DateTime(now.year, now.month, now.day, 11, 10);
     if (now.isBefore(targetTime)) {
       _missedTasksSnoozeTimer?.cancel();
-      _missedTasksSnoozeTimer = Timer(targetTime.difference(now), _checkMissedTasksFromYesterday);
+      _missedTasksSnoozeTimer = Timer(
+        targetTime.difference(now),
+        _checkMissedTasksFromYesterday,
+      );
       return;
     }
 
@@ -902,16 +1059,19 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       final snoozeTime = DateTime.parse(snoozeTimeStr);
       if (now.isBefore(snoozeTime)) {
         _missedTasksSnoozeTimer?.cancel();
-        _missedTasksSnoozeTimer = Timer(snoozeTime.difference(now), _checkMissedTasksFromYesterday);
+        _missedTasksSnoozeTimer = Timer(
+          snoozeTime.difference(now),
+          _checkMissedTasksFromYesterday,
+        );
         return;
       }
     }
-    
+
     if (user == null) return;
 
     final yesterday = now.subtract(const Duration(days: 1));
     final yesterdayDocId = DateFormat('yyyy-MM-dd').format(yesterday);
-    
+
     try {
       final docSnapshot = await FirebaseFirestore.instance
           .collection('users')
@@ -919,15 +1079,17 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           .collection('dailyRoutines')
           .doc(yesterdayDocId)
           .get();
-          
+
       if (!docSnapshot.exists || docSnapshot.data() == null) return;
-      
+
       final routine = DailyRoutine.fromMap(docSnapshot.data()!, docSnapshot.id);
-      final missedTasks = routine.tasks.where((t) => !t.isCompleted && t.status != 'completed').toList();
-      
+      final missedTasks = routine.tasks
+          .where((t) => !t.isCompleted && t.status != 'completed')
+          .toList();
+
       if (missedTasks.isNotEmpty && mounted) {
         await prefs.setBool(shownKey, true);
-        
+
         Future.delayed(const Duration(seconds: 2), () {
           if (!mounted) return;
           showDialog(
@@ -941,16 +1103,25 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('You have some missed tasks from yesterday:'.tr(), style: const TextStyle(fontWeight: FontWeight.bold)),
+                      Text(
+                        'You have some missed tasks from yesterday:'.tr(),
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
                       const SizedBox(height: 10),
                       Expanded(
                         child: ListView.builder(
                           itemCount: missedTasks.length,
                           itemBuilder: (ctx, i) {
                             return ListTile(
-                              leading: const Icon(Icons.circle, size: 10, color: Colors.red),
+                              leading: const Icon(
+                                Icons.circle,
+                                size: 10,
+                                color: Colors.red,
+                              ),
                               title: Text(missedTasks[i].title),
-                              subtitle: Text('${missedTasks[i].startTime != null ? DateFormat.jm().format(missedTasks[i].startTime!) : "N/A"} - ${missedTasks[i].endTime != null ? DateFormat.jm().format(missedTasks[i].endTime!) : "N/A"}'),
+                              subtitle: Text(
+                                '${missedTasks[i].startTime != null ? DateFormat.jm().format(missedTasks[i].startTime!) : "N/A"} - ${missedTasks[i].endTime != null ? DateFormat.jm().format(missedTasks[i].endTime!) : "N/A"}',
+                              ),
                               contentPadding: EdgeInsets.zero,
                             );
                           },
@@ -968,14 +1139,27 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                         initialTime: TimeOfDay.now(),
                       );
                       if (picked != null) {
-                        final snoozeTime = DateTime(now.year, now.month, now.day, picked.hour, picked.minute);
+                        final snoozeTime = DateTime(
+                          now.year,
+                          now.month,
+                          now.day,
+                          picked.hour,
+                          picked.minute,
+                        );
                         if (snoozeTime.isAfter(DateTime.now())) {
-                          await prefs.setString(snoozeKey, snoozeTime.toIso8601String());
+                          await prefs.setString(
+                            snoozeKey,
+                            snoozeTime.toIso8601String(),
+                          );
                           await prefs.remove(shownKey);
                           _checkMissedTasksFromYesterday();
                           if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('${'Reminder set for'.tr()} ${picked.format(context)}')),
+                              SnackBar(
+                                content: Text(
+                                  '${'Reminder set for'.tr()} ${picked.format(context)}',
+                                ),
+                              ),
                             );
                           }
                         }
@@ -995,7 +1179,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                   ),
                 ],
               );
-            }
+            },
           );
         });
       }
@@ -1011,9 +1195,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     if (lastTimeStr != null) {
       lastTime = DateTime.tryParse(lastTimeStr);
     }
-    
+
     final now = DateTime.now();
-    
+
     // Check if 4 hours have passed since the last popup
     if (lastTime == null || now.difference(lastTime).inHours >= 4) {
       Future.delayed(const Duration(seconds: 3), () {
@@ -1030,13 +1214,20 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   void _showBreathingPopup({bool isFromTimer = false}) async {
     if (!mounted) return;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('last_breathing_time', DateTime.now().toIso8601String());
-    
-    final String title = isFromTimer ? 'Take a Short Break'.tr() : 'Stay Focused'.tr();
+    await prefs.setString(
+      'last_breathing_time',
+      DateTime.now().toIso8601String(),
+    );
+
+    final String title = isFromTimer
+        ? 'Take a Short Break'.tr()
+        : 'Stay Focused'.tr();
     final String content = isFromTimer
-        ? 'You have been working for almost 4 hours. A short breathing exercise will help boost your concentration.'.tr()
-        : 'Let us take a short breathing exercise to improve focus and relieve fatigue!'.tr();
-    
+        ? 'You have been working for almost 4 hours. A short breathing exercise will help boost your concentration.'
+              .tr()
+        : 'Let us take a short breathing exercise to improve focus and relieve fatigue!'
+              .tr();
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -1054,18 +1245,23 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             ElevatedButton(
               onPressed: () {
                 Navigator.of(context).pop();
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const BreathingPlayerScreen(
-                  title: 'Box Breathing',
-                  phases: [4, 4, 4, 4],
-                )));
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const BreathingPlayerScreen(
+                      title: 'Box Breathing',
+                      phases: [4, 4, 4, 4],
+                    ),
+                  ),
+                );
               },
               child: Text('Do Exercise'.tr()),
             ),
           ],
         );
-      }
+      },
     );
-    
+
     _breathingTimer?.cancel();
     _breathingTimer = Timer.periodic(const Duration(hours: 4), (timer) {
       _showBreathingPopup(isFromTimer: true);
@@ -1096,11 +1292,11 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
         .doc(_todayDocId)
         .snapshots()
         .map((snapshot) {
-      if (snapshot.exists && snapshot.data() != null) {
-        return DailyRoutine.fromMap(snapshot.data()!, snapshot.id);
-      }
-      return null;
-    });
+          if (snapshot.exists && snapshot.data() != null) {
+            return DailyRoutine.fromMap(snapshot.data()!, snapshot.id);
+          }
+          return null;
+        });
   }
 
   Stream<DashboardRoutineData> _fetchCombinedRoutine() {
@@ -1125,10 +1321,12 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
         combinedTasks.addAll(tasks);
       });
 
-      controller.add(DashboardRoutineData(
-        localRoutine: localRoutine,
-        partnerTasks: combinedTasks,
-      ));
+      controller.add(
+        DashboardRoutineData(
+          localRoutine: localRoutine,
+          partnerTasks: combinedTasks,
+        ),
+      );
     }
 
     // 1. Listen to local daily routine
@@ -1138,100 +1336,122 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
         .collection('dailyRoutines')
         .doc(_todayDocId)
         .snapshots()
-        .listen((snapshot) {
-      if (snapshot.exists && snapshot.data() != null) {
-        localRoutine = DailyRoutine.fromMap(snapshot.data()!, snapshot.id);
-      } else {
-        localRoutine = null;
-      }
-      emitCombined();
-    }, onError: (err) {
-      debugPrint("Error listening to local routine: $err");
-      if (!controller.isClosed) {
-        controller.addError(err);
-      }
-    });
+        .listen(
+          (snapshot) {
+            if (snapshot.exists && snapshot.data() != null) {
+              localRoutine = DailyRoutine.fromMap(
+                snapshot.data()!,
+                snapshot.id,
+              );
+            } else {
+              localRoutine = null;
+            }
+            emitCombined();
+          },
+          onError: (err) {
+            debugPrint("Error listening to local routine: $err");
+            if (!controller.isClosed) {
+              controller.addError(err);
+            }
+          },
+        );
 
     // 2. Listen to partner rooms user is participant in
     roomsSubscription = FirebaseFirestore.instance
         .collection('partner_rooms')
         .where('participants', arrayContains: user!.uid)
         .snapshots()
-        .listen((roomsSnap) {
-      final Map<String, String> roomCreatorMap = {};
-      final List<String> activeRoomCodes = [];
-      for (final doc in roomsSnap.docs) {
-        final roomCode = doc.id;
-        final data = doc.data();
-        final creatorId = data['creatorId'] ?? '';
-        roomCreatorMap[roomCode] = creatorId;
-        activeRoomCodes.add(roomCode);
-      }
-
-      // Cancel subscriptions for rooms user is no longer in
-      final keysToRemove = <String>[];
-      roomTasksSubscriptions.forEach((roomCode, sub) {
-        if (!activeRoomCodes.contains(roomCode)) {
-          sub.cancel();
-          keysToRemove.add(roomCode);
-        }
-      });
-      for (final key in keysToRemove) {
-        roomTasksSubscriptions.remove(key);
-        partnerRoomTasks.remove(key);
-      }
-
-      // Add subscriptions for new rooms
-      for (final roomCode in activeRoomCodes) {
-        if (!roomTasksSubscriptions.containsKey(roomCode)) {
-          final sub = FirebaseFirestore.instance
-              .collection('partner_rooms')
-              .doc(roomCode)
-              .collection('tasks')
-              .snapshots()
-              .listen((tasksSnap) {
-            final List<Task> tasksList = [];
-            final creatorId = roomCreatorMap[roomCode] ?? '';
-            final isAdmin = creatorId == user!.uid;
-
-            for (final doc in tasksSnap.docs) {
-              final tData = doc.data();
-              final completedUsers = List<String>.from(tData['completedUsers'] ?? []);
-              final oldIsCompleted = tData['isCompleted'] ?? false;
-              final oldCompletedBy = tData['completedBy'];
-              
-              final isCompletedByMe = completedUsers.contains(user!.uid) || 
-                  (oldIsCompleted && oldCompletedBy == user!.uid);
-
-              final baseTask = Task.fromMap(tData, 'partner_${roomCode}_${isAdmin ? 'admin' : 'member'}_${doc.id}');
-              final resolvedStatus = isCompletedByMe 
-                  ? 'completed' 
-                  : (baseTask.status == 'completed' ? 'pending' : baseTask.status);
-              
-              final taskWithoutSuffix = baseTask.copyWith(
-                isCompleted: isCompletedByMe,
-                status: resolvedStatus,
-              );
-              tasksList.add(taskWithoutSuffix);
+        .listen(
+          (roomsSnap) {
+            final Map<String, String> roomCreatorMap = {};
+            final List<String> activeRoomCodes = [];
+            for (final doc in roomsSnap.docs) {
+              final roomCode = doc.id;
+              final data = doc.data();
+              final creatorId = data['creatorId'] ?? '';
+              roomCreatorMap[roomCode] = creatorId;
+              activeRoomCodes.add(roomCode);
             }
-            partnerRoomTasks[roomCode] = tasksList;
+
+            // Cancel subscriptions for rooms user is no longer in
+            final keysToRemove = <String>[];
+            roomTasksSubscriptions.forEach((roomCode, sub) {
+              if (!activeRoomCodes.contains(roomCode)) {
+                sub.cancel();
+                keysToRemove.add(roomCode);
+              }
+            });
+            for (final key in keysToRemove) {
+              roomTasksSubscriptions.remove(key);
+              partnerRoomTasks.remove(key);
+            }
+
+            // Add subscriptions for new rooms
+            for (final roomCode in activeRoomCodes) {
+              if (!roomTasksSubscriptions.containsKey(roomCode)) {
+                final sub = FirebaseFirestore.instance
+                    .collection('partner_rooms')
+                    .doc(roomCode)
+                    .collection('tasks')
+                    .snapshots()
+                    .listen(
+                      (tasksSnap) {
+                        final List<Task> tasksList = [];
+                        final creatorId = roomCreatorMap[roomCode] ?? '';
+                        final isAdmin = creatorId == user!.uid;
+
+                        for (final doc in tasksSnap.docs) {
+                          final tData = doc.data();
+                          final completedUsers = List<String>.from(
+                            tData['completedUsers'] ?? [],
+                          );
+                          final oldIsCompleted = tData['isCompleted'] ?? false;
+                          final oldCompletedBy = tData['completedBy'];
+
+                          final isCompletedByMe =
+                              completedUsers.contains(user!.uid) ||
+                              (oldIsCompleted && oldCompletedBy == user!.uid);
+
+                          final baseTask = Task.fromMap(
+                            tData,
+                            'partner_${roomCode}_${isAdmin ? 'admin' : 'member'}_${doc.id}',
+                          );
+                          final resolvedStatus = isCompletedByMe
+                              ? 'completed'
+                              : (baseTask.status == 'completed'
+                                    ? 'pending'
+                                    : baseTask.status);
+
+                          final taskWithoutSuffix = baseTask.copyWith(
+                            isCompleted: isCompletedByMe,
+                            status: resolvedStatus,
+                          );
+                          tasksList.add(taskWithoutSuffix);
+                        }
+                        partnerRoomTasks[roomCode] = tasksList;
+                        emitCombined();
+                      },
+                      onError: (err) {
+                        debugPrint(
+                          "Error listening to partner room $roomCode tasks: $err",
+                        );
+                        if (!controller.isClosed) {
+                          controller.addError(err);
+                        }
+                      },
+                    );
+                roomTasksSubscriptions[roomCode] = sub;
+              }
+            }
             emitCombined();
-          }, onError: (err) {
-            debugPrint("Error listening to partner room $roomCode tasks: $err");
+          },
+          onError: (err) {
+            debugPrint("Error listening to partner rooms list: $err");
             if (!controller.isClosed) {
               controller.addError(err);
             }
-          });
-          roomTasksSubscriptions[roomCode] = sub;
-        }
-      }
-      emitCombined();
-    }, onError: (err) {
-      debugPrint("Error listening to partner rooms list: $err");
-      if (!controller.isClosed) {
-        controller.addError(err);
-      }
-    });
+          },
+        );
 
     controller.onCancel = () {
       localSubscription?.cancel();
@@ -1263,7 +1483,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     final snapshot = await docRef.get();
     if (snapshot.exists) {
       await docRef.update({
-        'tasks': FieldValue.arrayUnion([newTask.toMap()])
+        'tasks': FieldValue.arrayUnion([newTask.toMap()]),
       });
     } else {
       final newRoutine = DailyRoutine(
@@ -1286,7 +1506,10 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       taskDate: DateTime.now(),
     );
 
-    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Task Added Successfully!'.tr())));
+    if (mounted)
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Task Added Successfully!'.tr())));
   }
 
   Future<void> _addTasksToFirestore(List<Task> newTasks) async {
@@ -1310,10 +1533,15 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     final snapshot = await docRef.get();
     if (snapshot.exists) {
       await docRef.update({
-        'tasks': FieldValue.arrayUnion(newTasks.map((t) => t.toMap()).toList())
+        'tasks': FieldValue.arrayUnion(newTasks.map((t) => t.toMap()).toList()),
       });
     } else {
-      final newRoutine = DailyRoutine(id: _todayDocId, userId: user!.uid, date: DateTime.now(), tasks: newTasks);
+      final newRoutine = DailyRoutine(
+        id: _todayDocId,
+        userId: user!.uid,
+        date: DateTime.now(),
+        tasks: newTasks,
+      );
       await docRef.set(newRoutine.toMap());
     }
 
@@ -1329,7 +1557,10 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       );
     }
 
-    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('AI Routine Added Successfully!'.tr())));
+    if (mounted)
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('AI Routine Added Successfully!'.tr())),
+      );
   }
 
   Future<void> _updateTaskInFirestore(Task updatedTask) async {
@@ -1340,30 +1571,35 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       if (parts.length >= 4) {
         final roomCode = parts[1];
         final docId = parts.sublist(3).join('_');
-        
+
         final docRef = FirebaseFirestore.instance
             .collection('partner_rooms')
             .doc(roomCode)
             .collection('tasks')
             .doc(docId);
-            
+
         final docSnap = await docRef.get();
         if (docSnap.exists) {
           final data = docSnap.data() as Map<String, dynamic>;
-          List<String> completedUsers = List<String>.from(data['completedUsers'] ?? []);
-          
+          List<String> completedUsers = List<String>.from(
+            data['completedUsers'] ?? [],
+          );
+
           final Map<String, dynamic> updateData = updatedTask.toMap();
           updateData['id'] = docId;
-          
+
           String cleanTitle = updatedTask.title;
           final suffix = ' (${'P Task'.tr()})';
           if (cleanTitle.endsWith(suffix)) {
-            cleanTitle = cleanTitle.substring(0, cleanTitle.length - suffix.length);
+            cleanTitle = cleanTitle.substring(
+              0,
+              cleanTitle.length - suffix.length,
+            );
           }
           updateData['title'] = cleanTitle;
-          
+
           updateData['completedUsers'] = completedUsers;
-          
+
           if (updatedTask.isCompleted || updatedTask.status == 'completed') {
             if (!completedUsers.contains(user!.uid)) {
               completedUsers.add(user!.uid);
@@ -1371,17 +1607,27 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             updateData['completedUsers'] = completedUsers;
             updateData['isCompleted'] = false;
             updateData['status'] = 'completed';
-            await _addPartnerTaskToLocalHistory(user!.uid, updatedTask, isCompleted: true);
+            await _addPartnerTaskToLocalHistory(
+              user!.uid,
+              updatedTask,
+              isCompleted: true,
+            );
           } else {
             if (completedUsers.contains(user!.uid)) {
               completedUsers.remove(user!.uid);
             }
             updateData['completedUsers'] = completedUsers;
             updateData['isCompleted'] = false;
-            updateData['status'] = updatedTask.status == 'completed' ? 'pending' : updatedTask.status;
-            await _addPartnerTaskToLocalHistory(user!.uid, updatedTask, isCompleted: false);
+            updateData['status'] = updatedTask.status == 'completed'
+                ? 'pending'
+                : updatedTask.status;
+            await _addPartnerTaskToLocalHistory(
+              user!.uid,
+              updatedTask,
+              isCompleted: false,
+            );
           }
-          
+
           await docRef.update(updateData);
         }
       }
@@ -1406,18 +1652,27 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     final String cleanOldId = updatedTask.id.replaceFirst('resumed_', '');
 
     if (todaySnapshot.exists) {
-      DailyRoutine routine = DailyRoutine.fromMap(todaySnapshot.data()!, todaySnapshot.id);
-      int index = routine.tasks.indexWhere((t) => t.id == updatedTask.id || t.id == cleanOldId);
+      DailyRoutine routine = DailyRoutine.fromMap(
+        todaySnapshot.data()!,
+        todaySnapshot.id,
+      );
+      int index = routine.tasks.indexWhere(
+        (t) => t.id == updatedTask.id || t.id == cleanOldId,
+      );
       if (index != -1) {
         if (todayDocId == newDocId) {
           // Same day update in today's document
           routine.tasks[index] = updatedTask;
-          await todayDocRef.update({'tasks': routine.tasks.map((t) => t.toMap()).toList()});
+          await todayDocRef.update({
+            'tasks': routine.tasks.map((t) => t.toMap()).toList(),
+          });
         } else {
           // Moved from today to another day (e.g. tomorrow)
           routine.tasks.removeAt(index);
-          await todayDocRef.update({'tasks': routine.tasks.map((t) => t.toMap()).toList()});
-          
+          await todayDocRef.update({
+            'tasks': routine.tasks.map((t) => t.toMap()).toList(),
+          });
+
           // Add to new day
           final newDocRef = FirebaseFirestore.instance
               .collection('users')
@@ -1426,10 +1681,17 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               .doc(newDocId);
           final newSnapshot = await newDocRef.get();
           if (newSnapshot.exists) {
-            DailyRoutine newRoutine = DailyRoutine.fromMap(newSnapshot.data()!, newSnapshot.id);
-            newRoutine.tasks.removeWhere((t) => t.id == updatedTask.id || t.id == cleanOldId);
+            DailyRoutine newRoutine = DailyRoutine.fromMap(
+              newSnapshot.data()!,
+              newSnapshot.id,
+            );
+            newRoutine.tasks.removeWhere(
+              (t) => t.id == updatedTask.id || t.id == cleanOldId,
+            );
             newRoutine.tasks.add(updatedTask);
-            await newDocRef.update({'tasks': newRoutine.tasks.map((t) => t.toMap()).toList()});
+            await newDocRef.update({
+              'tasks': newRoutine.tasks.map((t) => t.toMap()).toList(),
+            });
           } else {
             final newRoutine = DailyRoutine(
               id: newDocId,
@@ -1448,7 +1710,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       // It's not in today's routine. Check yesterday's routine!
       final yesterday = DateTime.now().subtract(const Duration(days: 1));
       final yesterdayDocId = DateFormat('yyyy-MM-dd').format(yesterday);
-      
+
       final yesterdayDocRef = FirebaseFirestore.instance
           .collection('users')
           .doc(user!.uid)
@@ -1457,18 +1719,27 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
 
       final yesterdaySnapshot = await yesterdayDocRef.get();
       if (yesterdaySnapshot.exists) {
-        DailyRoutine routine = DailyRoutine.fromMap(yesterdaySnapshot.data()!, yesterdaySnapshot.id);
-        int index = routine.tasks.indexWhere((t) => t.id == updatedTask.id || t.id == cleanOldId);
+        DailyRoutine routine = DailyRoutine.fromMap(
+          yesterdaySnapshot.data()!,
+          yesterdaySnapshot.id,
+        );
+        int index = routine.tasks.indexWhere(
+          (t) => t.id == updatedTask.id || t.id == cleanOldId,
+        );
         if (index != -1) {
           if (yesterdayDocId == newDocId) {
             // Same day update in yesterday's document
             routine.tasks[index] = updatedTask;
-            await yesterdayDocRef.update({'tasks': routine.tasks.map((t) => t.toMap()).toList()});
+            await yesterdayDocRef.update({
+              'tasks': routine.tasks.map((t) => t.toMap()).toList(),
+            });
           } else {
             // Moved from yesterday to today/tomorrow
             routine.tasks.removeAt(index);
-            await yesterdayDocRef.update({'tasks': routine.tasks.map((t) => t.toMap()).toList()});
-            
+            await yesterdayDocRef.update({
+              'tasks': routine.tasks.map((t) => t.toMap()).toList(),
+            });
+
             // Add to new day
             final newDocRef = FirebaseFirestore.instance
                 .collection('users')
@@ -1477,10 +1748,17 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 .doc(newDocId);
             final newSnapshot = await newDocRef.get();
             if (newSnapshot.exists) {
-              DailyRoutine newRoutine = DailyRoutine.fromMap(newSnapshot.data()!, newSnapshot.id);
-              newRoutine.tasks.removeWhere((t) => t.id == updatedTask.id || t.id == cleanOldId);
+              DailyRoutine newRoutine = DailyRoutine.fromMap(
+                newSnapshot.data()!,
+                newSnapshot.id,
+              );
+              newRoutine.tasks.removeWhere(
+                (t) => t.id == updatedTask.id || t.id == cleanOldId,
+              );
               newRoutine.tasks.add(updatedTask);
-              await newDocRef.update({'tasks': newRoutine.tasks.map((t) => t.toMap()).toList()});
+              await newDocRef.update({
+                'tasks': newRoutine.tasks.map((t) => t.toMap()).toList(),
+              });
             } else {
               final newRoutine = DailyRoutine(
                 id: newDocId,
@@ -1496,7 +1774,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     }
 
     // Schedule/cancel notifications
-    if (updatedTask.alarmEnabled && updatedTask.status != 'completed' && !updatedTask.isCompleted) {
+    if (updatedTask.alarmEnabled &&
+        updatedTask.status != 'completed' &&
+        !updatedTask.isCompleted) {
       await LocalNotificationService.scheduleTaskNotifications(updatedTask);
     } else {
       await LocalNotificationService.cancelTaskNotifications(updatedTask.id);
@@ -1507,7 +1787,11 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     }
   }
 
-  Future<void> _addPartnerTaskToLocalHistory(String userId, Task task, {required bool isCompleted}) async {
+  Future<void> _addPartnerTaskToLocalHistory(
+    String userId,
+    Task task, {
+    required bool isCompleted,
+  }) async {
     final docRef = FirebaseFirestore.instance
         .collection('users')
         .doc(userId)
@@ -1520,7 +1804,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       cleanTitle = cleanTitle.substring(0, cleanTitle.length - suffix.length);
     }
     final historyTitle = '$cleanTitle$suffix';
-    
+
     final localTask = task.copyWith(
       title: historyTitle,
       subject: task.subject != null ? '${task.subject}$suffix' : null,
@@ -1537,7 +1821,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       } else {
         routine.tasks.add(localTask);
       }
-      await docRef.update({'tasks': routine.tasks.map((t) => t.toMap()).toList()});
+      await docRef.update({
+        'tasks': routine.tasks.map((t) => t.toMap()).toList(),
+      });
     } else {
       final newRoutine = DailyRoutine(
         id: _todayDocId,
@@ -1555,7 +1841,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       builder: (context) {
         return DraggableScrollableSheet(
           expand: false,
@@ -1572,9 +1860,10 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      "All Missed Tasks".tr(), 
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.bold, 
+                      "All Missed Tasks".tr(),
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(
+                            fontWeight: FontWeight.bold,
                             color: Theme.of(context).colorScheme.error,
                           ),
                     ),
@@ -1607,7 +1896,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       canPop: false,
       onPopInvoked: (didPop) async {
         if (didPop) return;
-        
+
         final shouldExit = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
@@ -1621,12 +1910,15 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               ElevatedButton(
                 onPressed: () => Navigator.of(context).pop(true),
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                child: Text('Yes'.tr(), style: const TextStyle(color: Colors.white)),
+                child: Text(
+                  'Yes'.tr(),
+                  style: const TextStyle(color: Colors.white),
+                ),
               ),
             ],
           ),
         );
-        
+
         if (shouldExit == true) {
           SystemNavigator.pop();
         }
@@ -1637,73 +1929,96 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             ? AppBar(
                 backgroundColor: Theme.of(context).colorScheme.surface,
                 elevation: 0,
-                scrolledUnderElevation: 0, // স্ক্রল করার সময় ডিফল্ট শ্যাডো অফ রাখার জন্য
+                scrolledUnderElevation:
+                    0, // স্ক্রল করার সময় ডিফল্ট শ্যাডো অফ রাখার জন্য
                 centerTitle: true,
                 title: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.school_rounded, color: Theme.of(context).colorScheme.primary, size: 28),
+                    Icon(
+                      Icons.school_rounded,
+                      color: Theme.of(context).colorScheme.primary,
+                      size: 28,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       'StudyMate',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.w800,
-                            color: Theme.of(context).colorScheme.primary,
-                            letterSpacing: 0.5,
-                          ),
+                        fontWeight: FontWeight.w800,
+                        color: Theme.of(context).colorScheme.primary,
+                        letterSpacing: 0.5,
+                      ),
                     ),
                   ],
                 ),
               )
             : null,
         body: _buildBodyContent(),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _bottomNavIndex,
-        onDestinationSelected: (index) {
-          setState(() {
-            _bottomNavIndex = index;
-          });
-        },
-        destinations: [
-          NavigationDestination(icon: const Icon(Icons.home_rounded), label: 'Home'.tr()),
-          NavigationDestination(icon: const Icon(Icons.build_circle_outlined), selectedIcon: const Icon(Icons.build_circle_rounded), label: 'Tools'.tr()),
-          NavigationDestination(icon: const Icon(Icons.person_outline), selectedIcon: const Icon(Icons.person_rounded), label: 'Profile'.tr()),
-        ],
-      ),
-      floatingActionButton: _bottomNavIndex == 0
-          ? FloatingActionButton.extended(
-              onPressed: () {
-                showModalBottomSheet(
-                  context: context,
-                  isScrollControlled: true, // কিবোর্ড উঠলে ফর্ম স্ক্রল করার জন্য
-                  useSafeArea: true,
-                  shape: const RoundedRectangleBorder(
-                    borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-                  ),
-                  builder: (context) => AddTaskBottomSheet(
-                    title: 'Add New Task'.tr(),
-                    submitButtonText: 'Save'.tr(),
-                    onTaskAdded: (newTask) {
-                      _addTaskToFirestore(newTask);
-                    },
-                  ),
-                );
-              },
-              label: Text(
-                'New Task'.tr(),
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onPrimary,
-                      fontWeight: FontWeight.bold,
+        bottomNavigationBar: NavigationBar(
+          selectedIndex: _bottomNavIndex,
+          onDestinationSelected: (index) {
+            setState(() {
+              _bottomNavIndex = index;
+            });
+          },
+          destinations: [
+            NavigationDestination(
+              icon: const Icon(Icons.home_rounded),
+              label: 'Home'.tr(),
+            ),
+            NavigationDestination(
+              icon: const Icon(Icons.build_circle_outlined),
+              selectedIcon: const Icon(Icons.build_circle_rounded),
+              label: 'Tools'.tr(),
+            ),
+            NavigationDestination(
+              icon: const Icon(Icons.person_outline),
+              selectedIcon: const Icon(Icons.person_rounded),
+              label: 'Profile'.tr(),
+            ),
+          ],
+        ),
+        floatingActionButton: _bottomNavIndex == 0
+            ? FloatingActionButton.extended(
+                onPressed: () {
+                  showModalBottomSheet(
+                    context: context,
+                    isScrollControlled:
+                        true, // কিবোর্ড উঠলে ফর্ম স্ক্রল করার জন্য
+                    useSafeArea: true,
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(24),
+                      ),
                     ),
-              ),
-              icon: Icon(Icons.add, color: Theme.of(context).colorScheme.onPrimary),
-              backgroundColor: Theme.of(context).colorScheme.primary,
-              foregroundColor: Theme.of(context).colorScheme.onPrimary,
-              elevation: 8,
-            )
-          : null,
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-    ));
+                    builder: (context) => AddTaskBottomSheet(
+                      title: 'Add New Task'.tr(),
+                      submitButtonText: 'Save'.tr(),
+                      onTaskAdded: (newTask) {
+                        _addTaskToFirestore(newTask);
+                      },
+                    ),
+                  );
+                },
+                label: Text(
+                  'New Task'.tr(),
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onPrimary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                icon: Icon(
+                  Icons.add,
+                  color: Theme.of(context).colorScheme.onPrimary,
+                ),
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                elevation: 8,
+              )
+            : null,
+        floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      ),
+    );
   }
 
   Widget _buildBodyContent() {
@@ -1718,9 +2033,13 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     List<Task> missedTasks = [];
     List<Task> otherTasks = [];
     List<Task> oldHistoryTasks = [];
-    final activePartnerTasks = _partnerTasks.where((t) => t.status != 'completed' && !t.isCompleted).toList();
+    final activePartnerTasks = _partnerTasks
+        .where((t) => t.status != 'completed' && !t.isCompleted)
+        .toList();
 
-    if (!_isLoadingRoutine && _currentRoutine != null && _currentRoutine!.tasks.isNotEmpty) {
+    if (!_isLoadingRoutine &&
+        _currentRoutine != null &&
+        _currentRoutine!.tasks.isNotEmpty) {
       if (!_hasDailyTasksForToday) {
         for (var t in _currentRoutine!.tasks) {
           if (t.status == 'completed') continue;
@@ -1743,9 +2062,21 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           }
         }
 
-        activeTasks.sort((a, b) => (a.startTime ?? DateTime.now()).compareTo(b.startTime ?? DateTime.now()));
-        missedTasks.sort((a, b) => (a.startTime ?? DateTime.now()).compareTo(b.startTime ?? DateTime.now()));
-        oldHistoryTasks.sort((a, b) => (a.startTime ?? DateTime.now()).compareTo(b.startTime ?? DateTime.now()));
+        activeTasks.sort(
+          (a, b) => (a.startTime ?? DateTime.now()).compareTo(
+            b.startTime ?? DateTime.now(),
+          ),
+        );
+        missedTasks.sort(
+          (a, b) => (a.startTime ?? DateTime.now()).compareTo(
+            b.startTime ?? DateTime.now(),
+          ),
+        );
+        oldHistoryTasks.sort(
+          (a, b) => (a.startTime ?? DateTime.now()).compareTo(
+            b.startTime ?? DateTime.now(),
+          ),
+        );
       }
     }
 
@@ -1778,7 +2109,8 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                   children: [
                     Text(
                       user?.displayName ?? "User",
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(
                             fontWeight: FontWeight.w700,
                             color: Theme.of(context).colorScheme.onSurface,
                           ),
@@ -1787,22 +2119,34 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                       children: [
                         Text(
                           'Welcome back!'.tr(),
-                          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
                               ),
                         ),
                         if (_currentStreak > 0) ...[
                           const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: Colors.orange.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+                              border: Border.all(
+                                color: Colors.orange.withValues(alpha: 0.3),
+                              ),
                             ),
                             child: Row(
                               children: [
-                                const Icon(Icons.local_fire_department_rounded, color: Colors.orange, size: 14),
+                                const Icon(
+                                  Icons.local_fire_department_rounded,
+                                  color: Colors.orange,
+                                  size: 14,
+                                ),
                                 const SizedBox(width: 2),
                                 Text(
                                   '$_currentStreak ${'Day Streak'.tr()}',
@@ -1850,8 +2194,11 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                         children: [
                           Text(
                             LanguageManager.formatDate(DateTime.now()),
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  color: Theme.of(context).colorScheme.onSurface,
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface,
                                   fontWeight: FontWeight.bold,
                                 ),
                           ),
@@ -1859,8 +2206,11 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                           Row(
                             children: [
                               Text(
-                                BengaliDateHelper.getBengaliDate(DateTime.now()),
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                BengaliDateHelper.getBengaliDate(
+                                  DateTime.now(),
+                                ),
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(
                                       color: Colors.orange.shade700,
                                       fontWeight: FontWeight.w600,
                                     ),
@@ -1868,14 +2218,18 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                               const SizedBox(width: 8),
                               Text(
                                 '•',
-                                style: TextStyle(color: Colors.grey.shade500, fontSize: 10),
+                                style: TextStyle(
+                                  color: Colors.grey.shade500,
+                                  fontSize: 10,
+                                ),
                               ),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
                                   IslamicService.getHijriDateBn(DateTime.now()),
                                   overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(
                                         color: Colors.teal.shade700,
                                         fontWeight: FontWeight.w600,
                                       ),
@@ -1889,7 +2243,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                     Icon(
                       Icons.arrow_forward_ios_rounded,
                       size: 14,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
                     ),
                   ],
                 ),
@@ -1901,7 +2257,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             _buildWeeklyTasksAlertCard(),
             _buildDailyTasksAlertCard(),
             const SizedBox(height: 30),
-            
+
             if (_isLoadingRoutine)
               const Center(child: CircularProgressIndicator())
             else
@@ -1911,9 +2267,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                   Text(
                     "Today's Tasks".tr(),
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.onSurface,
-                        ),
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
                   ),
                   const SizedBox(height: 10),
                   if (activeTasks.isNotEmpty) ...[
@@ -1921,24 +2277,26 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       itemCount: activeTasks.length,
-                        itemBuilder: (context, index) {
-                          return ActiveTaskCard(
-                            task: activeTasks[index], 
-                            onUpdate: _updateTaskInFirestore,
-                            showCheckbox: false,
-                          );
-                        },
+                      itemBuilder: (context, index) {
+                        return ActiveTaskCard(
+                          task: activeTasks[index],
+                          onUpdate: _updateTaskInFirestore,
+                          showCheckbox: false,
+                        );
+                      },
                     ),
                     const SizedBox(height: 20),
                   ],
-                  if (activeTasks.isEmpty && missedTasks.isEmpty && otherTasks.isEmpty) ...[
+                  if (activeTasks.isEmpty &&
+                      missedTasks.isEmpty &&
+                      otherTasks.isEmpty) ...[
                     Padding(
                       padding: const EdgeInsets.only(bottom: 20.0, top: 4.0),
                       child: Text(
                         "No tasks listed for today.".tr(),
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
-                            ),
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                       ),
                     ),
                   ],
@@ -1949,14 +2307,18 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                       children: [
                         Text(
                           "Missed Tasks".tr(),
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(
                                 fontWeight: FontWeight.bold,
                                 color: Theme.of(context).colorScheme.error,
                               ),
                         ),
                         TextButton(
                           onPressed: () => _showAllMissedTasks(missedTasks),
-                          child: Text("See all".tr(), style: const TextStyle(fontWeight: FontWeight.bold)),
+                          child: Text(
+                            "See all".tr(),
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
                         ),
                       ],
                     ),
@@ -1965,13 +2327,13 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       itemCount: missedTasks.take(4).length,
-                        itemBuilder: (context, index) {
-                          return ActiveTaskCard(
-                            task: missedTasks[index], 
-                            onUpdate: _updateTaskInFirestore,
-                            showCheckbox: false,
-                          );
-                        },
+                      itemBuilder: (context, index) {
+                        return ActiveTaskCard(
+                          task: missedTasks[index],
+                          onUpdate: _updateTaskInFirestore,
+                          showCheckbox: false,
+                        );
+                      },
                     ),
                     const SizedBox(height: 20),
                   ],
@@ -1980,9 +2342,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                     Text(
                       "Old History Tasks".tr(),
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.purple.shade700,
-                          ),
+                        fontWeight: FontWeight.bold,
+                        color: Colors.purple.shade700,
+                      ),
                     ),
                     const SizedBox(height: 10),
                     ListView.builder(
@@ -1991,7 +2353,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                       itemCount: oldHistoryTasks.length,
                       itemBuilder: (context, index) {
                         return ActiveTaskCard(
-                          task: oldHistoryTasks[index], 
+                          task: oldHistoryTasks[index],
                           onUpdate: _updateTaskInFirestore,
                           showCheckbox: true,
                         );
@@ -2004,22 +2366,22 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                     Text(
                       "Other Tasks".tr(),
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: Theme.of(context).colorScheme.onSurface,
-                          ),
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
                     ),
                     const SizedBox(height: 10),
                     ListView.builder(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       itemCount: otherTasks.length,
-                        itemBuilder: (context, index) {
-                          return ActiveTaskCard(
-                            task: otherTasks[index], 
-                            onUpdate: _updateTaskInFirestore,
-                            showCheckbox: false,
-                          );
-                        },
+                      itemBuilder: (context, index) {
+                        return ActiveTaskCard(
+                          task: otherTasks[index],
+                          onUpdate: _updateTaskInFirestore,
+                          showCheckbox: false,
+                        );
+                      },
                     ),
                   ],
                   // Partner Tasks Section
@@ -2028,9 +2390,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                     Text(
                       "Partner Tasks".tr(),
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
                     ),
                     const SizedBox(height: 10),
                     ListView.builder(
@@ -2039,7 +2401,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                       itemCount: activePartnerTasks.length,
                       itemBuilder: (context, index) {
                         return ActiveTaskCard(
-                          task: activePartnerTasks[index], 
+                          task: activePartnerTasks[index],
                           onUpdate: _updateTaskInFirestore,
                           showCheckbox: true,
                         );
@@ -2057,7 +2419,11 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   Widget _buildNotificationIcon(BuildContext context) {
     if (user == null) {
       return IconButton(
-        icon: Icon(Icons.notifications_outlined, color: Theme.of(context).colorScheme.onSurface, size: 30),
+        icon: Icon(
+          Icons.notifications_outlined,
+          color: Theme.of(context).colorScheme.onSurface,
+          size: 30,
+        ),
         onPressed: () {},
       );
     }
@@ -2076,7 +2442,8 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           for (var doc in snapshot.data!.docs) {
             final data = doc.data() as Map<String, dynamic>;
             // Only count if it's not a future scheduled notification
-            final Timestamp? scheduledTime = data['scheduledTime'] as Timestamp?;
+            final Timestamp? scheduledTime =
+                data['scheduledTime'] as Timestamp?;
             if (scheduledTime == null || !scheduledTime.toDate().isAfter(now)) {
               totalUnread++;
             }
@@ -2086,11 +2453,17 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
         return Stack(
           children: [
             IconButton(
-              icon: Icon(Icons.notifications_outlined, color: Theme.of(context).colorScheme.onSurface, size: 30),
+              icon: Icon(
+                Icons.notifications_outlined,
+                color: Theme.of(context).colorScheme.onSurface,
+                size: 30,
+              ),
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const NotificationsHubScreen()),
+                  MaterialPageRoute(
+                    builder: (_) => const NotificationsHubScreen(),
+                  ),
                 );
               },
             ),
@@ -2123,7 +2496,11 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   Widget _buildMessageIcon(BuildContext context) {
     if (user == null) {
       return IconButton(
-        icon: Icon(Icons.message_outlined, color: Theme.of(context).colorScheme.onSurface, size: 30),
+        icon: Icon(
+          Icons.message_outlined,
+          color: Theme.of(context).colorScheme.onSurface,
+          size: 30,
+        ),
         onPressed: () {},
       );
     }
@@ -2146,7 +2523,8 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             if (chatsSnap.hasData) {
               for (var doc in chatsSnap.data!.docs) {
                 final data = doc.data() as Map<String, dynamic>;
-                final Map<String, dynamic> unreadMap = data['unreadCount'] ?? {};
+                final Map<String, dynamic> unreadMap =
+                    data['unreadCount'] ?? {};
                 unreadMessages += (unreadMap[user!.uid] as num? ?? 0).toInt();
               }
             }
@@ -2161,7 +2539,11 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             return Stack(
               children: [
                 IconButton(
-                  icon: Icon(Icons.message_outlined, color: Theme.of(context).colorScheme.onSurface, size: 30),
+                  icon: Icon(
+                    Icons.message_outlined,
+                    color: Theme.of(context).colorScheme.onSurface,
+                    size: 30,
+                  ),
                   onPressed: () {
                     if (unreadMessages > 0 && pendingRequests > 0) {
                       // Both are available, show choice dialog
@@ -2176,22 +2558,34 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                                 Navigator.pop(ctx);
                                 Navigator.push(
                                   context,
-                                  MaterialPageRoute(builder: (_) => const SocialHubScreen(initialTabIndex: 0)),
+                                  MaterialPageRoute(
+                                    builder: (_) => const SocialHubScreen(
+                                      initialTabIndex: 0,
+                                    ),
+                                  ),
                                 );
                               },
                               icon: const Icon(Icons.chat_rounded),
-                              label: Text('${'Messages'.tr()} ($unreadMessages)'),
+                              label: Text(
+                                '${'Messages'.tr()} ($unreadMessages)',
+                              ),
                             ),
                             TextButton.icon(
                               onPressed: () {
                                 Navigator.pop(ctx);
                                 Navigator.push(
                                   context,
-                                  MaterialPageRoute(builder: (_) => const SocialHubScreen(initialTabIndex: 3)),
+                                  MaterialPageRoute(
+                                    builder: (_) => const SocialHubScreen(
+                                      initialTabIndex: 3,
+                                    ),
+                                  ),
                                 );
                               },
                               icon: const Icon(Icons.people_rounded),
-                              label: Text('${'Friend Requests'.tr()} ($pendingRequests)'),
+                              label: Text(
+                                '${'Friend Requests'.tr()} ($pendingRequests)',
+                              ),
                             ),
                           ],
                         ),
@@ -2200,13 +2594,19 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                       // Navigate to My Friends (tab 3)
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const SocialHubScreen(initialTabIndex: 3)),
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              const SocialHubScreen(initialTabIndex: 3),
+                        ),
                       );
                     } else {
                       // Default to Chats (tab 0)
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const SocialHubScreen(initialTabIndex: 0)),
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              const SocialHubScreen(initialTabIndex: 0),
+                        ),
                       );
                     }
                   },
@@ -2221,10 +2621,17 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                         color: Colors.red,
                         shape: BoxShape.circle,
                       ),
-                      constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                      constraints: const BoxConstraints(
+                        minWidth: 16,
+                        minHeight: 16,
+                      ),
                       child: Text(
                         '$totalNotifications',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
                         textAlign: TextAlign.center,
                       ),
                     ),
@@ -2253,7 +2660,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
-            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
+            color: Theme.of(
+              context,
+            ).colorScheme.primary.withValues(alpha: 0.15),
             width: 1.5,
           ),
         ),
@@ -2263,7 +2672,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                color: Theme.of(
+                  context,
+                ).colorScheme.primary.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -2276,18 +2687,19 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             Text(
               "No tasks set for today".tr(),
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.onSurface,
-                  ),
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             Text(
-              "Tap the 'New Task' button at the bottom of the screen to plan your study routine and stay productive!".tr(),
+              "Tap the 'New Task' button at the bottom of the screen to plan your study routine and stay productive!"
+                  .tr(),
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    height: 1.4,
-                  ),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                height: 1.4,
+              ),
               textAlign: TextAlign.center,
             ),
           ],
@@ -2311,14 +2723,19 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       child: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [Theme.of(context).colorScheme.primary, const Color(0xFF3B82F6)],
+            colors: [
+              Theme.of(context).colorScheme.primary,
+              const Color(0xFF3B82F6),
+            ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
-              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
+              color: Theme.of(
+                context,
+              ).colorScheme.primary.withValues(alpha: 0.3),
               blurRadius: 20,
               offset: const Offset(0, 8),
             ),
@@ -2335,16 +2752,16 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                   Text(
                     "Today's Progress".tr(),
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                        ),
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
                   ),
                   Text(
                     '$progressPercentage%',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                        ),
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                    ),
                   ),
                 ],
               ),
@@ -2444,7 +2861,7 @@ class AddTaskBottomSheet extends StatefulWidget {
   final String submitButtonText;
 
   const AddTaskBottomSheet({
-    super.key, 
+    super.key,
     required this.onTaskAdded,
     this.title = 'টাস্ক যুক্ত করুন (Add Task)',
     this.submitButtonText = 'Save',
@@ -2474,7 +2891,9 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
   Future<void> _pickTime(bool isStart) async {
     final TimeOfDay? picked = await showTimePicker(
       context: context,
-      initialTime: isStart ? (_startTime ?? TimeOfDay.now()) : (_endTime ?? TimeOfDay.now()),
+      initialTime: isStart
+          ? (_startTime ?? TimeOfDay.now())
+          : (_endTime ?? TimeOfDay.now()),
     );
     if (picked != null) {
       setState(() {
@@ -2494,8 +2913,20 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
         return;
       }
       final now = DateTime.now();
-      final start = DateTime(now.year, now.month, now.day, _startTime!.hour, _startTime!.minute);
-      var end = DateTime(now.year, now.month, now.day, _endTime!.hour, _endTime!.minute);
+      final start = DateTime(
+        now.year,
+        now.month,
+        now.day,
+        _startTime!.hour,
+        _startTime!.minute,
+      );
+      var end = DateTime(
+        now.year,
+        now.month,
+        now.day,
+        _endTime!.hour,
+        _endTime!.minute,
+      );
 
       if (end.isBefore(start)) {
         end = end.add(const Duration(days: 1));
@@ -2532,8 +2963,6 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
     }
   }
 
-
-
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
@@ -2544,7 +2973,12 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
         color: colorScheme.surface,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      padding: EdgeInsets.only(left: 24.0, right: 24.0, top: 24.0, bottom: bottomInset + 24.0),
+      padding: EdgeInsets.only(
+        left: 24.0,
+        right: 24.0,
+        top: 24.0,
+        bottom: bottomInset + 24.0,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2585,8 +3019,6 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
   }
 }
 
-
-
 class EditTaskBottomSheet extends StatefulWidget {
   final Task task;
   final Function(Task) onTaskUpdated;
@@ -2624,9 +3056,13 @@ class _EditTaskBottomSheetState extends State<EditTaskBottomSheet> {
   @override
   void initState() {
     super.initState();
-    _subjectController = TextEditingController(text: widget.task.subject ?? widget.task.title);
+    _subjectController = TextEditingController(
+      text: widget.task.subject ?? widget.task.title,
+    );
     _topicController = TextEditingController(text: widget.task.topic ?? '');
-    _challengesController = TextEditingController(text: widget.task.challenges ?? '');
+    _challengesController = TextEditingController(
+      text: widget.task.challenges ?? '',
+    );
     _notesController = TextEditingController(text: widget.task.notes ?? '');
     _reasonController = TextEditingController();
 
@@ -2655,7 +3091,7 @@ class _EditTaskBottomSheetState extends State<EditTaskBottomSheet> {
         setState(() {
           _customFolders.addAll(folders);
           final folderNames = folders.map((f) => f['name'] as String).toList();
-          
+
           // Map initial category if it's a folder
           if (folderNames.contains(widget.task.category)) {
             _selectedCategory = 'Study';
@@ -2683,7 +3119,9 @@ class _EditTaskBottomSheetState extends State<EditTaskBottomSheet> {
   Future<void> _pickTime(bool isStart) async {
     final TimeOfDay? picked = await showTimePicker(
       context: context,
-      initialTime: isStart ? (_startTime ?? TimeOfDay.now()) : (_endTime ?? TimeOfDay.now()),
+      initialTime: isStart
+          ? (_startTime ?? TimeOfDay.now())
+          : (_endTime ?? TimeOfDay.now()),
     );
     if (picked != null) {
       setState(() {
@@ -2700,14 +3138,28 @@ class _EditTaskBottomSheetState extends State<EditTaskBottomSheet> {
     if (_formKey.currentState!.validate()) {
       if (_startTime == null || _endTime == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select both Start and End Time.')),
+          const SnackBar(
+            content: Text('Please select both Start and End Time.'),
+          ),
         );
         return;
       }
 
       final now = DateTime.now();
-      final start = DateTime(now.year, now.month, now.day, _startTime!.hour, _startTime!.minute);
-      var end = DateTime(now.year, now.month, now.day, _endTime!.hour, _endTime!.minute);
+      final start = DateTime(
+        now.year,
+        now.month,
+        now.day,
+        _startTime!.hour,
+        _startTime!.minute,
+      );
+      var end = DateTime(
+        now.year,
+        now.month,
+        now.day,
+        _endTime!.hour,
+        _endTime!.minute,
+      );
 
       if (end.isBefore(start)) {
         end = end.add(const Duration(days: 1));
@@ -2715,33 +3167,37 @@ class _EditTaskBottomSheetState extends State<EditTaskBottomSheet> {
 
       // Check if start or end times were changed to a past time
       final bufferTime = now.subtract(const Duration(minutes: 1));
-      final bool startChanged = widget.task.startTime == null ||
+      final bool startChanged =
+          widget.task.startTime == null ||
           widget.task.startTime!.hour != _startTime!.hour ||
           widget.task.startTime!.minute != _startTime!.minute;
-      final bool endChanged = widget.task.endTime == null ||
+      final bool endChanged =
+          widget.task.endTime == null ||
           widget.task.endTime!.hour != _endTime!.hour ||
           widget.task.endTime!.minute != _endTime!.minute;
 
       if (startChanged && start.isBefore(bufferTime)) {
-          setState(() {
-            _timeError = 'Start time cannot be in the past!';
-          });
-          return;
+        setState(() {
+          _timeError = 'Start time cannot be in the past!';
+        });
+        return;
       }
       if (endChanged && end.isBefore(bufferTime)) {
-          setState(() {
-            _timeError = 'End time cannot be in the past!';
-          });
-          return;
+        setState(() {
+          _timeError = 'End time cannot be in the past!';
+        });
+        return;
       }
 
       final durationMinutes = end.difference(start).inMinutes;
       final reason = _reasonController.text.trim();
-      final updatedNotes = widget.task.notes != null && widget.task.notes!.isNotEmpty
+      final updatedNotes =
+          widget.task.notes != null && widget.task.notes!.isNotEmpty
           ? '${_notesController.text.trim()}\n[Edit Log: $reason]'
           : '${_notesController.text.trim()}\n[Edit Log: $reason]';
 
-      final updatedComments = List<String>.from(widget.task.comments)..add(reason);
+      final updatedComments = List<String>.from(widget.task.comments)
+        ..add(reason);
 
       final updatedTask = widget.task.copyWith(
         title: _subjectController.text.trim(),
@@ -2752,7 +3208,10 @@ class _EditTaskBottomSheetState extends State<EditTaskBottomSheet> {
         startTime: start,
         endTime: end,
         isPrivate: _isPrivate,
-        category: (_selectedCategory == 'Study' && _selectedSubCategory != 'None') ? _selectedSubCategory : _selectedCategory,
+        category:
+            (_selectedCategory == 'Study' && _selectedSubCategory != 'None')
+            ? _selectedSubCategory
+            : _selectedCategory,
         totalDurationMinutes: durationMinutes,
         hasBeenEdited: true, // Mark as edited
         comments: updatedComments,
@@ -2778,371 +3237,471 @@ class _EditTaskBottomSheetState extends State<EditTaskBottomSheet> {
         top: true,
         bottom: false,
         child: Padding(
-          padding: EdgeInsets.only(left: 24.0, right: 24.0, top: 24.0, bottom: bottomInset + 24.0),
+          padding: EdgeInsets.only(
+            left: 24.0,
+            right: 24.0,
+            top: 24.0,
+            bottom: bottomInset + 24.0,
+          ),
           child: Form(
             key: _formKey,
             child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(
-                    'Edit Task (Once)',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Edit Task (Once)',
+                        style: Theme.of(context).textTheme.headlineSmall
+                            ?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: onSurfaceColor,
+                            ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.of(context).pop(),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Subject Name (Read-only)
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Subject Name (Read-only)',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: onSurfaceColor.withValues(alpha: 0.6),
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: _subjectController,
+                        enabled: false,
+                        decoration: InputDecoration(
+                          hintText: 'Subject Name',
+                          prefixIcon: const Icon(Icons.subject),
+                          disabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: onSurfaceColor.withValues(alpha: 0.2),
+                            ),
+                          ),
+                        ),
+                        style: TextStyle(
+                          color: onSurfaceColor.withValues(alpha: 0.6),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Topic Name
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Topic Name',
+                        style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color: onSurfaceColor,
+                          fontSize: 14,
                         ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.of(context).pop(),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-
-              // Subject Name (Read-only)
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Subject Name (Read-only)',
-                    style: TextStyle(fontWeight: FontWeight.bold, color: onSurfaceColor.withValues(alpha: 0.6), fontSize: 14),
-                  ),
-                  const SizedBox(height: 6),
-                  TextFormField(
-                    controller: _subjectController,
-                    enabled: false,
-                    decoration: InputDecoration(
-                      hintText: 'Subject Name',
-                      prefixIcon: const Icon(Icons.subject),
-                      disabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: onSurfaceColor.withValues(alpha: 0.2)),
                       ),
-                    ),
-                    style: TextStyle(color: onSurfaceColor.withValues(alpha: 0.6)),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // Topic Name
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Topic Name',
-                    style: TextStyle(fontWeight: FontWeight.bold, color: onSurfaceColor, fontSize: 14),
-                  ),
-                  const SizedBox(height: 6),
-                  TextFormField(
-                    controller: _topicController,
-                    decoration: InputDecoration(
-                      hintText: 'e.g. Chapter 3, Algebra',
-                      prefixIcon: const Icon(Icons.title),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    style: TextStyle(color: onSurfaceColor),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // Possible Challenges
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Possible Challenges',
-                    style: TextStyle(fontWeight: FontWeight.bold, color: onSurfaceColor, fontSize: 14),
-                  ),
-                  const SizedBox(height: 6),
-                  TextFormField(
-                    controller: _challengesController,
-                    decoration: InputDecoration(
-                      hintText: 'e.g. Power outage, complex equations',
-                      prefixIcon: const Icon(Icons.warning_amber_rounded),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    style: TextStyle(color: onSurfaceColor),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // Task Goal / Notes
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Task Goal / Notes',
-                    style: TextStyle(fontWeight: FontWeight.bold, color: onSurfaceColor, fontSize: 14),
-                  ),
-                  const SizedBox(height: 6),
-                  TextFormField(
-                    controller: _notesController,
-                    decoration: InputDecoration(
-                      hintText: 'e.g. Complete exercise questions 1-10',
-                      prefixIcon: const Icon(Icons.notes),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    maxLines: 3,
-                    style: TextStyle(color: onSurfaceColor),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // Mandatory Reason for Change
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'What/Why did you change? *',
-                    style: TextStyle(fontWeight: FontWeight.bold, color: onSurfaceColor, fontSize: 14),
-                  ),
-                  const SizedBox(height: 6),
-                  TextFormField(
-                    controller: _reasonController,
-                    decoration: InputDecoration(
-                      hintText: 'e.g. Adjusting times, fixing target topic',
-                      prefixIcon: const Icon(Icons.history_edu_rounded),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    validator: (val) => val == null || val.trim().isEmpty
-                        ? 'Reason for change is required'
-                        : null,
-                    style: TextStyle(color: onSurfaceColor),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // Start/End Time pickers
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () => _pickTime(true),
-                      icon: Icon(Icons.access_time, color: onSurfaceColor),
-                      label: Text(
-                        _startTime?.format(context) ?? 'Start Time',
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: _topicController,
+                        decoration: InputDecoration(
+                          hintText: 'e.g. Chapter 3, Algebra',
+                          prefixIcon: const Icon(Icons.title),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
                         style: TextStyle(color: onSurfaceColor),
                       ),
-                      style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: onSurfaceColor.withValues(alpha: 0.3)),
-                      ),
-                    ),
+                    ],
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () => _pickTime(false),
-                      icon: Icon(Icons.access_time, color: onSurfaceColor),
-                      label: Text(
-                        _endTime?.format(context) ?? 'End Time',
+                  const SizedBox(height: 16),
+
+                  // Possible Challenges
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Possible Challenges',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: onSurfaceColor,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: _challengesController,
+                        decoration: InputDecoration(
+                          hintText: 'e.g. Power outage, complex equations',
+                          prefixIcon: const Icon(Icons.warning_amber_rounded),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
                         style: TextStyle(color: onSurfaceColor),
                       ),
-                      style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: onSurfaceColor.withValues(alpha: 0.3)),
-                      ),
-                    ),
+                    ],
                   ),
-                ],
-              ),
-              const SizedBox(height: 16),
+                  const SizedBox(height: 16),
 
-              // Category Choice Chips
-              Text(
-                'Category',
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(color: onSurfaceColor),
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 10.0,
-                children: _categories.map((cat) {
-                  final isSelected = _selectedCategory == cat;
-                  return ChoiceChip(
-                    label: Text(
-                      cat.tr(),
-                      style: TextStyle(color: isSelected ? Colors.white : onSurfaceColor),
-                    ),
-                    selected: isSelected,
-                    selectedColor: colorScheme.primary,
-                    backgroundColor: colorScheme.surface,
-                    onSelected: (selected) {
-                      if (selected) {
-                        setState(() {
-                          _selectedCategory = cat;
-                          if (cat != 'Study') {
-                            _selectedSubCategory = 'None';
+                  // Task Goal / Notes
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Task Goal / Notes',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: onSurfaceColor,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: _notesController,
+                        decoration: InputDecoration(
+                          hintText: 'e.g. Complete exercise questions 1-10',
+                          prefixIcon: const Icon(Icons.notes),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        maxLines: 3,
+                        style: TextStyle(color: onSurfaceColor),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Mandatory Reason for Change
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'What/Why did you change? *',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: onSurfaceColor,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: _reasonController,
+                        decoration: InputDecoration(
+                          hintText: 'e.g. Adjusting times, fixing target topic',
+                          prefixIcon: const Icon(Icons.history_edu_rounded),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        validator: (val) => val == null || val.trim().isEmpty
+                            ? 'Reason for change is required'
+                            : null,
+                        style: TextStyle(color: onSurfaceColor),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Start/End Time pickers
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => _pickTime(true),
+                          icon: Icon(Icons.access_time, color: onSurfaceColor),
+                          label: Text(
+                            _startTime?.format(context) ?? 'Start Time',
+                            style: TextStyle(color: onSurfaceColor),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(
+                              color: onSurfaceColor.withValues(alpha: 0.3),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => _pickTime(false),
+                          icon: Icon(Icons.access_time, color: onSurfaceColor),
+                          label: Text(
+                            _endTime?.format(context) ?? 'End Time',
+                            style: TextStyle(color: onSurfaceColor),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(
+                              color: onSurfaceColor.withValues(alpha: 0.3),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Category Choice Chips
+                  Text(
+                    'Category',
+                    style: Theme.of(
+                      context,
+                    ).textTheme.titleSmall?.copyWith(color: onSurfaceColor),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 10.0,
+                    children: _categories.map((cat) {
+                      final isSelected = _selectedCategory == cat;
+                      return ChoiceChip(
+                        label: Text(
+                          cat.tr(),
+                          style: TextStyle(
+                            color: isSelected ? Colors.white : onSurfaceColor,
+                          ),
+                        ),
+                        selected: isSelected,
+                        selectedColor: colorScheme.primary,
+                        backgroundColor: colorScheme.surface,
+                        onSelected: (selected) {
+                          if (selected) {
+                            setState(() {
+                              _selectedCategory = cat;
+                              if (cat != 'Study') {
+                                _selectedSubCategory = 'None';
+                              }
+                              _selectedFolderSubject = null;
+                              _selectedFolderTopic = null;
+                            });
                           }
+                        },
+                      );
+                    }).toList(),
+                  ),
+
+                  // Sub-category (Folder) Selection
+                  if (_selectedCategory == 'Study') ...[
+                    const SizedBox(height: 16),
+                    Text(
+                      'Sub-category (Folder)',
+                      style: Theme.of(
+                        context,
+                      ).textTheme.titleSmall?.copyWith(color: onSurfaceColor),
+                    ),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<String>(
+                      initialValue: _selectedSubCategory,
+                      items:
+                          {
+                                'None',
+                                ..._customFolders.map(
+                                  (f) => f['name'] as String,
+                                ),
+                              }
+                              .map(
+                                (c) => DropdownMenuItem(
+                                  value: c,
+                                  child: Text(
+                                    c,
+                                    style: TextStyle(color: onSurfaceColor),
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                      onChanged: (v) {
+                        setState(() {
+                          _selectedSubCategory = v ?? 'None';
                           _selectedFolderSubject = null;
                           _selectedFolderTopic = null;
                         });
-                      }
-                    },
-                  );
-                }).toList(),
-              ),
-              
-              // Sub-category (Folder) Selection
-              if (_selectedCategory == 'Study') ...[
-                const SizedBox(height: 16),
-                Text(
-                  'Sub-category (Folder)',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(color: onSurfaceColor),
-                ),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  initialValue: _selectedSubCategory,
-                  items: {'None', ..._customFolders.map((f) => f['name'] as String)}.map((c) => DropdownMenuItem(value: c, child: Text(c, style: TextStyle(color: onSurfaceColor)))).toList(),
-                  onChanged: (v) {
-                    setState(() {
-                      _selectedSubCategory = v ?? 'None';
-                      _selectedFolderSubject = null;
-                      _selectedFolderTopic = null;
-                    });
-                  },
-                  decoration: InputDecoration(
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  ),
-                ),
-              ],
-              // Syllabus Integration for custom folders
-              Builder(
-                builder: (context) {
-                  final matchingFolder = _customFolders.firstWhere(
-                    (f) => f['name'] == _selectedSubCategory,
-                    orElse: () => {},
-                  );
-                  final subjects = matchingFolder['subjects'] as List<dynamic>? ?? [];
-
-                  if (matchingFolder.isNotEmpty && subjects.isNotEmpty) {
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 12),
-                        Text(
-                          'Select Subject from Syllabus'.tr(),
-                          style: TextStyle(fontWeight: FontWeight.bold, color: onSurfaceColor, fontSize: 13),
+                      },
+                      decoration: InputDecoration(
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        const SizedBox(height: 6),
-                        Wrap(
-                          spacing: 8,
-                          children: subjects.map((sub) {
-                            final subName = sub['name'] as String;
-                            final isSubSelected = _selectedFolderSubject == subName;
-                            return ChoiceChip(
-                              label: Text(subName),
-                              selected: isSubSelected,
-                              selectedColor: colorScheme.secondary,
-                              onSelected: (selected) {
-                                setState(() {
-                                  _selectedFolderSubject = selected ? subName : null;
-                                  _selectedFolderTopic = null;
-                                  if (selected) {
-                                    _subjectController.text = subName;
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                      ),
+                    ),
+                  ],
+                  // Syllabus Integration for custom folders
+                  Builder(
+                    builder: (context) {
+                      final matchingFolder = _customFolders.firstWhere(
+                        (f) => f['name'] == _selectedSubCategory,
+                        orElse: () => {},
+                      );
+                      final subjects =
+                          matchingFolder['subjects'] as List<dynamic>? ?? [];
+
+                      if (matchingFolder.isNotEmpty && subjects.isNotEmpty) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 12),
+                            Text(
+                              'Select Subject from Syllabus'.tr(),
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: onSurfaceColor,
+                                fontSize: 13,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Wrap(
+                              spacing: 8,
+                              children: subjects.map((sub) {
+                                final subName = sub['name'] as String;
+                                final isSubSelected =
+                                    _selectedFolderSubject == subName;
+                                return ChoiceChip(
+                                  label: Text(subName),
+                                  selected: isSubSelected,
+                                  selectedColor: colorScheme.secondary,
+                                  onSelected: (selected) {
+                                    setState(() {
+                                      _selectedFolderSubject = selected
+                                          ? subName
+                                          : null;
+                                      _selectedFolderTopic = null;
+                                      if (selected) {
+                                        _subjectController.text = subName;
+                                      }
+                                    });
+                                  },
+                                );
+                              }).toList(),
+                            ),
+                            if (_selectedFolderSubject != null) ...[
+                              const SizedBox(height: 12),
+                              Text(
+                                'Select Topic from Syllabus'.tr(),
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: onSurfaceColor,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Builder(
+                                builder: (context) {
+                                  final subMap = subjects.firstWhere(
+                                    (s) => s['name'] == _selectedFolderSubject,
+                                    orElse: () => {},
+                                  );
+                                  final topics =
+                                      subMap['topics'] as List<dynamic>? ?? [];
+                                  if (topics.isEmpty) {
+                                    return Text(
+                                      'No topics in this subject'.tr(),
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey,
+                                      ),
+                                    );
                                   }
-                                });
-                              },
-                            );
-                          }).toList(),
-                        ),
-                        if (_selectedFolderSubject != null) ...[
-                          const SizedBox(height: 12),
-                          Text(
-                            'Select Topic from Syllabus'.tr(),
-                            style: TextStyle(fontWeight: FontWeight.bold, color: onSurfaceColor, fontSize: 13),
-                          ),
-                          const SizedBox(height: 6),
-                          Builder(
-                            builder: (context) {
-                              final subMap = subjects.firstWhere(
-                                (s) => s['name'] == _selectedFolderSubject,
-                                orElse: () => {},
-                              );
-                              final topics = subMap['topics'] as List<dynamic>? ?? [];
-                              if (topics.isEmpty) {
-                                  return Text(
-                                    'No topics in this subject'.tr(),
-                                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                  return Wrap(
+                                    spacing: 8,
+                                    children: topics.map((t) {
+                                      final topicName = t['name'] as String;
+                                      final isTopicSelected =
+                                          _selectedFolderTopic == topicName;
+                                      return ChoiceChip(
+                                        label: Text(topicName),
+                                        selected: isTopicSelected,
+                                        selectedColor: colorScheme.secondary
+                                            .withValues(alpha: 0.8),
+                                        onSelected: (selected) {
+                                          setState(() {
+                                            _selectedFolderTopic = selected
+                                                ? topicName
+                                                : null;
+                                            if (selected) {
+                                              _topicController.text = topicName;
+                                            }
+                                          });
+                                        },
+                                      );
+                                    }).toList(),
                                   );
-                              }
-                              return Wrap(
-                                spacing: 8,
-                                children: topics.map((t) {
-                                  final topicName = t['name'] as String;
-                                  final isTopicSelected = _selectedFolderTopic == topicName;
-                                  return ChoiceChip(
-                                    label: Text(topicName),
-                                    selected: isTopicSelected,
-                                    selectedColor: colorScheme.secondary.withValues(alpha: 0.8),
-                                    onSelected: (selected) {
-                                      setState(() {
-                                        _selectedFolderTopic = selected ? topicName : null;
-                                        if (selected) {
-                                          _topicController.text = topicName;
-                                        }
-                                      });
-                                    },
-                                  );
-                                }).toList(),
-                              );
-                            },
-                          ),
-                        ],
-                      ],
-                    );
-                  }
-                  return const SizedBox.shrink();
-                },
-              ),
-              const SizedBox(height: 16),
+                                },
+                              ),
+                            ],
+                          ],
+                        );
+                      }
+                      return const SizedBox.shrink();
+                    },
+                  ),
+                  const SizedBox(height: 16),
 
-              // Private task switch toggle
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(
-                  'Private Task',
-                  style: TextStyle(fontWeight: FontWeight.bold, color: onSurfaceColor),
-                ),
-                subtitle: Text(
-                  'Hide task name from others',
-                  style: TextStyle(color: colorScheme.onSurfaceVariant),
-                ),
-                value: _isPrivate,
-                activeThumbColor: colorScheme.primary,
-                onChanged: (val) => setState(() => _isPrivate = val),
-              ),
-              const SizedBox(height: 24),
+                  // Private task switch toggle
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(
+                      'Private Task',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: onSurfaceColor,
+                      ),
+                    ),
+                    subtitle: Text(
+                      'Hide task name from others',
+                      style: TextStyle(color: colorScheme.onSurfaceVariant),
+                    ),
+                    value: _isPrivate,
+                    activeThumbColor: colorScheme.primary,
+                    onChanged: (val) => setState(() => _isPrivate = val),
+                  ),
+                  const SizedBox(height: 24),
 
-              // Submit button
-              ElevatedButton(
-                onPressed: _submit,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: colorScheme.primary,
-                  foregroundColor: colorScheme.onPrimary,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                child: const Text('পরিবর্তন সংরক্ষণ করুন (Save Changes)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  // Submit button
+                  ElevatedButton(
+                    onPressed: _submit,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: colorScheme.primary,
+                      foregroundColor: colorScheme.onPrimary,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text(
+                      'পরিবর্তন সংরক্ষণ করুন (Save Changes)',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
-    ),
-  ),
-);
-}
+    );
+  }
 }
 
 // ==========================================
@@ -3230,7 +3789,7 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
       _elapsedSeconds = widget.task.elapsedSeconds;
       _status = widget.task.status;
       if (_status == 'running') {
-         _startTimer(saveToDb: false);
+        _startTimer(saveToDb: false);
       }
     }
   }
@@ -3243,9 +3802,11 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
 
   void _onTaskTimerComplete() {
     SoundPlayer.playAlarmNotificationSound(looping: true);
-    
+
     // Automatically update the task status to paused
-    widget.onUpdate(widget.task.copyWith(status: 'paused', elapsedSeconds: _elapsedSeconds));
+    widget.onUpdate(
+      widget.task.copyWith(status: 'paused', elapsedSeconds: _elapsedSeconds),
+    );
     if (mounted) {
       setState(() {
         _status = 'paused';
@@ -3257,7 +3818,11 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('⏰ Task Finished!', style: TextStyle(fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+        title: const Text(
+          '⏰ Task Finished!',
+          style: TextStyle(fontWeight: FontWeight.bold),
+          textAlign: TextAlign.center,
+        ),
         content: Text(
           'আপনার টাস্ক "${widget.task.title}" এর সময় শেষ হয়েছে।',
           textAlign: TextAlign.center,
@@ -3271,8 +3836,11 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
               _showDoneDialog(); // Show completion notes dialog
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-            child: const Text('⏹ Stop Alarm & Complete', style: TextStyle(color: Colors.white)),
-          )
+            child: const Text(
+              '⏹ Stop Alarm & Complete',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
         ],
       ),
     );
@@ -3284,7 +3852,12 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
       _status = 'running';
     });
     if (saveToDb) {
-       widget.onUpdate(widget.task.copyWith(status: 'running', elapsedSeconds: _elapsedSeconds));
+      widget.onUpdate(
+        widget.task.copyWith(
+          status: 'running',
+          elapsedSeconds: _elapsedSeconds,
+        ),
+      );
     }
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -3297,7 +3870,12 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
           _timer?.cancel();
           _onTaskTimerComplete();
         } else if (_elapsedSeconds > 0 && _elapsedSeconds % 30 == 0) {
-          widget.onUpdate(widget.task.copyWith(status: 'running', elapsedSeconds: _elapsedSeconds));
+          widget.onUpdate(
+            widget.task.copyWith(
+              status: 'running',
+              elapsedSeconds: _elapsedSeconds,
+            ),
+          );
         }
       }
     });
@@ -3308,7 +3886,9 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
     setState(() {
       _status = 'paused';
     });
-    widget.onUpdate(widget.task.copyWith(status: 'paused', elapsedSeconds: _elapsedSeconds));
+    widget.onUpdate(
+      widget.task.copyWith(status: 'paused', elapsedSeconds: _elapsedSeconds),
+    );
   }
 
   void _showMissedTaskWarningDialog() {
@@ -3316,6 +3896,7 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
       if (dt == null) return '';
       return DateFormat('h:mm a').format(dt);
     }
+
     String formatDate(DateTime? dt) {
       if (dt == null) return '';
       return DateFormat('MMM d, yyyy').format(dt);
@@ -3326,10 +3907,16 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
       barrierDismissible: false,
       builder: (ctx) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           title: Row(
             children: [
-              const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
+              const Icon(
+                Icons.warning_amber_rounded,
+                color: Colors.orange,
+                size: 28,
+              ),
               const SizedBox(width: 8),
               Text(
                 'Missed Task Alert'.tr(),
@@ -3343,13 +3930,19 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
             children: [
               Text(
                 'This was a missed task.'.tr(),
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
               ),
               const SizedBox(height: 12),
               if (widget.task.startTime != null) ...[
                 Text(
                   '${'Scheduled Start Time'.tr()}:',
-                  style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.grey),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey,
+                  ),
                 ),
                 Text(
                   '${formatDate(widget.task.startTime)} at ${formatTime(widget.task.startTime)}',
@@ -3360,11 +3953,17 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
               if (widget.task.endTime != null) ...[
                 Text(
                   '${'Scheduled End Time'.tr()}:',
-                  style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.grey),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey,
+                  ),
                 ),
                 Text(
                   '${formatDate(widget.task.endTime)} at ${formatTime(widget.task.endTime)}',
-                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.red,
+                  ),
                 ),
                 const SizedBox(height: 12),
               ],
@@ -3379,7 +3978,10 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
               onPressed: () => Navigator.pop(ctx),
               child: Text(
                 'No'.tr(),
-                style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: Colors.grey.shade600,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
             ElevatedButton(
@@ -3389,7 +3991,9 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.primary,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               child: Text(
                 'Yes, Start'.tr(),
@@ -3408,7 +4012,9 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
 
     final TextEditingController noteController = TextEditingController();
     int totalTargetSeconds = widget.task.totalDurationMinutes * 60;
-    double progress = totalTargetSeconds > 0 ? _elapsedSeconds / totalTargetSeconds : 0.0;
+    double progress = totalTargetSeconds > 0
+        ? _elapsedSeconds / totalTargetSeconds
+        : 0.0;
     bool canReset = progress < 0.70; // ৭০% এর কম হলে রিসেট বাটন দেখাবে
 
     showDialog(
@@ -3416,7 +4022,10 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
       barrierDismissible: false,
       builder: (context) {
         return AlertDialog(
-          title: Text('Complete Task'.tr(), style: const TextStyle(fontWeight: FontWeight.bold)),
+          title: Text(
+            'Complete Task'.tr(),
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -3442,15 +4051,25 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                     _elapsedSeconds = 0;
                     _status = 'pending';
                   });
-                  widget.onUpdate(widget.task.copyWith(status: 'pending', elapsedSeconds: 0));
+                  widget.onUpdate(
+                    widget.task.copyWith(status: 'pending', elapsedSeconds: 0),
+                  );
                 },
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.red,
                   side: const BorderSide(color: Colors.red, width: 1.5),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
-                child: const Text('Reset', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                child: const Text(
+                  'Reset',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
               )
             else
               const SizedBox.shrink(),
@@ -3463,9 +4082,17 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                     if (wasRunning) _startTimer(saveToDb: false);
                   },
                   style: TextButton.styleFrom(
-                    foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    foregroundColor: Theme.of(
+                      context,
+                    ).colorScheme.onSurfaceVariant,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
+                    textStyle: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
                   ),
                   child: const Text('Cancel'),
                 ),
@@ -3474,7 +4101,7 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                   onPressed: () async {
                     Navigator.pop(context);
                     _timer?.cancel();
-                    
+
                     final completedTask = widget.task.copyWith(
                       status: 'completed',
                       isCompleted: true,
@@ -3482,9 +4109,9 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                       completedDurationMinutes: _elapsedSeconds ~/ 60,
                       completionNote: noteController.text.trim(),
                     );
-                    
+
                     widget.onUpdate(completedTask);
-                    
+
                     try {
                       final res = await GamificationService.awardXP(
                         GamificationService.xpTaskComplete,
@@ -3492,20 +4119,27 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                       );
                       if (context.mounted && res.isNotEmpty) {
                         final int xpAwarded = res['xpAwarded'] ?? 0;
-                        final List<String> newBadges = List<String>.from(res['newBadges'] ?? []);
-                        
+                        final List<String> newBadges = List<String>.from(
+                          res['newBadges'] ?? [],
+                        );
+
                         String message = '🎉 Task Completed! +$xpAwarded XP';
                         if (newBadges.isNotEmpty) {
-                          message += '\n🏆 Unlocked new badge(s): ${newBadges.join(", ")}!';
+                          message +=
+                              '\n🏆 Unlocked new badge(s): ${newBadges.join(", ")}!';
                         }
-                        
+
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(
                               message,
-                              style: const TextStyle(fontWeight: FontWeight.bold),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
-                            backgroundColor: Theme.of(context).colorScheme.primary,
+                            backgroundColor: Theme.of(
+                              context,
+                            ).colorScheme.primary,
                             duration: const Duration(seconds: 4),
                           ),
                         );
@@ -3517,10 +4151,15 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Theme.of(context).colorScheme.primary,
                     foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
                   ),
-                  child: const Text('Submit & Done', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  child: const Text(
+                    'Submit & Done',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
                 ),
               ],
             ),
@@ -3550,7 +4189,8 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
   Widget build(BuildContext context) {
     final bool isPartnerTask = widget.task.id.startsWith('partner_');
     final bool isRoomAdmin = widget.task.id.contains('_admin_');
-    final bool isEditDisabled = widget.task.hasBeenEdited || (isPartnerTask && !isRoomAdmin);
+    final bool isEditDisabled =
+        widget.task.hasBeenEdited || (isPartnerTask && !isRoomAdmin);
 
     final double btnFontSize = isPartnerTask ? 11.0 : 13.0;
     final double btnIconSize = isPartnerTask ? 14.0 : 18.0;
@@ -3562,8 +4202,10 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
     int totalTargetSeconds = widget.task.totalDurationMinutes * 60;
     int remainingSeconds = totalTargetSeconds - _elapsedSeconds;
     bool isOverdue = remainingSeconds < 0;
-    
-    double progress = totalTargetSeconds > 0 ? (_elapsedSeconds / totalTargetSeconds) : 0.0;
+
+    double progress = totalTargetSeconds > 0
+        ? (_elapsedSeconds / totalTargetSeconds)
+        : 0.0;
     if (progress > 1.0) progress = 1.0;
 
     String formatTime(int seconds) {
@@ -3578,7 +4220,7 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
 
     String dateText = '';
     if (widget.task.startTime != null) {
-       dateText = DateFormat('MMM d, h:mm a').format(widget.task.startTime!);
+      dateText = DateFormat('MMM d, h:mm a').format(widget.task.startTime!);
     }
 
     return Card(
@@ -3593,17 +4235,20 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                if (widget.showCheckbox && widget.task.id.startsWith('partner_')) ...[
+                if (widget.showCheckbox &&
+                    widget.task.id.startsWith('partner_')) ...[
                   SizedBox(
                     height: 24,
                     width: 24,
                     child: Checkbox(
                       value: widget.task.isCompleted,
                       onChanged: (newValue) {
-                        widget.onUpdate(widget.task.copyWith(
-                          isCompleted: newValue == true,
-                          status: newValue == true ? 'completed' : 'pending',
-                        ));
+                        widget.onUpdate(
+                          widget.task.copyWith(
+                            isCompleted: newValue == true,
+                            status: newValue == true ? 'completed' : 'pending',
+                          ),
+                        );
                       },
                       activeColor: Colors.green,
                     ),
@@ -3616,7 +4261,9 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 15,
-                      decoration: (widget.task.id.startsWith('partner_') && widget.task.isCompleted)
+                      decoration:
+                          (widget.task.id.startsWith('partner_') &&
+                              widget.task.isCompleted)
                           ? TextDecoration.lineThrough
                           : null,
                     ),
@@ -3628,13 +4275,21 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                 // Bell icon (Notification)
                 GestureDetector(
                   onTap: () {
-                     // Toggle alarmEnabled
-                     widget.onUpdate(widget.task.copyWith(alarmEnabled: !widget.task.alarmEnabled));
+                    // Toggle alarmEnabled
+                    widget.onUpdate(
+                      widget.task.copyWith(
+                        alarmEnabled: !widget.task.alarmEnabled,
+                      ),
+                    );
                   },
                   child: Icon(
-                    widget.task.alarmEnabled ? Icons.notifications_active_rounded : Icons.notifications_off_rounded, 
+                    widget.task.alarmEnabled
+                        ? Icons.notifications_active_rounded
+                        : Icons.notifications_off_rounded,
                     size: 18,
-                    color: widget.task.alarmEnabled ? Theme.of(context).colorScheme.primary : Colors.grey,
+                    color: widget.task.alarmEnabled
+                        ? Theme.of(context).colorScheme.primary
+                        : Colors.grey,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -3642,14 +4297,20 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                 GestureDetector(
                   onTap: () {
                     Navigator.push(
-                      context, 
-                      MaterialPageRoute(builder: (_) => TaskDetailsScreen(
-                        task: widget.task,
-                        onUpdate: widget.onUpdate,
-                      )),
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => TaskDetailsScreen(
+                          task: widget.task,
+                          onUpdate: widget.onUpdate,
+                        ),
+                      ),
                     );
                   },
-                  child: Icon(Icons.open_in_new_rounded, size: 18, color: Theme.of(context).colorScheme.secondary),
+                  child: Icon(
+                    Icons.open_in_new_rounded,
+                    size: 18,
+                    color: Theme.of(context).colorScheme.secondary,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 GestureDetector(
@@ -3658,17 +4319,28 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                     final confirm = await showDialog<bool>(
                       context: context,
                       builder: (ctx) => AlertDialog(
-                        title: Text(isPartner
-                            ? 'Delete Shared Task (শেয়ার্ড টাস্ক মুছুন)'.tr()
-                            : 'Delete Task (টাস্ক মুছুন)'.tr()),
-                        content: Text(isPartner
-                            ? 'Are you sure you want to delete this shared task?'.tr()
-                            : 'Are you sure you want to delete this task?'.tr()),
+                        title: Text(
+                          isPartner
+                              ? 'Delete Shared Task (শেয়ার্ড টাস্ক মুছুন)'.tr()
+                              : 'Delete Task (টাস্ক মুছুন)'.tr(),
+                        ),
+                        content: Text(
+                          isPartner
+                              ? 'Are you sure you want to delete this shared task?'
+                                    .tr()
+                              : 'Are you sure you want to delete this task?'
+                                    .tr(),
+                        ),
                         actions: [
-                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text('No'.tr())),
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, false),
+                            child: Text('No'.tr()),
+                          ),
                           TextButton(
                             onPressed: () => Navigator.pop(ctx, true),
-                            style: TextButton.styleFrom(foregroundColor: Colors.red),
+                            style: TextButton.styleFrom(
+                              foregroundColor: Colors.red,
+                            ),
                             child: Text('Yes, Delete'.tr()),
                           ),
                         ],
@@ -3679,18 +4351,29 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                         final user = FirebaseAuth.instance.currentUser;
                         if (user != null) {
                           // 1. Delete from user's local daily routine for today
-                          final todayDocId = DateFormat('yyyy-MM-dd').format(DateTime.now());
+                          final todayDocId = DateFormat(
+                            'yyyy-MM-dd',
+                          ).format(DateTime.now());
                           final docRef = FirebaseFirestore.instance
                               .collection('users')
                               .doc(user.uid)
                               .collection('dailyRoutines')
                               .doc(todayDocId);
-                              
+
                           final snapshot = await docRef.get();
                           if (snapshot.exists) {
-                            DailyRoutine routine = DailyRoutine.fromMap(snapshot.data()!, snapshot.id);
-                            routine.tasks.removeWhere((t) => t.id == widget.task.id);
-                            await docRef.update({'tasks': routine.tasks.map((t) => t.toMap()).toList()});
+                            DailyRoutine routine = DailyRoutine.fromMap(
+                              snapshot.data()!,
+                              snapshot.id,
+                            );
+                            routine.tasks.removeWhere(
+                              (t) => t.id == widget.task.id,
+                            );
+                            await docRef.update({
+                              'tasks': routine.tasks
+                                  .map((t) => t.toMap())
+                                  .toList(),
+                            });
                           }
                         }
 
@@ -3701,7 +4384,7 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                             final roomCode = parts[1];
                             final role = parts[2];
                             final docId = parts.sublist(3).join('_');
-                            
+
                             if (role == 'admin') {
                               await FirebaseFirestore.instance
                                   .collection('partner_rooms')
@@ -3712,10 +4395,12 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                             }
                           }
                         }
-                        
+
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Task deleted successfully.'.tr())),
+                            SnackBar(
+                              content: Text('Task deleted successfully.'.tr()),
+                            ),
                           );
                         }
                       } catch (e) {
@@ -3723,7 +4408,11 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                       }
                     }
                   },
-                  child: const Icon(Icons.delete_outline_rounded, size: 18, color: Colors.redAccent),
+                  child: const Icon(
+                    Icons.delete_outline_rounded,
+                    size: 18,
+                    color: Colors.redAccent,
+                  ),
                 ),
               ],
             ),
@@ -3739,15 +4428,23 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                     scrollDirection: Axis.horizontal,
                     child: Row(
                       children: [
-                        if (widget.task.category != null && widget.task.category!.isNotEmpty)
+                        if (widget.task.category != null &&
+                            widget.task.category!.isNotEmpty)
                           Container(
                             margin: const EdgeInsets.only(right: 6),
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
-                              color: _getCategoryColor(widget.task.category!).withValues(alpha: 0.1),
+                              color: _getCategoryColor(
+                                widget.task.category!,
+                              ).withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(6),
                               border: Border.all(
-                                color: _getCategoryColor(widget.task.category!).withValues(alpha: 0.2),
+                                color: _getCategoryColor(
+                                  widget.task.category!,
+                                ).withValues(alpha: 0.2),
                                 width: 1,
                               ),
                             ),
@@ -3760,18 +4457,29 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                               ),
                             ),
                           ),
-                        if (widget.task.topic != null && widget.task.topic!.isNotEmpty)
+                        if (widget.task.topic != null &&
+                            widget.task.topic!.isNotEmpty)
                           Container(
                             margin: const EdgeInsets.only(right: 6),
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: Colors.blueGrey.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: Colors.blueGrey.withValues(alpha: 0.2), width: 1),
+                              border: Border.all(
+                                color: Colors.blueGrey.withValues(alpha: 0.2),
+                                width: 1,
+                              ),
                             ),
                             child: Text(
                               widget.task.topic!,
-                              style: const TextStyle(color: Colors.blueGrey, fontSize: 10, fontWeight: FontWeight.bold),
+                              style: const TextStyle(
+                                color: Colors.blueGrey,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                       ],
@@ -3782,12 +4490,15 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                 // Date
                 Text(
                   dateText,
-                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 10),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontSize: 10,
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 12),
-            
+
             // Row 3: Duration info right above progress bar
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -3796,7 +4507,10 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                 // Duration text (Slightly larger than progress percentage)
                 Text(
                   '${widget.task.totalDurationMinutes} min',
-                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
                 ),
                 // Stopwatch timer text
                 Text(
@@ -3804,17 +4518,25 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
-                    color: isOverdue ? Colors.red : Theme.of(context).colorScheme.primary,
+                    color: isOverdue
+                        ? Colors.red
+                        : Theme.of(context).colorScheme.primary,
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 2),
-            
+
             // Row 4: Progress Bar
             Row(
               children: [
-                Text('${(progress * 100).toStringAsFixed(0)}%', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                Text(
+                  '${(progress * 100).toStringAsFixed(0)}%',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 11,
+                  ),
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: LinearProgressIndicator(
@@ -3828,7 +4550,7 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
               ],
             ),
             const SizedBox(height: 12),
-            
+
             // Row 5: Control Buttons
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -3836,14 +4558,29 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                 if (_status == 'pending' || _status == 'paused') ...[
                   Flexible(
                     child: ElevatedButton.icon(
-                      icon: Icon(_status == 'paused' ? Icons.play_arrow_rounded : Icons.play_circle_fill_rounded, size: btnIconSize),
-                      label: Text((_status == 'paused' ? 'Resume' : 'Start').tr(), style: TextStyle(fontSize: btnFontSize, fontWeight: FontWeight.bold)),
+                      icon: Icon(
+                        _status == 'paused'
+                            ? Icons.play_arrow_rounded
+                            : Icons.play_circle_fill_rounded,
+                        size: btnIconSize,
+                      ),
+                      label: Text(
+                        (_status == 'paused' ? 'Resume' : 'Start').tr(),
+                        style: TextStyle(
+                          fontSize: btnFontSize,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                       onPressed: () {
                         final now = DateTime.now();
                         double progress = widget.task.totalDurationMinutes > 0
-                            ? (_elapsedSeconds / (widget.task.totalDurationMinutes * 60))
+                            ? (_elapsedSeconds /
+                                  (widget.task.totalDurationMinutes * 60))
                             : 0.0;
-                        bool isMissed = widget.task.endTime != null && widget.task.endTime!.isBefore(now) && progress < 0.1;
+                        bool isMissed =
+                            widget.task.endTime != null &&
+                            widget.task.endTime!.isBefore(now) &&
+                            progress < 0.1;
 
                         if (isMissed && _status == 'pending') {
                           _showMissedTaskWarningDialog();
@@ -3852,7 +4589,9 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                         }
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                        backgroundColor: Theme.of(
+                          context,
+                        ).colorScheme.primary.withValues(alpha: 0.1),
                         foregroundColor: Theme.of(context).colorScheme.primary,
                         elevation: 0,
                         minimumSize: Size(0, btnHeight),
@@ -3864,7 +4603,13 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                   Flexible(
                     child: ElevatedButton.icon(
                       icon: Icon(Icons.pause_rounded, size: btnIconSize),
-                      label: Text('Pause'.tr(), style: TextStyle(fontSize: btnFontSize, fontWeight: FontWeight.bold)),
+                      label: Text(
+                        'Pause'.tr(),
+                        style: TextStyle(
+                          fontSize: btnFontSize,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                       onPressed: _pauseTimer,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFFEF3C7), // Light Amber
@@ -3876,11 +4621,20 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                     ),
                   ),
                 ],
-                
+
                 Flexible(
                   child: ElevatedButton.icon(
-                    icon: Icon(Icons.check_circle_outline_rounded, size: btnIconSize),
-                    label: Text('Done'.tr(), style: TextStyle(fontSize: btnFontSize, fontWeight: FontWeight.bold)),
+                    icon: Icon(
+                      Icons.check_circle_outline_rounded,
+                      size: btnIconSize,
+                    ),
+                    label: Text(
+                      'Done'.tr(),
+                      style: TextStyle(
+                        fontSize: btnFontSize,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     onPressed: _showDoneDialog,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFFDCFCE7), // Light Green
@@ -3895,11 +4649,23 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                 Flexible(
                   child: ElevatedButton.icon(
                     icon: Icon(Icons.edit_rounded, size: btnIconSize - 2),
-                    label: Text('Edit'.tr(), style: TextStyle(fontSize: btnFontSize, fontWeight: FontWeight.bold)),
+                    label: Text(
+                      'Edit'.tr(),
+                      style: TextStyle(
+                        fontSize: btnFontSize,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     onPressed: isEditDisabled ? null : _editTask,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: isEditDisabled ? Colors.grey.shade200 : Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-                      foregroundColor: isEditDisabled ? Colors.grey : Theme.of(context).colorScheme.primary,
+                      backgroundColor: isEditDisabled
+                          ? Colors.grey.shade200
+                          : Theme.of(
+                              context,
+                            ).colorScheme.primary.withValues(alpha: 0.1),
+                      foregroundColor: isEditDisabled
+                          ? Colors.grey
+                          : Theme.of(context).colorScheme.primary,
                       elevation: 0,
                       minimumSize: Size(0, btnHeight),
                       padding: btnPadding,

@@ -704,6 +704,8 @@ class _AddWeeklyRoutineTaskBottomSheetState extends State<AddWeeklyRoutineTaskBo
         ? widget.taskToEdit!.id
         : UniqueKey().toString();
 
+    final durationMinutes = endDateTime.difference(startDateTime).inMinutes;
+
     final task = Task(
       id: taskId,
       title: taskSubject,
@@ -713,6 +715,7 @@ class _AddWeeklyRoutineTaskBottomSheetState extends State<AddWeeklyRoutineTaskBo
       notes: _notesController.text.trim(),
       startTime: startDateTime,
       endTime: endDateTime,
+      totalDurationMinutes: durationMinutes > 0 ? durationMinutes : 0,
       category: (_selectedCategory == 'Study' && _selectedSubCategory != 'None') ? _selectedSubCategory : _selectedCategory,
       isPrivate: _isPrivate,
     );
