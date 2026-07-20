@@ -41,6 +41,7 @@ import 'package:open_filex/open_filex.dart';
 import 'daily_diary_screen.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
 import 'bookmarks_screen.dart';
+import 'news_reader_screen.dart';
 import 'social_hub_screen.dart';
 import 'notifications_hub_screen.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -102,6 +103,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
           {'title': '1-4-7 Revision', 'icon': Icons.published_with_changes_rounded, 'color': Colors.indigo, 'action': 'revision_147'},
           {'title': 'Flashcards', 'icon': Icons.style_rounded, 'color': Colors.purpleAccent, 'action': 'flash'},
           {'title': 'Task History', 'icon': Icons.history_rounded, 'color': Colors.blueGrey, 'action': 'task_history'},
+          {'title': 'Daily News', 'icon': Icons.article_rounded, 'color': Colors.blueGrey, 'action': 'news', 'requiresInternet': true},
           {'title': 'Dictionary', 'icon': Icons.menu_book_rounded, 'color': Colors.orangeAccent, 'action': 'dict', 'requiresInternet': true},
           {'title': 'Study Map', 'icon': Icons.folder_copy_rounded, 'color': Colors.teal, 'action': 'study_folders'},
           {'title': 'Countdown', 'icon': Icons.event_note_rounded, 'color': const Color(0xFF6366F1), 'action': 'countdown'},
@@ -240,6 +242,8 @@ class _ToolsScreenState extends State<ToolsScreen> {
                                       Navigator.push(context, MaterialPageRoute(builder: (_) => const FocusMusicScreen()));
                                     } else if (tool['action'] == 'flash') {
                                       Navigator.push(context, MaterialPageRoute(builder: (_) => const FlashcardDecksScreen()));
+                                    } else if (tool['action'] == 'news') {
+                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const NewsReaderScreen()));
                                     } else if (tool['action'] == 'dict') {
                                       Navigator.push(context, MaterialPageRoute(builder: (_) => const DictionaryScreen()));
                                     } else if (tool['action'] == 'revision_147') {
@@ -1148,6 +1152,7 @@ class _SleepTrackerScreenState extends State<SleepTrackerScreen> with SingleTick
     _startUIUpdateTimer(); // Start timer immediately to watch for bedtime
     _loadSleepState();
     _loadSleepAlarmSettings();
+    _checkAndSaveMissedDays();
     if (currentUser != null) {
       _sleepHistoryStream = FirebaseFirestore.instance
           .collection('users')
@@ -1158,9 +1163,71 @@ class _SleepTrackerScreenState extends State<SleepTrackerScreen> with SingleTick
     }
   }
 
+  Future<void> _checkAndSaveMissedDays() async {
+    if (currentUser == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    final String? lastCheckedDateStr = prefs.getString('last_sleep_checked_date');
+    
+    final today = DateTime.now();
+    final todayStart = DateTime(today.year, today.month, today.day);
+
+    if (lastCheckedDateStr != null) {
+      final lastCheckedDate = DateTime.parse(lastCheckedDateStr);
+      final differenceInDays = todayStart.difference(lastCheckedDate).inDays;
+      
+      if (differenceInDays > 0) {
+        final collection = FirebaseFirestore.instance.collection('users').doc(currentUser!.uid).collection('sleep_history');
+        
+        for (int i = 1; i <= differenceInDays; i++) {
+          final missedDay = lastCheckedDate.add(Duration(days: i));
+          if (missedDay.isBefore(todayStart)) {
+            final dayStart = missedDay;
+            final dayEnd = missedDay.add(const Duration(days: 1));
+            
+            final records = await collection
+                .where('wakeTime', isGreaterThanOrEqualTo: Timestamp.fromDate(dayStart))
+                .where('wakeTime', isLessThan: Timestamp.fromDate(dayEnd))
+                .limit(1)
+                .get();
+                
+            if (records.docs.isEmpty) {
+              await collection.add({
+                'bedTime': Timestamp.fromDate(dayStart),
+                'wakeTime': Timestamp.fromDate(dayStart.add(const Duration(hours: 0))),
+                'durationMinutes': 0,
+                'timestamp': FieldValue.serverTimestamp(),
+                'note': 'স্লিপ ট্রাকার ব্যবহার হয়নি',
+              });
+            }
+          }
+        }
+      }
+    } else {
+      // First time using the app/tracker, just set the date to today
+    }
+    
+    await prefs.setString('last_sleep_checked_date', todayStart.toIso8601String());
+  }
+
+  TimeOfDay _parseTimeOfDay(String str, TimeOfDay fallback) {
+    try {
+      if (str.startsWith('TimeOfDay(')) {
+        final parts = str.substring(10, str.length - 1).split(':');
+        return TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+      }
+    } catch (_) {}
+    return fallback;
+  }
+
   Future<void> _loadSleepAlarmSettings() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
+      final String? savedBedTime = prefs.getString('bed_time');
+      if (savedBedTime != null) _bedTime = _parseTimeOfDay(savedBedTime, const TimeOfDay(hour: 23, minute: 45));
+      
+      final String? savedMorningTime = prefs.getString('morning_time');
+      if (savedMorningTime != null) _morningTime = _parseTimeOfDay(savedMorningTime, const TimeOfDay(hour: 6, minute: 0));
+
       _selectedSleepAlarmSound = prefs.getString('selectedSleepAlarmSound') ?? 'Alarm';
       _selectedSleepAlarmSoundName = prefs.getString('selectedSleepAlarmSoundName') ?? 'System Default Alarm';
       _sleepAlarmRepeatCount = prefs.getString('sleepAlarmRepeatCount') ?? 'loop';
@@ -1405,8 +1472,22 @@ class _SleepTrackerScreenState extends State<SleepTrackerScreen> with SingleTick
     
     final now = DateTime.now();
     final duration = now.difference(_sleepStartTime!);
+    final startOfDay = DateTime(now.year, now.month, now.day);
+    
+    final collection = FirebaseFirestore.instance.collection('users').doc(currentUser!.uid).collection('sleep_history');
+    
+    final todayRecords = await collection
+        .where('wakeTime', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
+        .orderBy('wakeTime', descending: true)
+        .get();
 
-    await FirebaseFirestore.instance.collection('users').doc(currentUser!.uid).collection('sleep_history').add({
+    if (todayRecords.docs.length >= 3) {
+      for (int i = 2; i < todayRecords.docs.length; i++) {
+        await collection.doc(todayRecords.docs[i].id).delete();
+      }
+    }
+
+    await collection.add({
       'bedTime': Timestamp.fromDate(_sleepStartTime!),
       'wakeTime': Timestamp.fromDate(now),
       'durationMinutes': duration.inMinutes,
@@ -1796,6 +1877,8 @@ class _SleepTrackerScreenState extends State<SleepTrackerScreen> with SingleTick
 
   Widget _buildTimeCard(String title, TimeOfDay time, bool isBedTime) {
     final cardDeco = ThemeManager.getCardDecoration(context);
+    final String time24h = '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+
     return InkWell(
       onTap: () => _pickTime(isBedTime),
       borderRadius: cardDeco.borderRadius as BorderRadius?,
@@ -1809,6 +1892,8 @@ class _SleepTrackerScreenState extends State<SleepTrackerScreen> with SingleTick
             Text(title, style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             Text(time.format(context), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
+            const SizedBox(height: 4),
+            Text('($time24h)', style: const TextStyle(fontSize: 14, color: Colors.blueGrey, fontWeight: FontWeight.bold)),
           ],
         ),
       ),
@@ -9241,6 +9326,7 @@ class _MoodTrackerBottomSheetState extends State<MoodTrackerBottomSheet> {
             children: List.generate(moods.length, (index) {
               final isSelected = _selectedMoodIndex == index;
               return GestureDetector(
+                behavior: HitTestBehavior.opaque,
                 onTap: () => setState(() => _selectedMoodIndex = index),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
@@ -9285,15 +9371,21 @@ class _MoodTrackerBottomSheetState extends State<MoodTrackerBottomSheet> {
               
               final User? user = FirebaseAuth.instance.currentUser;
               if (user != null) {
-                await FirebaseFirestore.instance.collection('users').doc(user.uid).collection('moods').add({
-                  'emoji': moods[_selectedMoodIndex]['emoji'],
-                  'label': moods[_selectedMoodIndex]['label'],
-                  'note': _noteController.text.trim(),
-                  'timestamp': FieldValue.serverTimestamp(),
-                });
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Mood saved successfully!')));
-                  Navigator.pop(context);
+                try {
+                  await FirebaseFirestore.instance.collection('users').doc(user.uid).collection('moods').add({
+                    'emoji': moods[_selectedMoodIndex]['emoji'],
+                    'label': moods[_selectedMoodIndex]['label'],
+                    'note': _noteController.text.trim(),
+                    'timestamp': FieldValue.serverTimestamp(),
+                  });
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Mood saved successfully!')));
+                    Navigator.pop(context);
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Error saving mood. Please check Firebase rules!')));
+                  }
                 }
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please log in first.')));
@@ -9359,9 +9451,7 @@ class MoodHistoryBottomSheet extends StatelessWidget {
                       for (var doc in snapshot.data!.docs) {
                         final data = doc.data() as Map<String, dynamic>;
                         final timestamp = data['timestamp'] as Timestamp?;
-                        if (timestamp == null) continue;
-                        
-                        final date = timestamp.toDate();
+                        final date = timestamp != null ? timestamp.toDate() : DateTime.now();
                         final dateOnly = DateTime(date.year, date.month, date.day);
 
                         String groupKey;

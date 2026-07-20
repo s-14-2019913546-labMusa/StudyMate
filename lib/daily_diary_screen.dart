@@ -793,31 +793,70 @@ class _DailyDiaryScreenState extends State<DailyDiaryScreen> with SingleTickerPr
 
   // --- PAGINATED PDF GENERATION USING SCREENSHOT --- //
   
-  List<String> _wrapText(String text, int maxCharsPerLine) {
-    List<String> lines = [];
-    List<String> paragraphs = text.split('\n');
-    for (String paragraph in paragraphs) {
+  List<String> _paginateSafely(String content, TextStyle style, double maxWidth, int linesPerFirstPage, int linesPerOtherPage) {
+    List<String> pages = [];
+    List<String> paragraphs = content.split('\n');
+    
+    String currentPage = '';
+    
+    // We use a 20% safety margin on the width to account for GoogleFonts loading asynchronously.
+    // This guarantees that even if the fallback font used during measurement is narrower than the actual font,
+    // the text will never unexpectedly wrap in the final screenshot.
+    final double safeMaxWidth = maxWidth * 0.80; 
+    final TextPainter painter = TextPainter(textDirection: TextDirection.ltr);
+    
+    for (int i = 0; i < paragraphs.length; i++) {
+      String paragraph = paragraphs[i];
       if (paragraph.isEmpty) {
-        lines.add('');
+        String testPage = '$currentPage\n';
+        painter.text = TextSpan(text: testPage, style: style);
+        painter.layout(maxWidth: safeMaxWidth);
+        
+        int allowedLines = pages.isEmpty ? linesPerFirstPage : linesPerOtherPage;
+        if (painter.computeLineMetrics().length > allowedLines) {
+          pages.add(currentPage.trimRight());
+          currentPage = '\n';
+        } else {
+          currentPage = testPage;
+        }
         continue;
       }
+
       List<String> words = paragraph.split(' ');
-      String currentLine = '';
       for (String word in words) {
-        if (currentLine.isEmpty) {
-          currentLine = word;
-        } else if ((currentLine + ' ' + word).length <= maxCharsPerLine) {
-          currentLine += ' ' + word;
+        String testPage = currentPage.isEmpty ? word : '$currentPage $word';
+        painter.text = TextSpan(text: testPage, style: style);
+        painter.layout(maxWidth: safeMaxWidth);
+        
+        int allowedLines = pages.isEmpty ? linesPerFirstPage : linesPerOtherPage;
+        if (painter.computeLineMetrics().length > allowedLines) {
+          pages.add(currentPage.trimRight());
+          currentPage = word; // Start new page
         } else {
-          lines.add(currentLine);
-          currentLine = word;
+          currentPage = testPage;
         }
       }
-      if (currentLine.isNotEmpty) {
-        lines.add(currentLine);
+      
+      if (i < paragraphs.length - 1) {
+        String testPageWithNewline = '$currentPage\n';
+        painter.text = TextSpan(text: testPageWithNewline, style: style);
+        painter.layout(maxWidth: safeMaxWidth);
+        
+        int allowedLines = pages.isEmpty ? linesPerFirstPage : linesPerOtherPage;
+        if (painter.computeLineMetrics().length > allowedLines) {
+          pages.add(currentPage.trimRight());
+          currentPage = '\n';
+        } else {
+          currentPage = testPageWithNewline;
+        }
       }
     }
-    return lines;
+    
+    if (currentPage.trim().isNotEmpty) {
+      pages.add(currentPage.trimRight());
+    }
+    
+    return pages.isEmpty ? [''] : pages;
   }
 
   Future<void> _confirmDelete(String docId) async {
@@ -950,25 +989,30 @@ class _DailyDiaryScreenState extends State<DailyDiaryScreen> with SingleTickerPr
     final parsedDate = DateFormat('yyyy-MM-dd').parse(dateStr);
     final monthImagePath = _getThemeImagePath(_bgTheme, parsedDate);
 
-    final wrappedLines = _wrapText(content, 48);
-    final int linesPerPage = 20;
+    // Calculate exact constraints without the outer 32px padding
+    final maxWidth = 794.0 - 72.0; // Total Width - Inner Left/Right Padding (48 + 24)
+    final firstPageMaxHeight = 1123.0 - 122.0 - startY - 10.0; // Total Height - Header - Top Offset - safety margin
+    final otherPageMaxHeight = 1123.0 - startY - 10.0;
     
-    final totalPages = (wrappedLines.length / linesPerPage).ceil().clamp(1, 9999);
+    // We calculate exactly how many physical lines can fit based on the font size line height
+    final int linesPerFirstPage = (firstPageMaxHeight / lineHeight).floor();
+    final int linesPerOtherPage = (otherPageMaxHeight / lineHeight).floor();
+    
+    final List<String> paginatedTexts = _paginateSafely(content, textStyle, maxWidth, linesPerFirstPage, linesPerOtherPage);
+    final totalPages = paginatedTexts.length;
     final List<pw.MemoryImage> pageImages = [];
 
     for (int i = 0; i < totalPages; i++) {
       final screenshotController = ScreenshotController();
       final isFirstPage = i == 0;
-      final int startLine = i * linesPerPage;
-      final int endLine = (startLine + linesPerPage).clamp(0, wrappedLines.length);
-      final pageText = wrappedLines.sublist(startLine, endLine).join('\n');
+      final pageText = paginatedTexts[i];
       
       final widgetToCapture = Container(
         key: UniqueKey(),
         width: 794,
         height: 1123,
         color: const Color(0xFFFAF0DC),
-        padding: const EdgeInsets.all(32.0),
+        padding: EdgeInsets.zero, // REMOVED outer 32px padding to fix double margins
         child: Container(
           clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(

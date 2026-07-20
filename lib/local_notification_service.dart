@@ -33,43 +33,54 @@ Future<void> _handleNotificationAction(String? actionId) async {
 
   final prefs = await SharedPreferences.getInstance();
 
-  if (actionId == 'sleep_awake') {
-    // User is awake, reschedule checkup for 20 mins later
-    log('User is awake, rescheduling checkup.');
-    await LocalNotificationService.scheduleCheckupNotification(
-      Duration(minutes: 20),
+  if (actionId == 'sleep_awake' || actionId == 'sleep_awake_dismissed') {
+    // User is awake, show warning popup
+    log('User is awake, showing warning popup.');
+    await LocalNotificationService.scheduleNotification(
+      id: 5,
+      title: 'দুষ্টু, ঘুমিয়ে পড়ো!',
+      body: 'এখনই ঘুমাতে যান, না হলে কাল সকালে উঠতে কষ্ট হবে।',
+      scheduledDate: DateTime.now().add(const Duration(seconds: 2)),
+      fullScreenIntent: true,
+      actions: [
+        const AndroidNotificationAction(
+          'sleep_reschedule_30m',
+          'নতুন টাইমার (+30m)',
+          showsUserInterface: true,
+        ),
+        const AndroidNotificationAction(
+          'sleep_now_ok',
+          'এখনি ঘুমুচ্ছি',
+          showsUserInterface: true,
+        ),
+      ],
     );
-    // Reset expected sleep time to 20 mins from now
-    await prefs.setString(
-      'expected_sleep_start',
-      DateTime.now().add(const Duration(minutes: 20)).toIso8601String(),
-    );
-  } else if (actionId == 'sleep_reschedule') {
-    // Reschedule bedtime by 30 mins
-    log('Rescheduling bedtime by 30 mins.');
+  } else if (actionId == 'sleep_reschedule_30m' || actionId == 'sleep_reschedule_1h') {
+    final int extraMins = actionId == 'sleep_reschedule_30m' ? 30 : 60;
+    log('Rescheduling bedtime by $extraMins mins.');
     final currentBedTimeStr = prefs.getString('bed_time');
     if (currentBedTimeStr != null) {
-      final newBedTime = DateTime.parse(
-        currentBedTimeStr,
-      ).add(const Duration(minutes: 30));
+      final newBedTime = DateTime.parse(currentBedTimeStr).add(Duration(minutes: extraMins));
       await prefs.setString('bed_time', newBedTime.toIso8601String());
-      await prefs.setString(
-        'expected_sleep_start',
-        newBedTime.toIso8601String(),
-      );
-      await LocalNotificationService.scheduleAllSleepNotifications(
-        newBedTime,
-        null,
-      ); // Keep old wake time for now
+      await prefs.setString('expected_sleep_start', newBedTime.toIso8601String());
+      await LocalNotificationService.scheduleAllSleepNotifications(newBedTime, null);
     }
+  } else if (actionId == 'sleep_prepare_ok') {
+    log('User is preparing to sleep. Bedtime alarm will ring at exact time.');
+    // Nothing to do, exact bedtime alarm is already scheduled.
+  } else if (actionId == 'sleep_now_ok') {
+    log('User started sleeping now.');
+    final now = DateTime.now();
+    await prefs.setString('expected_sleep_start', now.toIso8601String());
+    
+    // Schedule checkup for 15 mins later
+    await LocalNotificationService.scheduleCheckupNotification(const Duration(minutes: 15));
   } else if (actionId == 'alarm_snooze') {
     log('Snoozing morning alarm for 5 mins.');
     final snoozeTime = DateTime.now().add(const Duration(minutes: 5));
     await LocalNotificationService.scheduleMorningAlarm(snoozeTime);
   } else if (actionId == 'alarm_off') {
     log('Turning off alarm and saving sleep history.');
-    // Logic to save sleep history is usually handled in the UI when the user opens the app,
-    // or we can flag it here.
     await prefs.setBool('needs_to_save_sleep_history', true);
     await LocalNotificationService.cancelAllNotifications();
   }
@@ -152,12 +163,23 @@ class LocalNotificationService {
       await scheduleNotification(
         id: 1,
         title: 'Sleep Reminder',
-        body: 'It is almost time for bed. Please get ready!',
+        body: 'বিছানা গুছাও, ঘুমানোর সময় হয়েছে',
         scheduledDate: reminderTime,
+        fullScreenIntent: true,
         actions: [
           const AndroidNotificationAction(
-            'sleep_reschedule',
-            'Reschedule (+30m)',
+            'sleep_reschedule_30m',
+            '+ 30m',
+            showsUserInterface: true,
+          ),
+          const AndroidNotificationAction(
+            'sleep_reschedule_1h',
+            '+ 1h',
+            showsUserInterface: true,
+          ),
+          const AndroidNotificationAction(
+            'sleep_prepare_ok',
+            'ওকে প্রস্তুতি নিচ্ছি',
             showsUserInterface: true,
           ),
         ],
@@ -169,35 +191,29 @@ class LocalNotificationService {
       await scheduleNotification(
         id: 2,
         title: 'Bed Time',
-        body: 'Your sleep session has started. Good night!',
+        body: 'ঘুমানোর সময় হয়েছে, ঘুমাও!',
         scheduledDate: bedTime,
+        fullScreenIntent: true,
+        actions: [
+          const AndroidNotificationAction(
+            'sleep_now_ok',
+            'ওকে',
+            showsUserInterface: true,
+          ),
+        ],
       );
       await prefs.setString('expected_sleep_start', bedTime.toIso8601String());
     } else {
-      // If bedtime already passed for today, maybe they are already sleeping
       await prefs.setString(
         'expected_sleep_start',
         DateTime.now().toIso8601String(),
       );
     }
 
-    // 3. 10 mins after bedtime
-    final checkupTime = bedTime.add(const Duration(minutes: 10));
+    // 3. 15 mins after bedtime checkup
+    final checkupTime = bedTime.add(const Duration(minutes: 15));
     if (checkupTime.isAfter(DateTime.now())) {
-      await scheduleNotification(
-        id: 3,
-        title: 'Sleep Checkup',
-        body: 'Are you still awake?',
-        scheduledDate: checkupTime,
-        playSound: false, // Silent
-        actions: [
-          const AndroidNotificationAction(
-            'sleep_awake',
-            'Yes, I am awake',
-            showsUserInterface: true,
-          ),
-        ],
-      );
+      await scheduleCheckupNotification(const Duration(minutes: 15), fromNow: false, checkupTime: checkupTime);
     }
 
     // 4. Wake up alarm
@@ -206,18 +222,20 @@ class LocalNotificationService {
     }
   }
 
-  static Future<void> scheduleCheckupNotification(Duration delay) async {
+  static Future<void> scheduleCheckupNotification(Duration delay, {bool fromNow = true, DateTime? checkupTime}) async {
     if (kIsWeb) return;
     await scheduleNotification(
       id: 3,
       title: 'Sleep Checkup',
-      body: 'Are you still awake?',
-      scheduledDate: DateTime.now().add(delay),
-      playSound: false,
+      body: 'ঘুমিয়েছ?',
+      scheduledDate: fromNow ? DateTime.now().add(delay) : checkupTime!,
+      playSound: false, // Silent
+      fullScreenIntent: true,
+      timeoutAfter: 60000, // 1 minute timeout
       actions: [
         const AndroidNotificationAction(
           'sleep_awake',
-          'Yes, I am awake',
+          'আমি জেগে আছি',
           showsUserInterface: true,
         ),
       ],
@@ -242,6 +260,7 @@ class LocalNotificationService {
       channelDescription: 'Handles wake-up alarms with louder sounds',
       enableVibration: true,
       insistent: isInsistent,
+      fullScreenIntent: true,
       actions: [
         const AndroidNotificationAction(
           'alarm_snooze',
@@ -631,6 +650,8 @@ class LocalNotificationService {
     List<AndroidNotificationAction>? actions,
     DateTimeComponents? matchDateTimeComponents,
     bool insistent = false,
+    bool fullScreenIntent = false,
+    int? timeoutAfter,
   }) async {
     if (kIsWeb) return;
 
@@ -654,6 +675,8 @@ class LocalNotificationService {
           enableVibration: enableVibration,
           actions: actions,
           additionalFlags: insistent ? Int32List.fromList([4]) : null,
+          fullScreenIntent: fullScreenIntent,
+          timeoutAfter: timeoutAfter,
         );
 
     final DarwinNotificationDetails iosDetails = DarwinNotificationDetails(

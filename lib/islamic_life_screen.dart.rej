@@ -1,0 +1,800 @@
+diff a/lib/islamic_life_screen.dart b/lib/islamic_life_screen.dart	(rejected hunks)
+@@ -60,13 +61,17 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
+   static const String _islamicNotifFile = 'islamic_notif_settings.json';
+ 
+   // Friday Special Checklist States
+-  final List<Map<String, dynamic>> _jummaSunnahs = [
+-    {'title': 'αªùαºïαª╕αª▓ αªòαª░αª╛', 'done': false},
+-    {'title': 'αª¬αª░αª┐αª╖αºìαªòαª╛αª░ αª¬αºïαª╢αª╛αªò αª¬αª░αª╛ αªô αª╕αºüαªùαª¿αºìαªºαª┐ αª▓αª╛αªùαª╛αª¿αºï', 'done': false},
+-    {'title': 'αª╕αºéαª░αª╛ αªåαª▓-αªòαª╛αª╣αª╛αª½ αªñαºçαª▓αª╛αªôαºƒαª╛αªñ αªòαª░αª╛', 'done': false},
+-    {'title': 'αª░αª╛αª╕αºéαª▓αºüαª▓αºìαª▓αª╛αª╣ (αª╕αª╛.) αªÅαª░ αªôαª¬αª░ αªªαª░αºüαªª αª¬αª╛αªá αªòαª░αª╛', 'done': false},
+-    {'title': 'αª£αºüαª«αª╛αª░ αª╕αª╛αª▓αª╛αªñαºç αªåαªùαºç αª»αª╛αªôαºƒαª╛', 'done': false},
+-  ];
++  final List<bool> _jummaSunnahsDone = [false, false, false, false, false];
++  List<Map<String, dynamic>> get _jummaSunnahs {
++    final isBn = LanguageManager().isBengali;
++    return [
++      {'title': isBn ? 'αªùαºïαª╕αª▓ αªòαª░αª╛' : 'Perform Ghusl (Bath)', 'done': _jummaSunnahsDone[0]},
++      {'title': isBn ? 'αª¬αª░αª┐αª╖αºìαªòαª╛αª░ αª¬αºïαª╢αª╛αªò αª¬αª░αª╛ αªô αª╕αºüαªùαª¿αºìαªºαª┐ αª▓αª╛αªùαª╛αª¿αºï' : 'Wear Clean Clothes & Apply Attar', 'done': _jummaSunnahsDone[1]},
++      {'title': isBn ? 'αª╕αºéαª░αª╛ αªåαª▓-αªòαª╛αª╣αª╛αª½ αªñαºçαª▓αª╛αªôαºƒαª╛αªñ αªòαª░αª╛' : 'Recite Surah Al-Kahf', 'done': _jummaSunnahsDone[2]},
++      {'title': isBn ? 'αª░αª╛αª╕αºéαª▓αºüαª▓αºìαª▓αª╛αª╣ (αª╕αª╛.) αªÅαª░ αªôαª¬αª░ αªªαª░αºüαªª αª¬αª╛αªá αªòαª░αª╛' : 'Send Salawat / Durood upon Prophet (pbuh)', 'done': _jummaSunnahsDone[3]},
++      {'title': isBn ? 'αª£αºüαª«αª╛αª░ αª╕αª╛αª▓αª╛αªñαºç αªåαªùαºç αª»αª╛αªôαºƒαª╛' : 'Go Early to Mosque for Jummah', 'done': _jummaSunnahsDone[4]},
++    ];
++  }
+ 
+   @override
+   void initState() {
+@@ -789,16 +794,20 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
+   }
+ 
+   String _formatHistoryDate(String dateKey) {
++    final isBn = LanguageManager().isBengali;
+     try {
+       final date = DateFormat('yyyy-MM-dd').parse(dateKey);
+       final today = DateTime.now();
+       final yesterday = today.subtract(const Duration(days: 1));
+ 
+       if (dateKey == DateFormat('yyyy-MM-dd').format(today)) {
+-        return "αªåαª£ (Today)";
++        return isBn ? "αªåαª£ (Today)" : "Today";
+       } else if (dateKey == DateFormat('yyyy-MM-dd').format(yesterday)) {
+-        return "αªùαªñαªòαª╛αª▓ (Yesterday)";
++        return isBn ? "αªùαªñαªòαª╛αª▓ (Yesterday)" : "Yesterday";
+       } else {
++        if (!isBn) {
++          return DateFormat('d MMM').format(date);
++        }
+         final monthBangla = {
+           1: 'αª£αª╛αª¿αºüαºƒαª╛αª░αª┐',
+           2: 'αª½αºçαª¼αºìαª░αºüαºƒαª╛αª░αª┐',
+@@ -995,24 +1004,24 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
+     return Scaffold(
+       backgroundColor: primaryBg,
+       appBar: AppBar(
+-        title: const Text('Islamic Life & Prayer Times', style: TextStyle(fontWeight: FontWeight.bold, color: textLight)),
++        title: Text('Islamic Life'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, color: textLight)),
+         backgroundColor: Colors.transparent,
+         elevation: 0,
+         iconTheme: const IconThemeData(color: textLight),
+         actions: [
+           IconButton(
+             icon: const Icon(Icons.notifications_active_rounded, color: goldAccent),
+-            tooltip: 'αª¿αºïαªƒαª┐αª½αª┐αªòαºçαª╢αª¿ αª╕αºçαªƒαª┐αªéαª╕',
++            tooltip: 'Notification Settings'.tr(),
+             onPressed: _showIslamicNotificationSettings,
+           ),
+           IconButton(
+             icon: const Icon(Icons.my_location_rounded, color: goldAccent),
+-            tooltip: 'αª£αª┐αª¬αª┐αªÅαª╕ αª▓αºïαªòαºçαª╢αª¿ αªåαª¬αªíαºçαªƒ',
++            tooltip: 'Update GPS Location'.tr(),
+             onPressed: _loadLocationAndPrayerTimes,
+           ),
+           PopupMenuButton<String>(
+             icon: const Icon(Icons.map_rounded, color: goldAccent),
+-            tooltip: 'αª¼αª┐αª¡αª╛αªù αª¿αª┐αª░αºìαª¼αª╛αªÜαª¿ αªòαª░αºüαª¿',
++            tooltip: 'Select Division'.tr(),
+             color: cardBg,
+             shape: RoundedRectangleBorder(
+               borderRadius: BorderRadius.circular(16),
+@@ -1046,9 +1055,9 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
+                   Row(
+                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                     children: [
+-                      const Text(
+-                        'αªåαª£αªòαºçαª░ αª╣αª┐αª£αª░αª┐ αªñαª╛αª░αª┐αªû:',
+-                        style: TextStyle(
++                      Text(
++                        'Today\'s Hijri Date:'.tr(),
++                        style: const TextStyle(
+                           color: Colors.white70,
+                           fontSize: 14,
+                           fontWeight: FontWeight.w500,
+@@ -1115,8 +1124,8 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
+                             const SizedBox(width: 8),
+                             Text(
+                               _isCloseToEnd
+-                                  ? 'αª£αª░αºüαª░αºÇ αªôαºƒαª╛αªòαºìαªñ αª╢αºçαª╖ αª╣αªôαºƒαª╛αª░ αªòαª╛αªëαª¿αºìαªƒαªíαª╛αªëαª¿'
+-                                  : (isFriday ? 'αª£αºüαª«αºìαª«αª╛αª¼αª╛αª░ αª«αºïαª¼αª╛αª░αªò' : 'αª¿αª╛αª«αª╛αª£αºçαª░ αªòαª╛αªëαª¿αºìαªƒαªíαª╛αªëαª¿'),
++                                  ? 'Urgent Waqt End Countdown'.tr()
++                                  : (isFriday ? 'Jumma Mubarak'.tr() : 'Prayer Countdown'.tr()),
+                               style: TextStyle(
+                                 color: _isCloseToEnd ? Colors.redAccent : goldAccent,
+                                 fontWeight: FontWeight.bold,
+@@ -1128,12 +1137,12 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
+                         ),
+                         const SizedBox(height: 12),
+                         Text(
+-                          _nextPrayerName,
++                          _nextPrayerName.tr(),
+                           style: const TextStyle(color: textLight, fontSize: 26, fontWeight: FontWeight.w800),
+                         ),
+                         const SizedBox(height: 4),
+                         Text(
+-                          _isCloseToEnd ? 'αªôαºƒαª╛αªòαºìαªñ αª╢αºçαª╖ αª╣αªñαºç αª¼αª╛αªòαª┐ αª╕αª«αºƒ' : 'αª╢αºüαª░αºü αª╣αªñαºç αª¼αª╛αªòαª┐ αª╕αª«αºƒ',
++                          _isCloseToEnd ? 'Time Remaining to End'.tr() : 'Time Remaining to Start'.tr(),
+                           style: const TextStyle(color: Colors.white70, fontSize: 13),
+                         ),
+                         const SizedBox(height: 12),
+@@ -1209,49 +1218,8 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
+                                 crossAxisAlignment: CrossAxisAlignment.start,
+                                 children: [
+                                   Text(
+-                                    'αª£αºüαª«αºìαª«αª╛αª¼αª╛αª░αºçαª░ αª¼αª┐αª╢αºçαª╖ αªåαª«αª▓αª╕αª«αºéαª╣',
+-                                    style: TextStyle(color: textLight, fontWeight: FontWeight.bold, fontSize: 16),
+-                                  ),
+-                                  Text(
+-                                    'αªåαª£αªòαºçαª░ αªªαª┐αª¿αºçαª░ αª╕αºüαª¿αºìαª¿αªñ αªåαª«αª▓αªùαºüαª▓αºï αª╕αª«αºìαª¬αª¿αºìαª¿ αªòαª░αºüαª¿',
+-                                    style: TextStyle(color: Colors.white60, fontSize: 12),
+-                                  ),
+-                                ],
+-                              ),
+-                            ],
+-                          ),
+-                          const Divider(height: 24, color: Colors.white12),
+-                          Column(
+-                            children: List.generate(_jummaSunnahs.length, (index) {
+-                              final item = _jummaSunnahs[index];
+-                              return CheckboxListTile(
+-                                contentPadding: EdgeInsets.zero,
+-                                activeColor: Colors.tealAccent.shade400,
+-                                checkColor: Colors.black,
+-                                title: Text(
+-                                  item['title'],
+-                                  style: TextStyle(
+-                                    color: item['done'] ? Colors.white54 : textLight,
+-                                    fontSize: 14,
+-                                    decoration: item['done'] ? TextDecoration.lineThrough : null,
+-                                  ),
+-                                ),
+-                                value: item['done'],
+-                                onChanged: (val) {
+-                                  setState(() {
+-                                    _jummaSunnahs[index]['done'] = val ?? false;
+-                                  });
+-                                },
+-                              );
+-                            }),
+-                          ),
+-                        ],
+-                      ),
+-                    ),
+-                    const SizedBox(height: 24),
+-                  ],
+-
+-                  // 3. Quran Verse & Hadith Section (Stacked Full Width)
++                                    'Friday Special Deeds'.tr(),
++                                    style: const TextStyle(color: textLight, fontWeight: FontWeight.bold,                   // 3. Quran Verse & Hadith Section (Stacked Full Width)
+                   Container(
+                     padding: const EdgeInsets.all(20),
+                     decoration: BoxDecoration(
+@@ -1265,14 +1233,14 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
+                         Row(
+                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                           children: [
+-                            const Text('αªåαª£αªòαºçαª░ αªåαºƒαª╛αªñ', style: TextStyle(color: goldAccent, fontWeight: FontWeight.bold, fontSize: 14)),
++                            Text('Today\'s Verse'.tr(), style: const TextStyle(color: goldAccent, fontWeight: FontWeight.bold, fontSize: 14)),
+                             IconButton(
+                               icon: const Icon(Icons.copy_rounded, color: Colors.white54, size: 18),
+                               constraints: const BoxConstraints(),
+                               padding: EdgeInsets.zero,
+                               onPressed: () => _copyToClipboard(
+                                 "${_dailyVerse?['translation']} - ${_dailyVerse?['reference']}",
+-                                "αªåαª£αªòαºçαª░ αªåαºƒαª╛αªñ",
++                                'Today\'s Verse'.tr(),
+                               ),
+                             ),
+                           ],
+@@ -1311,14 +1279,14 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
+                         Row(
+                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                           children: [
+-                            const Text('αªåαª£αªòαºçαª░ αª╣αª╛αªªαª┐αª╕', style: TextStyle(color: goldAccent, fontWeight: FontWeight.bold, fontSize: 14)),
++                            Text('Today\'s Hadith'.tr(), style: const TextStyle(color: goldAccent, fontWeight: FontWeight.bold, fontSize: 14)),
+                             IconButton(
+                               icon: const Icon(Icons.copy_rounded, color: Colors.white54, size: 18),
+                               constraints: const BoxConstraints(),
+                               padding: EdgeInsets.zero,
+                               onPressed: () => _copyToClipboard(
+-                                "αª╣αª╛αªªαª┐αª╕: ${_dailyHadith?['text']} (αª¼αª░αºìαªúαª¿αª╛αºƒ: ${_dailyHadith?['narrator']}) - ${_dailyHadith?['reference']}",
+-                                "αªåαª£αªòαºçαª░ αª╣αª╛αªªαª┐αª╕",
++                                "αª╣αª╛αªªαª┐αª╕: ${_dailyHadith?['text']} (${LanguageManager().isBengali ? "αª¼αª░αºìαªúαª¿αª╛αºƒ" : "Narrated by"}: ${_dailyHadith?['narrator']}) - ${_dailyHadith?['reference']}",
++                                'Today\'s Hadith'.tr(),
+                               ),
+                             ),
+                           ],
+@@ -1330,7 +1298,9 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
+                         ),
+                         const SizedBox(height: 12),
+                         Text(
+-                          "αª¼αª░αºìαªúαª¿αª╛αºƒ: ${_dailyHadith?['narrator'] ?? ''}",
++                          LanguageManager().isBengali
++                              ? "αª¼αª░αºìαªúαª¿αª╛αºƒ: ${_dailyHadith?['narrator'] ?? ''}"
++                              : "Narrated by: ${_dailyHadith?['narrator'] ?? ''}",
+                           style: const TextStyle(color: Colors.white60, fontSize: 11, fontWeight: FontWeight.w500),
+                         ),
+                         const SizedBox(height: 2),
+@@ -1406,9 +1376,9 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
+                             child: Column(
+                               crossAxisAlignment: CrossAxisAlignment.start,
+                               children: [
+-                                const Text(
+-                                  'αª¬αª¼αª┐αªñαºìαª░ αªòαºüαª░αªåαª¿ αª╢αª░αºÇαª½',
+-                                  style: TextStyle(
++                                Text(
++                                  'Holy Quran Sharif'.tr(),
++                                  style: const TextStyle(
+                                     color: Colors.white,
+                                     fontSize: 17,
+                                     fontWeight: FontWeight.bold,
+@@ -1416,7 +1386,7 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
+                                 ),
+                                 const SizedBox(height: 4),
+                                 Text(
+-                                  'αª╕αºüαª░αª╛-αª¡αª┐αªñαºìαªñαª┐αªò αª¬αª╛αªá ΓÇó αª╣αª╛αª½αºçαª£αª┐ αªòαºüαª░αªåαª¿ (αº¼αºªαº¬ αª¬αºâαª╖αºìαªáαª╛) ΓÇó αªàαª½αª▓αª╛αªçαª¿ αª╕αª╛αª¬αºïαª░αºìαªƒ',
++                                  'Surah-based Reading ΓÇó Hafezi Quran (604 Pages) ΓÇó Offline Support'.tr(),
+                                   style: TextStyle(
+                                     color: Colors.white.withValues(alpha: 0.55),
+                                     fontSize: 12,
+@@ -1457,15 +1427,15 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
+                               borderRadius: BorderRadius.circular(20),
+                               border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+                             ),
+-                            child: const Column(
++                            child: Column(
+                               children: [
+-                                Icon(Icons.explore_rounded, color: goldAccent, size: 32),
+-                                SizedBox(height: 8),
++                                const Icon(Icons.explore_rounded, color: goldAccent, size: 32),
++                                const SizedBox(height: 8),
+                                 Text(
+-                                  'αªòαª┐αª¼αª▓αª╛ αªòαª«αºìαª¬αª╛αª╕',
+-                                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
++                                  'Qibla Compass'.tr(),
++                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                                 ),
+-                                Text(
++                                const Text(
+                                   'Qibla Direction',
+                                   style: TextStyle(color: Colors.white38, fontSize: 11),
+                                 ),
+@@ -1492,15 +1462,15 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
+                               borderRadius: BorderRadius.circular(20),
+                               border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+                             ),
+-                            child: const Column(
++                            child: Column(
+                               children: [
+-                                Icon(Icons.radar_rounded, color: goldAccent, size: 32),
+-                                SizedBox(height: 8),
++                                const Icon(Icons.radar_rounded, color: goldAccent, size: 32),
++                                const SizedBox(height: 8),
+                                 Text(
+-                                  'αªñαª╛αª╕αª¼αºÇαª╣ αªòαª╛αªëαª¿αºìαªƒαª╛αª░',
+-                                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
++                                  'Tasbeeh Counter'.tr(),
++                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                                 ),
+-                                Text(
++                                const Text(
+                                   'Tasbeeh Counter',
+                                   style: TextStyle(color: Colors.white38, fontSize: 11),
+                                 ),
+@@ -1565,9 +1535,9 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
+                             child: Column(
+                               crossAxisAlignment: CrossAxisAlignment.start,
+                               children: [
+-                                const Text(
+-                                  'αª¬αº£αª╛αª╢αºïαª¿αª╛αª░ αªªαºïαºƒαª╛ αªô αªåαª«αª▓',
+-                                  style: TextStyle(
++                                Text(
++                                  'Study Duas & Deeds'.tr(),
++                                  style: const TextStyle(
+                                     color: Colors.white,
+                                     fontSize: 17,
+                                     fontWeight: FontWeight.bold,
+@@ -1575,7 +1545,7 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
+                                 ),
+                                 const SizedBox(height: 4),
+                                 Text(
+-                                  'αª╕αºìαª«αºâαªñαª┐αª╢αªòαºìαªñαª┐ αª¼αºâαªªαºìαªºαª┐ ΓÇó αªòαªáαª┐αª¿ αª¼αª┐αª╖αºƒ αª╕αª╣αª£ αª╣αªôαºƒαª╛ ΓÇó αª¬αº£αª╛αª╢αºïαª¿αª╛ αª╢αºüαª░αºüαª░ αªªαºïαºƒαª╛',
++                                  'Memory Increase ΓÇó Easy Learning ΓÇó Duas before Study'.tr(),
+                                   style: TextStyle(
+                                     color: Colors.white.withValues(alpha: 0.55),
+                                     fontSize: 12,
+@@ -1597,41 +1567,109 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
+                   const SizedBox(height: 24),
+ 
+                   // 4. Prayer Times List
+-                  const Padding(
+-                    padding: EdgeInsets.only(left: 4.0, bottom: 12.0),
++                  Padding(
++                    padding: const EdgeInsets.only(left: 4.0, bottom: 12.0),
+                     child: Text(
+-                      'αª¿αª╛αª«αª╛αª£αºçαª░ αª╕αª«αºƒαª╕αºéαªÜαºÇ',
+-                      style: TextStyle(color: textLight, fontWeight: FontWeight.bold, fontSize: 18),
++                      'Prayer Schedule'.tr(),
++                      style: const TextStyle(color: textLight, fontWeight: FontWeight.bold, fontSize: 18),
+                     ),
+                   ),
+                   _buildPrayerTile(
+-                    'αª½αª£αª░ (Fajr)',
++                    LanguageManager().isBengali ? 'αª½αª£αª░ (Fajr)' : 'Fajr',
+                     _prayerTimes?['Fajr'] ?? '03:52',
+                     _prayerTimes?['Sunrise'] ?? '05:15',
+                     'Fajr',
+                     _prayerTimes?['Sunrise'] ?? '05:15',
+                   ),
+                   _buildPrayerTile(
+-                    isFriday ? 'αª£αºüαª«αª╛ (Jumma)' : 'αª»αºïαª╣αª░ (Dhuhr)',
++                    isFriday
++                        ? (LanguageManager().isBengali ? 'αª£αºüαª«αª╛ (Jumma)' : 'Jumma')
++                        : (LanguageManager().isBengali ? 'αª»αºïαª╣αª░ (Dhuhr)' : 'Dhuhr'),
+                     _prayerTimes?['Dhuhr'] ?? '12:03',
+                     _prayerTimes?['Asr'] ?? '04:34',
+                     'Dhuhr',
+                     _prayerTimes?['Asr'] ?? '04:34',
+                   ),
+                   _buildPrayerTile(
+-                    'αªåαª╕αª░ (Asr)',
++                    LanguageManager().isBengali ? 'αªåαª╕αª░ (Asr)' : 'Asr',
+                     _prayerTimes?['Asr'] ?? '04:34',
+                     _prayerTimes?['Maghrib'] ?? '06:48',
+                     'Asr',
+                     _prayerTimes?['Maghrib'] ?? '06:48',
+                   ),
+                   _buildPrayerTile(
+-                    'αª«αª╛αªùαª░αª┐αª¼ (Maghrib)',
++                    LanguageManager().isBengali ? 'αª«αª╛αªùαª░αª┐αª¼ (Maghrib)' : 'Maghrib',
+                     _prayerTimes?['Maghrib'] ?? '06:48',
+                     _prayerTimes?['Isha'] ?? '08:15',
+                     'Maghrib',
+                     _prayerTimes?['Isha'] ?? '08:15',
+                   ),
++                  _buildPrayerTile(
++                    LanguageManager().isBengali ? 'αªÅαª╢αª╛ (Isha)' : 'Isha',
++                    _prayerTimes?['Isha'] ?? '08:15',
++                    _prayerTimes?['Fajr'] ?? '03:52',
++                    'Isha',
++                    _prayerTimes?['Fajr'] ?? '03:52',
++                  ),
++                  
++                  const SizedBox(height: 16),
++                  
++                  // Sunrise & Sunset Info Card
++                  Container(
++                    padding: const EdgeInsets.all(16),
++                    decoration: BoxDecoration(
++                      color: cardBg,
++                      borderRadius: BorderRadius.circular(20),
++                      border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
++                    ),
++                    child: Row(
++                      mainAxisAlignment: MainAxisAlignment.spaceAround,
++                      children: [
++                        Column(
++                          children: [
++                            Row(
++                              children: [
++                                const Icon(Icons.wb_sunny_rounded, color: Colors.orangeAccent, size: 20),
++                                const SizedBox(width: 8),
++                                Text(
++                                  LanguageManager().isBengali ? 'αª╕αºéαª░αºìαª»αºïαªªαºƒ (Sunrise)' : 'Sunrise',
++                                  style: const TextStyle(color: Colors.white70, fontSize: 13),
++                                ),
++                              ],
++                            ),
++                            const SizedBox(height: 6),
++                            Text(
++                              _formatTo12Hour(_prayerTimes?['Sunrise'] ?? '05:15'),
++                              style: const TextStyle(color: textLight, fontSize: 16, fontWeight: FontWeight.bold),
++                            ),
++                          ],
++                        ),
++                        Container(width: 1, height: 40, color: Colors.white10),
++                        Column(
++                          children: [
++                            Row(
++                              children: [
++                                const Icon(Icons.wb_twilight_rounded, color: Colors.redAccent, size: 20),
++                                const SizedBox(width: 8),
++                                Text(
++                                  LanguageManager().isBengali ? 'αª╕αºéαª░αºìαª»αª╛αª╕αºìαªñ (Sunset)' : 'Sunset',
++                                  style: const TextStyle(color: Colors.white70, fontSize: 13),
++                                ),
++                              ],
++                            ),
++                            const SizedBox(height: 6),
++                            Text(
++                              _formatTo12Hour(_prayerTimes?['Maghrib'] ?? '06:48'),
++                              style: const TextStyle(color: textLight, fontSize: 16, fontWeight: FontWeight.bold),
++                            ),
++                          ],
++                        ),
++                      ],
++                    ),
++                  ),08:15',
++                    'Maghrib',
++                    _prayerTimes?['Isha'] ?? '08:15',
++                  ),
+                   _buildPrayerTile(
+                     'αªÅαª╢αª╛ (Isha)',
+                     _prayerTimes?['Isha'] ?? '08:15',
+@@ -1692,21 +1730,21 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
+                   
+                   const SizedBox(height: 24),
+                   
+-                  // 5. Prayer History Section
++                  // 5. Prayer History Section (2 Days Only)
+                   Row(
+                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                     children: [
+-                      const Padding(
+-                        padding: EdgeInsets.only(left: 4.0, bottom: 12.0),
++                      Padding(
++                        padding: const EdgeInsets.only(left: 4.0, bottom: 12.0),
+                         child: Text(
+-                          'αª¿αª╛αª«αª╛αª£αºçαª░ αªçαªñαª┐αª╣αª╛αª╕',
+-                          style: TextStyle(color: textLight, fontWeight: FontWeight.bold, fontSize: 18),
++                          'Prayer History & Report'.tr(),
++                          style: const TextStyle(color: textLight, fontWeight: FontWeight.bold, fontSize: 18),
+                         ),
+                       ),
+                       TextButton.icon(
+                         style: TextButton.styleFrom(foregroundColor: goldAccent),
+                         icon: const Icon(Icons.analytics_rounded, size: 16),
+-                        label: const Text('αª¼αª┐αª╕αºìαªñαª╛αª░αª┐αªñ αª░αª┐αª¬αºïαª░αºìαªƒ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
++                        label: Text('Detailed Report'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                         onPressed: () {
+                           Navigator.push(
+                             context,
+@@ -1753,8 +1791,10 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
+                             Expanded(
+                               child: Text(
+                                 todayMissed == 0
+-                                    ? 'αªåαª▓αª╣αª╛αª«αªªαºüαª▓αª┐αª▓αºìαª▓αª╛αª╣, αªåαª£ αªòαºïαª¿αºï αªôαºƒαª╛αªòαºìαªñ αª¿αª╛αª«αª╛αª£ αª«αª┐αª╕ αª¿αª╛αªçαÑñ'
+-                                    : 'αªåαª£ αªåαª¬αª¿αª╛αª░ $todayMissed αªôαºƒαª╛αªòαºìαªñ αª¿αª╛αª«αª╛αª£ αª«αª┐αª╕ αªùαºçαª¢αºçαÑñ',
++                                    ? 'Alhamdulillah, no prayers were missed today.'.tr()
++                                    : LanguageManager().isBengali
++                                        ? 'αªåαª£ αªåαª¬αª¿αª╛αª░ $todayMissed αªôαºƒαª╛αªòαºìαªñ αª¿αª╛αª«αª╛αª£ αª«αª┐αª╕ αªùαºçαª¢αºçαÑñ'
++                                        : '$todayMissed prayers missed today.',
+                                 style: TextStyle(
+                                   color: todayMissed > 0 ? Colors.redAccent : Colors.greenAccent,
+                                   fontWeight: FontWeight.bold,
+@@ -1768,67 +1808,68 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
+                     }
+                   ),
+                   
+-                  // Sort history dates descending
+-                  if (_historyData.isEmpty)
+-                    Container(
+-                      padding: const EdgeInsets.all(20),
+-                      decoration: BoxDecoration(
+-                        color: cardBg,
+-                        borderRadius: BorderRadius.circular(20),
+-                        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+-                      ),
+-                      child: const Center(
+-                        child: Text(
+-                          'αªÅαªûαª¿αºï αª¿αª╛αª«αª╛αª£αºçαª░ αªòαºïαª¿αºï αª░αºçαªòαª░αºìαªí αª¿αºçαªçαÑñ αªôαºƒαª╛αªòαºìαªñ αªåαªªαª╛αºƒ αªòαª░αºç αªƒαª┐αªò αªªαª┐αª¿!',
+-                          style: TextStyle(color: Colors.white54, fontSize: 13),
+-                        ),
+-                      ),
+-                    )
+-                  else
+-                    Builder(
+-                      builder: (context) {
+-                        final sortedDateKeys = _historyData.keys.toList()
+-                          ..sort((a, b) => b.compareTo(a));
+-                        final recentDates = sortedDateKeys.take(7).toList();
+-                        
+-                        return Column(
+-                          children: recentDates.map((dateKey) {
+-                            final dayData = _historyData[dateKey] ?? {};
+-                            return Container(
+-                              margin: const EdgeInsets.only(bottom: 8),
+-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+-                              decoration: BoxDecoration(
+-                                color: cardBg,
+-                                borderRadius: BorderRadius.circular(16),
+-                                border: Border.all(color: Colors.white.withValues(alpha: 0.03)),
++                  // Display 2 Days Only: Today & Yesterday
++                  Builder(
++                    builder: (context) {
++                      final today = DateTime.now();
++                      final yesterday = today.subtract(const Duration(days: 1));
++                      final todayKey = DateFormat('yyyy-MM-dd').format(today);
++                      final yesterdayKey = DateFormat('yyyy-MM-dd').format(yesterday);
++                      final displayDates = [todayKey, yesterdayKey];
++
++                      return Column(
++                        children: displayDates.map((dateKey) {
++                          final dayData = _historyData[dateKey] ?? {};
++                          final isToday = (dateKey == todayKey);
++                          final isBn = LanguageManager().isBengali;
++
++                          return Container(
++                            margin: const EdgeInsets.only(bottom: 8),
++                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
++                            decoration: BoxDecoration(
++                              color: cardBg,
++                              borderRadius: BorderRadius.circular(16),
++                              border: Border.all(
++                                color: isToday
++                                    ? goldAccent.withValues(alpha: 0.25)
++                                    : Colors.white.withValues(alpha: 0.03),
+                               ),
+-                              child: Row(
+-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+-                                children: [
+-                                  Text(
+-                                    _formatHistoryDate(dateKey),
+-                                    style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600),
+-                                  ),
+-                                  Row(
+-                                    children: [
+-                                      _buildHistoryBadge('αª½', dayData['Fajr'] ?? false),
+-                                      const SizedBox(width: 6),
+-                                      _buildHistoryBadge('αª»', dayData['Dhuhr'] ?? false),
+-                                      const SizedBox(width: 6),
+-                                      _buildHistoryBadge('αªå', dayData['Asr'] ?? false),
+-                                      const SizedBox(width: 6),
+-                                      _buildHistoryBadge('αª«αª╛', dayData['Maghrib'] ?? false),
++                            ),
++                            child: Row(
++                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
++                              children: [
++                                Row(
++                                  children: [
++                                    Text(
++                                      _formatHistoryDate(dateKey),
++                                      style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600),
++                                    ),
++                                    if (!isToday) ...[
+                                       const SizedBox(width: 6),
+-                                      _buildHistoryBadge('αªÅ', dayData['Isha'] ?? false),
+-                                    ],
+-                                  ),
+-                                ],
+-                              ),
+-                            );
+-                          }).toList(),
+-                        );
+-                      }
+-                    ),
++                                      const Icon(Icons.lock_outline_rounded, size: 13, color: Colors.white38),
++                                    ]
++                                  ],
++                                ),
++                                Row(
++                                  children: [
++                                    _buildHistoryBadge(dateKey, 'Fajr', isBn ? 'αª½' : 'F', dayData['Fajr'] ?? false),
++                                    const SizedBox(width: 6),
++                                    _buildHistoryBadge(dateKey, 'Dhuhr', isBn ? 'αª»' : 'D', dayData['Dhuhr'] ?? false),
++                                    const SizedBox(width: 6),
++                                    _buildHistoryBadge(dateKey, 'Asr', isBn ? 'αªå' : 'A', dayData['Asr'] ?? false),
++                                    const SizedBox(width: 6),
++                                    _buildHistoryBadge(dateKey, 'Maghrib', isBn ? 'αª«αª╛' : 'M', dayData['Maghrib'] ?? false),
++                                    const SizedBox(width: 6),
++                                    _buildHistoryBadge(dateKey, 'Isha', isBn ? 'αªÅ' : 'I', dayData['Isha'] ?? false),
++                                  ],
++                                ),
++                              ],
++                            ),
++                          );
++                        }).toList(),
++                      );
++                    }
++                  ),
+                   const SizedBox(height: 16),
+                 ],
+               ),
+@@ -1907,7 +1948,9 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
+                   ),
+                   const SizedBox(height: 4),
+                   Text(
+-                    "αª╢αºüαª░αºü: ${_formatTo12Hour(start24h)}  ΓÇó  αª╢αºçαª╖: ${_formatTo12Hour(endLabel24h)}",
++                    LanguageManager().isBengali
++                        ? "αª╢αºüαª░αºü: ${_formatTo12Hour(start24h)}  ΓÇó  αª╢αºçαª╖: ${_formatTo12Hour(endLabel24h)}"
++                        : "Start: ${_formatTo12Hour(start24h)}  ΓÇó  End: ${_formatTo12Hour(endLabel24h)}",
+                     style: const TextStyle(color: Colors.white54, fontSize: 12),
+                   ),
+                 ],
+@@ -1921,9 +1964,9 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
+                   color: goldAccent.withValues(alpha: 0.2),
+                   borderRadius: BorderRadius.circular(8),
+                 ),
+-                child: const Text(
+-                  'αªÜαª▓αª«αª╛αª¿',
+-                  style: TextStyle(color: goldAccent, fontSize: 10, fontWeight: FontWeight.bold),
++                child: Text(
++                  'Ongoing'.tr(),
++                  style: const TextStyle(color: goldAccent, fontSize: 10, fontWeight: FontWeight.bold),
+                 ),
+               ),
+             // Custom Rounded Checkbox
+@@ -1985,96 +2047,103 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
+     return Container(
+       margin: const EdgeInsets.only(bottom: 20),
+       padding: const EdgeInsets.all(20),
+-      decoration: BoxDecoration(
+-        color: cardBg,
+-        borderRadius: BorderRadius.circular(24),
+-        border: Border.all(color: goldAccent.withValues(alpha: 0.3), width: 1.5),
+-        boxShadow: [
+-          BoxShadow(
+-            color: goldAccent.withValues(alpha: 0.05),
+-            blurRadius: 15,
+-            spreadRadius: 2,
+-          )
+-        ],
+-      ),
+-      child: Column(
+-        crossAxisAlignment: CrossAxisAlignment.start,
+-        children: [
+-          Row(
+-            children: [
+-              Container(
+-                padding: const EdgeInsets.all(8),
+-                decoration: BoxDecoration(
+-                  color: goldAccent.withValues(alpha: 0.15),
+-                  shape: BoxShape.circle,
+-                ),
+-                child: Icon(Icons.brightness_3_rounded, color: goldAccent, size: 22),
+-              ),
+-              const SizedBox(width: 12),
+-              Expanded(
+-                child: Column(
+-                  crossAxisAlignment: CrossAxisAlignment.start,
+-                  children: [
+-                    Text(
+-                      specialDay['title']!,
+-                      style: const TextStyle(
+-                        color: Colors.white,
+-                        fontWeight: FontWeight.bold,
+-                        fontSize: 16,
+-                      ),
+-                    ),
+-                    const Text(
+-                      'αªåαª£αªòαºçαª░ αª¼αª┐αª╢αºçαª╖ αªªαª┐αª¿αºçαª░ αªùαºüαª░αºüαªñαºìαª¼ αªô αªñαª╛αºÄαª¬αª░αºìαª»',
+-                      style: TextStyle(
+-                        color: Colors.white54,
+-                        fontSize: 11,
+-                      ),
+-                    ),
+-                  ],
+-                ),
+-              ),
+-            ],
+-          ),
+-          const Divider(height: 24, color: Colors.white12),
+-          Text(
+-            specialDay['desc']!,
+-            style: const TextStyle(
+-              color: Colors.white70,
+-              fontSize: 13,
+-              height: 1.5,
+-            ),
+-          ),
+-        ],
+-      ),
+-    );
+-  }
+-
+-  void _showStudyDuasBottomSheet(BuildContext context) {
+-    const primaryBg = Color(0xFF0F1E19);
+-    const cardBg = Color(0xFF162D24);
+-    const goldAccent = Color(0xFFE5B842);
+-    const textLight = Colors.white;
+-
++      decoration: BoxDe    final isBn = LanguageManager().isBengali;
+     final List<Map<String, String>> studyDuas = [
+       {
+-        'title': 'αºº. αª£αºìαª₧αª╛αª¿ αª¼αºâαªªαºìαªºαª┐αª░ αªªαºïαºƒαª╛ (αª¬αº£αª╛αª╢αºïαª¿αª╛ αª╢αºüαª░αºüαª░ αªåαªùαºç)',
++        'title': isBn ? 'αºº. αª£αºìαª₧αª╛αª¿ αª¼αºâαªªαºìαªºαª┐αª░ αªªαºïαºƒαª╛ (αª¬αº£αª╛αª╢αºïαª¿αª╛ αª╢αºüαª░αºüαª░ αªåαªùαºç)' : '1. Dua for Increasing Knowledge (Before Studying)',
+         'arabic': '╪▒┘Ä┘æ╪¿┘É┘æ ╪▓┘É╪»┘Æ┘å┘É┘è ╪╣┘É┘ä┘Æ┘à┘ï╪º',
+-        'pronunciation': 'αªëαªÜαºìαªÜαª╛αª░αªú: αª░αª╛αª¼αºìαª¼αª┐ αª»αª┐αªªαª¿αª┐ αªçαª▓αª«αª╛αÑñ',
+-        'translation': 'αªàαª░αºìαªÑ: "αª╣αºç αªåαª«αª╛αª░ αª¬αª╛αª▓αª¿αªòαª░αºìαªñαª╛! αªåαª«αª╛αª░ αª£αºìαª₧αª╛αª¿ αª¼αºâαªªαºìαªºαª┐ αªòαª░αºç αªªαª┐αª¿αÑñ" (αª╕αºéαª░αª╛ αªñαª╛αª╣αª╛: αººαººαº¬)',
+-        'note': 'αª¬αº£αª╛αª╢αºïαª¿αª╛ αª╢αºüαª░αºü αªòαª░αª╛αª░ αªåαªùαºç αªÅαªç αªªαºïαºƒαª╛αªƒαª┐ αª¼αºçαª╢αª┐ αª¼αºçαª╢αª┐ αª¬αº£αª╛ αªëαªÜαª┐αªñαÑñ'
++        'pronunciation': isBn ? 'αªëαªÜαºìαªÜαª╛αª░αªú: αª░αª╛αª¼αºìαª¼αª┐ αª»αª┐αªªαª¿αª┐ αªçαª▓αª«αª╛αÑñ' : 'Pronunciation: Rabbi zidni ilma.',
++        'translation': isBn ? 'αªàαª░αºìαªÑ: "αª╣αºç αªåαª«αª╛αª░ αª¬αª╛αª▓αª¿αªòαª░αºìαªñαª╛! αªåαª«αª╛αª░ αª£αºìαª₧αª╛αª¿ αª¼αºâαªªαºìαªºαª┐ αªòαª░αºç αªªαª┐αª¿αÑñ" (αª╕αºéαª░αª╛ αªñαª╛αª╣αª╛: αººαººαº¬)' : 'Meaning: "O my Lord! Increase me in knowledge." (Surah Taha: 114)',
++        'note': isBn ? 'αª¬αº£αª╛αª╢αºïαª¿αª╛ αª╢αºüαª░αºü αªòαª░αª╛αª░ αªåαªùαºç αªÅαªç αªªαºïαºƒαª╛αªƒαª┐ αª¼αºçαª╢αª┐ αª¼αºçαª╢αª┐ αª¬αº£αª╛ αªëαªÜαª┐αªñαÑñ' : 'Recite this dua frequently before starting your study.'
+       },
+       {
+-        'title': 'αº¿. αªòαªáαª┐αª¿ αª¼αª┐αª╖αºƒ αª╕αª╣αª£ αª╣αªôαºƒαª╛ αªô αª£αº£αªñαª╛ αªòαª╛αªƒαª╛αª░ αªªαºïαºƒαª╛',
+-        'arabic': '╪▒┘Ä╪¿┘É┘æ ╪º╪┤┘Æ╪▒┘Ä╪¡┘Æ ┘ä┘É┘è ╪╡┘Ä╪»┘Æ╪▒┘É┘è * ┘ê┘Ä┘è┘Ä╪│┘É┘æ╪▒┘Æ ┘ä┘É┘è ╪ú┘Ä┘à┘Æ╪▒┘É┘è * ┘ê┘Ä╪º╪¡┘Æ┘ä┘Å┘ä┘Æ ╪╣┘Å┘é┘Æ╪»┘Ä╪⌐┘ï ┘à┘É┘æαª¿ ┘ä┘É┘æ╪│┘Ä╪º┘å┘É┘è * ┘è┘Ä┘ü┘Æ┘é┘Ä┘ç┘Å┘ê╪º ┘é┘Ä┘ê┘Æ┘ä┘É┘è',
+-        'pronunciation': 'αªëαªÜαºìαªÜαª╛αª░αªú: αª░αª╛αª¼αºìαª¼αª┐αª╢ αª░αª╛αª╣αª▓αª┐ αª╕αª╛αªªαª░αª┐, αªôαºƒαª╛ αªçαºƒαª╛αª╕αª╕αª┐αª░αª▓αª┐ αªåαª«αª░αª┐, αªôαºƒαª╛αª╣αª▓αºüαª▓ αªëαªòαªªαª╛αªñαª╛αª« αª«αª┐αª▓ αª▓αª┐αª╕αª╛αª¿αª┐, αªçαºƒαª╛αª½αªòαª╛αª╣αºü αªòαª╛αªôαª▓αª┐αÑñ',
+-        'translation': 'αªàαª░αºìαªÑ: "αª╣αºç αªåαª«αª╛αª░ αª¬αª╛αª▓αª¿αªòαª░αºìαªñαª╛! αªåαª«αª╛αª░ αª¼αªòαºìαª╖ αª¬αºìαª░αª╢αª╕αºìαªñ αªòαª░αºç αªªαª┐αª¿, αªåαª«αª╛αª░ αªòαª╛αª£ αª╕αª╣αª£ αªòαª░αºç αªªαª┐αª¿ αªÅαª¼αªé αªåαª«αª╛αª░ αª£αª┐αª╣αºìαª¼αª╛αª░ αª£αº£αªñαª╛ αªªαºéαª░ αªòαª░αºç αªªαª┐αª¿ αª»αª╛αªñαºç αªñαª╛αª░αª╛ αªåαª«αª╛αª░ αªòαªÑαª╛ αª¼αºüαª¥αªñαºç αª¬αª╛αª░αºçαÑñ" (αª╕αºéαª░αª╛ αªñαª╛αª╣αª╛: αº¿αº½-αº¿αº«)',
+-        'note': 'αª¬αº£αª╛αª╢αºïαª¿αª╛αºƒ αª«αª¿ αª¼αª╕αª╛αªñαºç αª¼αª╛ αªòαªáαª┐αª¿ αªòαºïαª¿αºï αªàαªºαºìαª»αª╛αºƒ αª¼αºüαª¥αªñαºç αªÅαªƒαª┐ αªàαªñαºìαª»αª¿αºìαªñ αªòαª╛αª░αºìαª»αªòαª░αÑñ'
++        'title': isBn ? 'αº¿. αªòαªáαª┐αª¿ αª¼αª┐αª╖αºƒ αª╕αª╣αª£ αª╣αªôαºƒαª╛ αªô αª£αº£αªñαª╛ αªòαª╛αªƒαª╛αª░ αªªαºïαºƒαª╛' : '2. Dua for Ease in Learning & Speech',
++        'arabic': '╪▒┘Ä╪¿┘É┘æ ╪º╪┤┘Æ╪▒┘Ä╪¡┘Æ ┘ä┘É┘è ╪╡┘Ä╪»┘Æ╪▒┘É┘è * ┘ê┘Ä┘è┘Ä╪│┘É┘æ╪▒┘Æ ┘ä┘É┘è ╪ú┘Ä┘à┘Æ╪▒┘É┘è * ┘ê┘Ä╪º╪¡┘Æ┘ä┘Å┘ä┘Æ ╪╣┘Å┘é┘Æ╪»┘Ä╪⌐┘ï ┘à┘É┘æ┘å ┘ä┘É┘æ╪│┘Ä╪º┘å┘É┘è * ┘è┘Ä┘ü┘Æ┘é┘Ä┘ç┘Å┘ê╪º ┘é┘Ä┘ê┘Æ┘ä┘É┘è',
++        'pronunciation': isBn ? 'αªëαªÜαºìαªÜαª╛αª░αªú: αª░αª╛αª¼αºìαª¼αª┐αª╢ αª░αª╛αª╣αª▓αª┐ αª╕αª╛αªªαª░αª┐, αªôαºƒαª╛ αªçαºƒαª╛αª╕αª╕αª┐αª░αª▓αª┐ αªåαª«αª░αª┐, αªôαºƒαª╛αª╣αª▓αºüαª▓ αªëαªòαªªαª╛αªñαª╛αª« αª«αª┐αª▓ αª▓αª┐αª╕αª╛αª¿αª┐, αªçαºƒαª╛αª½αªòαª╛αª╣αºü αªòαª╛αªôαª▓αª┐αÑñ' : 'Pronunciation: Rabbish rah li sadri, wa yassir li amri, wahlul uqdatam mil lisani, yafqahu qawli.',
++        'translation': isBn ? 'αªàαª░αºìαªÑ: "αª╣αºç αªåαª«αª╛αª░ αª¬αª╛αª▓αª¿αªòαª░αºìαªñαª╛! αªåαª«αª╛αª░ αª¼αªòαºìαª╖ αª¬αºìαª░αª╢αª╕αºìαªñ αªòαª░αºç αªªαª┐αª¿, αªåαª«αª╛αª░ αªòαª╛αª£ αª╕αª╣αª£ αªòαª░αºç αªªαª┐αª¿ αªÅαª¼αªé αªåαª«αª╛αª░ αª£αª┐αª╣αºìαª¼αª╛αª░ αª£αº£αªñαª╛ αªªαºéαª░ αªòαª░αºç αªªαª┐αª¿ αª»αª╛αªñαºç αªñαª╛αª░αª╛ αªåαª«αª╛αª░ αªòαªÑαª╛ αª¼αºüαª¥αªñαºç αª¬αª╛αª░αºçαÑñ" (αª╕αºéαª░αª╛ αªñαª╛αª╣αª╛: αº¿αº½-αº¿αº«)' : 'Meaning: "O my Lord! Expand for me my breast, ease for me my task, and untie the knot from my tongue that they may understand my speech." (Surah Taha: 25-28)',
++        'note': isBn ? 'αª¬αº£αª╛αª╢αºïαª¿αª╛αºƒ αª«αª¿ αª¼αª╕αª╛αªñαºç αª¼αª╛ αªòαªáαª┐αª¿ αªòαºïαª¿αºï αªàαªºαºìαª»αª╛αºƒ αª¼αºüαª¥αªñαºç αªÅαªƒαª┐ αªàαªñαºìαª»αª¿αºìαªñ αªòαª╛αª░αºìαª»αªòαª░αÑñ' : 'Very effective for focus and understanding difficult topics.'
+       },
+       {
+-        'title': 'αº⌐. αª»αºçαªòαºïαª¿αºï αªòαªáαª┐αª¿ αªòαª╛αª£ αª╕αª╣αª£ αªòαª░αª╛αª░ αªªαºïαºƒαª╛',
++        'title': isBn ? 'αº⌐. αª»αºçαªòαºïαª¿αºï αªòαªáαª┐αª¿ αªòαª╛αª£ αª╕αª╣αª£ αªòαª░αª╛αª░ αªªαºïαºƒαª╛' : '3. Dua for Making Difficult Tasks Easy',
+         'arabic': '╪º┘ä┘ä┘Ä┘æ┘ç┘Å┘à┘Ä┘æ ┘ä┘Ä╪º ╪│┘Ä┘ç┘Æ┘ä┘Ä ╪Ñ┘É┘ä┘Ä┘æ╪º ┘à┘Ä╪º ╪¼┘Ä╪╣┘Ä┘ä┘Æ╪¬┘Ä┘ç┘Å ╪│┘Ä┘ç┘Æ┘ä┘ï╪º ┘ê┘Ä╪ú┘Ä┘å┘Æ╪¬┘Ä ╪¬┘Ä╪¼┘Æ╪╣┘Ä┘ä┘Å ╪º┘ä┘Æ╪¡┘Ä╪▓┘Æ┘å┘Ä ╪Ñ┘É╪░┘Ä╪º ╪┤┘É╪ª┘Æ╪¬┘Ä ╪│┘Ä┘ç┘Æ┘ä┘ï╪º',
+-        'pronunciation': 'αªëαªÜαºìαªÜαª╛αª░αªú: αªåαª▓αºìαª▓αª╛αª╣αºüαª«αºìαª«αª╛ αª▓αª╛ αª╕αª╛αª╣αª▓αª╛ αªçαª▓αºìαª▓αª╛ αª«αª╛ αª£αª╛ΓÇÿαªåαª▓αªñαª╛αª╣αºü αª╕αª╛αª╣αª▓αª╛, αªôαºƒαª╛ αªåαª¿αªñαª╛ αªñαª╛αª£ΓÇÿαªåαª▓αºüαª▓ αª╣αª╛αª»αª¿αª╛ αªçαª»αª╛ αª╢αª┐ΓÇÖαªñαª╛ αª╕αª╛αª╣αª▓αª╛αÑñ',
+-        'translation': 'αªàαª░αºìαªÑ: "αª╣αºç αªåαª▓αºìαª▓αª╛αª╣! αªåαª¬αª¿αª┐ αª»αª╛ αª╕αª╣αª£ αªòαª░αºçαª¢αºçαª¿ αªñαª╛ αª¢αª╛αº£αª╛ αªòαºïαª¿αºï αªòαª┐αª¢αºüαªç αª╕αª╣αª£ αª¿αºƒαÑñ αªåαª░ αªåαª¬αª¿αª┐ αªÜαª╛αªçαª▓αºç αªòαªáαª┐αª¿ αªòαª╛αª£αªòαºçαªô αª╕αª╣αª£ αªòαª░αºç αªªαª┐αªñαºç αª¬αª╛αª░αºçαª¿αÑñ" (αª╕αª╣αºÇαª╣ αªçαª¼αª¿αºç αª╣αª┐αª¼αºìαª¼αª╛αª¿)',
++        'pronunciation': isBn ? 'αªëαªÜαºìαªÜαª╛αª░αªú: αªåαª▓αºìαª▓αª╛αª╣αºüαª«αºìαª«αª╛ αª▓αª╛ αª╕αª╛αª╣αª▓αª╛ αªçαª▓αºìαª▓αª╛ αª«αª╛ αª£αª╛ΓÇÿαªåαª▓αªñαª╛αª╣αºü αª╕αª╛αª╣αª▓αª╛, αªôαºƒαª╛ αªåαª¿αªñαª╛ αªñαª╛αª£ΓÇÿαªåαª▓αºüαª▓ αª╣αª╛αª»αª¿αª╛ αªçαª»αª╛ αª╢αª┐ΓÇÖαªñαª╛ αª╕αª╛αª╣αª▓αª╛αÑñ' : 'Pronunciation: Allahumma la sahla illa ma jaΓÇÖaltahu sahla, wa anta tajΓÇÖalul hazna iza shiΓÇÖta sahla.',
++        'translation': isBn ? 'αªàαª░αºìαªÑ: "αª╣αºç αªåαª▓αºìαª▓αª╛αª╣! αªåαª¬αª¿αª┐ αª»αª╛ αª╕αª╣αª£ αªòαª░αºçαª¢αºçαª¿ αªñαª╛ αª¢αª╛αº£αª╛ αªòαºïαª¿αºï αªòαª┐αª¢αºüαªç αª╕αª╣αª£ αª¿αºƒαÑñ αªåαª░ αªåαª¬αª¿αª┐ αªÜαª╛αªçαª▓αºç αªòαªáαª┐αª¿ αªòαª╛αª£αªòαºçαªô αª╕αª╣αª£ αªòαª░αºç αªªαª┐αªñαºç αª¬αª╛αª░αºçαª¿αÑñ" (αª╕αª╣αºÇαª╣ αªçαª¼αª¿αºç αª╣αª┐αª¼αºìαª¼αª╛αª¿)' : 'Meaning: "O Allah, nothing is easy except what You have made easy, and You can make difficulty easy if You wish." (Sahih Ibn Hibban)',
++        'note': isBn ? 'αª¬αª░αºÇαªòαºìαª╖αª╛αª░ αª╣αª▓αºç αª¼αª╛ αªòαªáαª┐αª¿ αª¬αºìαª░αª╢αºìαª¿ αªªαºçαªûαª▓αºç αª«αª¿αºç αª«αª¿αºç αªÅαªç αªªαºïαºƒαª╛αªƒαª┐ αª¬αº£αªñαºç αª¬αª╛αª░αºçαª¿αÑñ' : 'Recite this silently during exams or when facing difficult questions.'
++      },
++      {
++        'title': isBn ? 'αº¬. αª«αºçαªºαª╛ αªô αª╕αºìαª«αºâαªñαª┐αª╢αªòαºìαªñαª┐ αª¼αºâαªªαºìαªºαª┐αª░ αªªαºïαºƒαª╛' : '4. Dua for Memory Retention & Intelligence',
++        'arabic': '╪º┘ä┘ä┘Ä┘æ┘ç┘Å┘à┘Ä┘æ ╪º┘å┘Æ┘ü┘Ä╪╣┘Æ┘å┘É┘è ╪¿┘É┘à┘Ä╪º ╪╣┘Ä┘ä┘Ä┘æ┘à┘Æ╪¬┘Ä┘å┘É┘è ┘ê┘Ä╪╣┘Ä┘ä┘É┘æ┘à┘Æ┘å┘É┘è ┘à┘Ä╪º ┘è┘Ä┘å┘Æ┘ü┘Ä╪╣┘Å┘å┘É┘è ┘ê┘Ä╪▓┘É╪»┘Æ┘å┘É┘è ╪╣┘É┘ä┘Æ┘à┘ï╪º',
++        'pronunciation': isBn ? 'αªëαªÜαºìαªÜαª╛αª░αªú: αªåαª▓αºìαª▓αª╛αª╣αºüαª«αºìαª«αª╛αª¿ αª½αª╛αª¿αª┐ αª¼αª┐αª«αª╛ αªåαª▓αºìαª▓αª╛αª«αªñαª╛αª¿αª┐, αªôαºƒαª╛ αªåαª▓αºìαª▓αª┐αª«αª¿αª┐ αª«αª╛ αªçαºƒαª╛αª¿αª½αª╛αªëαª¿αª┐, αªôαºƒαª╛ αª»αª┐αªªαª¿αª┐ αªçαª▓αª«αª╛αÑñ' : 'Pronunciation: Allahumman faΓÇÖni bima ΓÇÿallamtani, wa ΓÇÿallimni ma yanfaΓÇÖuni, wa zidni ΓÇÿilma.',
++        'translation': isBn ? 'αªàαª░αºìαªÑ: "αª╣αºç αªåαª▓αºìαª▓αª╛αª╣! αªåαª¬αª¿αª┐ αªåαª«αª╛αªòαºç αª»αª╛ αª╢αª┐αªûαª┐αºƒαºçαª¢αºçαª¿ αªñαª╛ αªªαª┐αºƒαºç αªåαª«αª╛αªòαºç αªëαª¬αªòαºâαªñ αªòαª░αºüαª¿, αªåαª«αª╛αª░ αª£αª¿αºìαª» αª»αª╛ αªëαª¬αªòαª╛αª░αºÇ αªñαª╛ αªåαª«αª╛αªòαºç αª╢αºçαªûαª╛αª¿ αªÅαª¼αªé αªåαª«αª╛αª░ αª£αºìαª₧αª╛αª¿ αª¼αºâαªªαºìαªºαª┐ αªòαª░αºç αªªαª┐αª¿αÑñ" (αª╕αºüαª¿αª╛αª¿αºç αªçαª¼αª¿αºç αª«αª╛αª£αª╛αª╣)' : 'Meaning: "O Allah! Benefit me with what You have taught me, teach me what will benefit me, and increase my knowledge." (Sunan Ibn Majah)',
++        'note': isBn ? 'αª¬αº£αª╛ αª«αª¿αºç αª░αª╛αªûαª╛αª░ αªÅαª¼αªé αª¼αºìαª░αºçαªçαª¿αºçαª░ αªòαª╛αª░αºìαª»αªòαºìαª╖αª«αªñαª╛ αª¼αºâαªªαºìαªºαª┐αª░ αª£αª¿αºìαª» αªÅαªç αªªαºïαºƒαª╛αªƒαª┐ αª¬αªáαª┐αªñ αª╣αºƒαÑñ' : 'Recite this to boost brain power and memory retention.'
++      },
++    ];
++
++    showModalBottomSheet(
++      context: context,
++      isScrollControlled: true,
++      backgroundColor: Colors.transparent,
++      builder: (context) {
++        return StatefulBuilder(
++          builder: (context, setModalState) {
++            return Container(
++              height: MediaQuery.of(context).size.height * 0.8,
++              decoration: const BoxDecoration(
++                color: primaryBg,
++                borderRadius: BorderRadius.only(
++                  topLeft: Radius.circular(28),
++                  topRight: Radius.circular(28),
++                ),
++              ),
++              child: Column(
++                children: [
++                  const SizedBox(height: 12),
++                  // Drag handle
++                  Container(
++                    width: 40,
++                    height: 5,
++                    decoration: const BoxDecoration(
++                      color: Colors.white24,
++                      borderRadius: BorderRadius.all(Radius.circular(10)),
++                    ),
++                  ),
++                  const SizedBox(height: 16),
++                  // Title
++                  Padding(
++                    padding: const EdgeInsets.symmetric(horizontal: 20),
++                    child: Row(
++                      children: [
++                        Container(
++                          padding: const EdgeInsets.all(10),
++                          decoration: BoxDecoration(
++                            color: goldAccent.withValues(alpha: 0.15),
++                            shape: BoxShape.circle,
++                          ),
++                          child: const Icon(Icons.menu_book_rounded, color: goldAccent, size: 24),
++                        ),
++                        const SizedBox(width: 14),
++                        Expanded(
++                          child: Column(
++                            crossAxisAlignment: CrossAxisAlignment.start,
++                            children: [
++                              Text(
++                                'Study Duas & Deeds'.tr(),
++                                style: const TextStyle(
++                                  color: textLight,
++                                  fontSize: 18,
++                                  fontWeight: FontWeight.bold,
++                                ),
++                              ),
++                              Text(
++                                'Dua collection for studying and boosting memory'.tr(),
++                                style: const TextStyle(
++                                  color: Colors.white54,
++                                  fontSize: 12,
++                                ),
++                              ),
++                            ],
++                          ),
++                        ),▓αºìαª▓αª╛αª╣! αªåαª¬αª¿αª┐ αª»αª╛ αª╕αª╣αª£ αªòαª░αºçαª¢αºçαª¿ αªñαª╛ αª¢αª╛αº£αª╛ αªòαºïαª¿αºï αªòαª┐αª¢αºüαªç αª╕αª╣αª£ αª¿αºƒαÑñ αªåαª░ αªåαª¬αª¿αª┐ αªÜαª╛αªçαª▓αºç αªòαªáαª┐αª¿ αªòαª╛αª£αªòαºçαªô αª╕αª╣αª£ αªòαª░αºç αªªαª┐αªñαºç αª¬αª╛αª░αºçαª¿αÑñ" (αª╕αª╣αºÇαª╣ αªçαª¼αª¿αºç αª╣αª┐αª¼αºìαª¼αª╛αª¿)',
+         'note': 'αª¬αª░αºÇαªòαºìαª╖αª╛αª░ αª╣αª▓αºç αª¼αª╛ αªòαªáαª┐αª¿ αª¬αºìαª░αª╢αºìαª¿ αªªαºçαªûαª▓αºç αª«αª¿αºç αª«αª¿αºç αªÅαªç αªªαºïαºƒαª╛αªƒαª┐ αª¬αº£αªñαºç αª¬αª╛αª░αºçαª¿αÑñ'
+       },
+       {

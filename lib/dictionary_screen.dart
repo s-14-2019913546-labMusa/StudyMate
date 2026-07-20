@@ -77,16 +77,32 @@ class _DictionaryScreenState extends State<DictionaryScreen> with SingleTickerPr
   }
 
   void _listenToFavorites() {
-    if (_currentUser == null) return;
+    if (_currentUser == null) {
+      if (mounted) {
+        setState(() {
+          _isLoadingFavorites = false;
+        });
+      }
+      return;
+    }
     FirebaseFirestore.instance
         .collection('users')
         .doc(_currentUser.uid)
         .collection('favorite_words')
-        .orderBy('timestamp', descending: true)
         .snapshots()
         .listen((snapshot) {
+      final docs = snapshot.docs.toList();
+      docs.sort((a, b) {
+        final tsA = a.data()['timestamp'] as Timestamp?;
+        final tsB = b.data()['timestamp'] as Timestamp?;
+        if (tsA == null && tsB == null) return 0;
+        if (tsA == null) return 1;
+        if (tsB == null) return -1;
+        return tsB.compareTo(tsA); // descending
+      });
+
       final Map<String, List<Map<String, dynamic>>> grouped = {};
-      for (var doc in snapshot.docs) {
+      for (var doc in docs) {
         final data = doc.data();
         data['id'] = doc.id;
         final timestamp = data['timestamp'] as Timestamp?;
@@ -101,6 +117,13 @@ class _DictionaryScreenState extends State<DictionaryScreen> with SingleTickerPr
       if (mounted) {
         setState(() {
           _groupedFavorites = grouped;
+          _isLoadingFavorites = false;
+        });
+      }
+    }, onError: (error) {
+      debugPrint('Error listening to favorites: $error');
+      if (mounted) {
+        setState(() {
           _isLoadingFavorites = false;
         });
       }
@@ -144,39 +167,50 @@ class _DictionaryScreenState extends State<DictionaryScreen> with SingleTickerPr
       return;
     }
 
-    final docId = wordData['word'].toString().toLowerCase().trim();
-    final docRef = FirebaseFirestore.instance
-        .collection('users')
-        .doc(_currentUser.uid)
-        .collection('favorite_words')
-        .doc(docId);
+    try {
+      final docId = wordData['word'].toString().toLowerCase().trim().replaceAll('/', '-');
+      if (docId.isEmpty) return;
 
-    final doc = await docRef.get();
-    if (doc.exists) {
-      await docRef.delete();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('"${wordData['word']}" removed from Favorites.')),
-        );
+      final docRef = FirebaseFirestore.instance
+          .collection('users')
+          .doc(_currentUser.uid)
+          .collection('favorite_words')
+          .doc(docId);
+
+      final doc = await docRef.get();
+      if (doc.exists) {
+        await docRef.delete();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('"${wordData['word']}" removed from Favorites.')),
+          );
+        }
+      } else {
+        await docRef.set({
+          'word': wordData['word'] ?? '',
+          'pronunciation': wordData['pronunciation'] ?? '',
+          'ipa': wordData['ipa'] ?? '',
+          'partOfSpeech': wordData['partOfSpeech'] ?? '',
+          'bengaliMeaning': wordData['bengaliMeaning'] ?? '',
+          'definition': wordData['definition'] ?? '',
+          'example': wordData['example'] ?? '',
+          'exampleBengali': wordData['exampleBengali'] ?? '',
+          'synonyms': wordData['synonyms'] ?? [],
+          'timestamp': FieldValue.serverTimestamp(),
+          'grade': null,
+          'memorizedAt': null,
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('"${wordData['word']}" added to Favorites!'), backgroundColor: Colors.green),
+          );
+        }
       }
-    } else {
-      await docRef.set({
-        'word': wordData['word'],
-        'pronunciation': wordData['pronunciation'],
-        'ipa': wordData['ipa'],
-        'partOfSpeech': wordData['partOfSpeech'],
-        'bengaliMeaning': wordData['bengaliMeaning'],
-        'definition': wordData['definition'],
-        'example': wordData['example'],
-        'exampleBengali': wordData['exampleBengali'],
-        'synonyms': wordData['synonyms'] ?? [],
-        'timestamp': FieldValue.serverTimestamp(),
-        'grade': null,
-        'memorizedAt': null,
-      });
+    } catch (e) {
+      debugPrint('Error toggling favorite: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('"${wordData['word']}" added to Favorites!'), backgroundColor: Colors.green),
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.redAccent),
         );
       }
     }
@@ -379,7 +413,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> with SingleTickerPr
               .collection('users')
               .doc(_currentUser.uid)
               .collection('favorite_words')
-              .doc(word.toString().toLowerCase().trim())
+              .doc(word.toString().toLowerCase().trim().replaceAll('/', '-'))
               .snapshots()
           : null,
       builder: (context, snapshot) {
