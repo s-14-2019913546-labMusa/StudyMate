@@ -15,6 +15,7 @@ import 'qibla_compass_screen.dart';
 import 'tasbeeh_counter_screen.dart';
 import 'prayer_history_screen.dart';
 import 'language_manager.dart';
+import 'widgets/sound_picker_widget.dart';
 
 class IslamicLifeScreen extends StatefulWidget {
   const IslamicLifeScreen({super.key});
@@ -47,17 +48,17 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
     'prayerWarning': true,
     'jummaReminder': true,
     'prayerAlarmEnabled': false,
-    'selectedPrayerAlarmSound': 'Alarm',
-    'selectedPrayerAlarmSoundName': 'System Default Alarm',
+    'selectedPrayerAlarmSound': 'makkah_adhan',
+    'selectedPrayerAlarmSoundName': 'মক্কার আজান (Makkah Adhan)',
   };
-  Map<String, String> _customAlarmSounds = {};
   final Map<String, String> _builtInSounds = {
-    'Notification': 'System Default Notification',
+    'makkah_adhan': 'মক্কার আজান (Makkah Adhan)',
+    'madinah_adhan': 'মদিনার আজান (Madinah Adhan)',
+  };
+  final Map<String, String> _systemAlarmSounds = {
     'Alarm': 'System Default Alarm',
     'Ringtone': 'System Default Ringtone',
   };
-  bool _isPlayingPreview = false;
-  Timer? _previewTimer;
   static const String _islamicNotifFile = 'islamic_notif_settings.json';
 
   // Friday Special Checklist States
@@ -114,7 +115,6 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
   @override
   void dispose() {
     _countdownTimer?.cancel();
-    _previewTimer?.cancel();
     _audioPlayer.dispose();
     super.dispose();
   }
@@ -225,17 +225,6 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
     try {
       final directory = await getApplicationDocumentsDirectory();
       final file = File('${directory.path}/$_islamicNotifFile');
-      final prefs = await SharedPreferences.getInstance();
-
-      // Load custom alarm sounds
-      try {
-        final customAlarmSoundsStr = prefs.getString('customAlarmSounds');
-        if (customAlarmSoundsStr != null) {
-          _customAlarmSounds = Map<String, String>.from(
-            jsonDecode(customAlarmSoundsStr),
-          );
-        }
-      } catch (_) {}
 
       if (await file.exists()) {
         final decoded =
@@ -249,10 +238,10 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
               'prayerAlarmEnabled':
                   decoded['prayerAlarmEnabled'] as bool? ?? false,
               'selectedPrayerAlarmSound':
-                  decoded['selectedPrayerAlarmSound'] as String? ?? 'Alarm',
+                  decoded['selectedPrayerAlarmSound'] as String? ?? 'makkah_adhan',
               'selectedPrayerAlarmSoundName':
                   decoded['selectedPrayerAlarmSoundName'] as String? ??
-                  'System Default Alarm',
+                  'মক্কার আজান (Makkah Adhan)',
             };
           });
         }
@@ -278,93 +267,7 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
     }
   }
 
-  Future<void> _saveCustomSounds() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('customAlarmSounds', jsonEncode(_customAlarmSounds));
-  }
 
-  Future<void> _pickPrayerRingtone(StateSetter setModal) async {
-    if (!Platform.isAndroid) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('This feature is available on Android only.'),
-        ),
-      );
-      return;
-    }
-
-    if (_customAlarmSounds.length >= 8) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Maximum custom sounds limit reached.')),
-      );
-      return;
-    }
-
-    final result = await fp.FilePicker.platform.pickFiles(
-      type: fp.FileType.audio,
-      allowMultiple: false,
-    );
-
-    if (result != null && result.files.single.path != null) {
-      final file = result.files.single;
-      final soundUri = 'file://${file.path}';
-
-      setModal(() {
-        _customAlarmSounds[soundUri] = file.name;
-        _islamicNotifSettings['selectedPrayerAlarmSound'] = soundUri;
-        _islamicNotifSettings['selectedPrayerAlarmSoundName'] = file.name;
-      });
-      setState(() {
-        _customAlarmSounds[soundUri] = file.name;
-        _islamicNotifSettings['selectedPrayerAlarmSound'] = soundUri;
-        _islamicNotifSettings['selectedPrayerAlarmSoundName'] = file.name;
-      });
-      await _saveCustomSounds();
-      await _saveIslamicNotifSettings();
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Sound added and selected!')),
-      );
-    }
-  }
-
-  void _togglePreviewSound(String soundName, StateSetter setModal) {
-    _previewTimer?.cancel();
-    if (_isPlayingPreview) {
-      SoundPlayer.stopAlarm();
-      setModal(() {
-        _isPlayingPreview = false;
-      });
-      setState(() {
-        _isPlayingPreview = false;
-      });
-    } else {
-      SoundPlayer.stopAlarm();
-      SoundPlayer.playNotificationSoundAndVibration(
-        soundName: soundName,
-        volume: 1.0,
-        soundEnabled: true,
-        vibrationEnabled: false,
-        isAlarm: true,
-      );
-      setModal(() {
-        _isPlayingPreview = true;
-      });
-      setState(() {
-        _isPlayingPreview = true;
-      });
-      _previewTimer = Timer(const Duration(seconds: 8), () {
-        if (mounted) {
-          setModal(() {
-            _isPlayingPreview = false;
-          });
-          setState(() {
-            _isPlayingPreview = false;
-          });
-        }
-      });
-    }
-  }
 
   void _showIslamicNotificationSettings() {
     const goldAccent = Color(0xFFE5B842);
@@ -508,156 +411,28 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                                 ),
                               ),
                               const SizedBox(width: 8),
-                              Expanded(
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.end,
-                                  children: [
-                                    IconButton(
-                                      icon: Icon(
-                                        _isPlayingPreview
-                                            ? Icons.stop_circle_rounded
-                                            : Icons.play_circle_fill_rounded,
-                                        color: goldAccent,
-                                        size: 24,
-                                      ),
-                                      constraints: const BoxConstraints(),
-                                      padding: const EdgeInsets.only(
-                                        right: 8.0,
-                                      ),
-                                      onPressed: () => _togglePreviewSound(
-                                        _islamicNotifSettings['selectedPrayerAlarmSound'] ??
-                                            'Alarm',
-                                        setModal,
-                                      ),
-                                    ),
-                                    Flexible(
-                                      child: PopupMenuButton<String>(
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Flexible(
-                                              child: Text(
-                                                _islamicNotifSettings['selectedPrayerAlarmSoundName'] ??
-                                                    'System Default Alarm',
-                                                style: const TextStyle(
-                                                  color: goldAccent,
-                                                  fontSize: 12,
-                                                ),
-                                                overflow: TextOverflow.ellipsis,
-                                                maxLines: 1,
-                                              ),
-                                            ),
-                                            const Icon(
-                                              Icons.arrow_drop_down_rounded,
-                                              color: goldAccent,
-                                            ),
-                                          ],
-                                        ),
-                                        onSelected: (String value) async {
-                                          if (value == 'pick_custom_prayer') {
-                                            await _pickPrayerRingtone(setModal);
-                                            return;
-                                          }
-                                          final selectedName =
-                                              _builtInSounds[value] ??
-                                              _customAlarmSounds[value] ??
-                                              value;
-                                          setModal(() {
-                                            _islamicNotifSettings['selectedPrayerAlarmSound'] =
-                                                value;
-                                            _islamicNotifSettings['selectedPrayerAlarmSoundName'] =
-                                                selectedName;
-                                          });
-                                          setState(() {
-                                            _islamicNotifSettings['selectedPrayerAlarmSound'] =
-                                                value;
-                                            _islamicNotifSettings['selectedPrayerAlarmSoundName'] =
-                                                selectedName;
-                                          });
-                                          await _saveIslamicNotifSettings();
-                                        },
-                                        itemBuilder: (BuildContext context) {
-                                          return [
-                                            ..._builtInSounds.entries.map((
-                                              entry,
-                                            ) {
-                                              final isSelected =
-                                                  entry.key ==
-                                                  _islamicNotifSettings['selectedPrayerAlarmSound'];
-                                              return PopupMenuItem<String>(
-                                                value: entry.key,
-                                                child: Row(
-                                                  mainAxisAlignment:
-                                                      MainAxisAlignment
-                                                          .spaceBetween,
-                                                  children: [
-                                                    Expanded(
-                                                      child: Text(entry.value),
-                                                    ),
-                                                    if (isSelected)
-                                                      const Icon(
-                                                        Icons
-                                                            .check_circle_rounded,
-                                                        size: 18,
-                                                        color: Colors.green,
-                                                      ),
-                                                  ],
-                                                ),
-                                              );
-                                            }),
-                                            if (_customAlarmSounds.isNotEmpty)
-                                              const PopupMenuDivider(),
-                                            ..._customAlarmSounds.entries.map((
-                                              entry,
-                                            ) {
-                                              final isSelected =
-                                                  entry.key ==
-                                                  _islamicNotifSettings['selectedPrayerAlarmSound'];
-                                              return PopupMenuItem<String>(
-                                                value: entry.key,
-                                                child: Row(
-                                                  mainAxisAlignment:
-                                                      MainAxisAlignment
-                                                          .spaceBetween,
-                                                  children: [
-                                                    Expanded(
-                                                      child: Text(entry.value),
-                                                    ),
-                                                    if (isSelected)
-                                                      const Icon(
-                                                        Icons
-                                                            .check_circle_rounded,
-                                                        size: 18,
-                                                        color: Colors.green,
-                                                      ),
-                                                  ],
-                                                ),
-                                              );
-                                            }),
-                                            const PopupMenuDivider(),
-                                            const PopupMenuItem<String>(
-                                              value: 'pick_custom_prayer',
-                                              child: Row(
-                                                children: [
-                                                  Icon(
-                                                    Icons
-                                                        .add_circle_outline_rounded,
-                                                    size: 18,
-                                                  ),
-                                                  SizedBox(width: 8),
-                                                  Text(
-                                                    'নিজের ডিভাইস থেকে যোগ করুন...',
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ];
-                                        },
-                                      ),
-                                    ),
-                                  ],
+                                Expanded(
+                                  child: SoundPickerWidget(
+                                    selectedSoundKey: _islamicNotifSettings['selectedPrayerAlarmSound'] ?? 'makkah_adhan',
+                                    selectedSoundName: _islamicNotifSettings['selectedPrayerAlarmSoundName'] ?? 'মক্কার আজান (Makkah Adhan)',
+                                    systemSounds: _systemAlarmSounds,
+                                    favoriteSounds: _builtInSounds,
+                                    isAlarm: true,
+                                    primaryColor: goldAccent,
+                                    onSoundSelected: (value) async {
+                                      final selectedName = _systemAlarmSounds[value] ?? _builtInSounds[value] ?? value;
+                                      setModal(() {
+                                        _islamicNotifSettings['selectedPrayerAlarmSound'] = value;
+                                        _islamicNotifSettings['selectedPrayerAlarmSoundName'] = selectedName;
+                                      });
+                                      setState(() {
+                                        _islamicNotifSettings['selectedPrayerAlarmSound'] = value;
+                                        _islamicNotifSettings['selectedPrayerAlarmSoundName'] = selectedName;
+                                      });
+                                      await _saveIslamicNotifSettings();
+                                    },
+                                  ),
                                 ),
-                              ),
                             ],
                           ),
                         ),
@@ -779,7 +554,7 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
     if (isSalatAlarm &&
         (_islamicNotifSettings['prayerAlarmEnabled'] ?? false)) {
       final soundName =
-          _islamicNotifSettings['selectedPrayerAlarmSound'] ?? 'Alarm';
+          _islamicNotifSettings['selectedPrayerAlarmSound'] ?? 'makkah_adhan';
       await SoundPlayer.playNotificationSoundAndVibration(
         soundName: soundName,
         volume: 1.0,

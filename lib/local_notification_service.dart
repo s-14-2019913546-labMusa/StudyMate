@@ -58,10 +58,9 @@ Future<void> _handleNotificationAction(String? actionId) async {
   } else if (actionId == 'sleep_reschedule_30m' || actionId == 'sleep_reschedule_1h') {
     final int extraMins = actionId == 'sleep_reschedule_30m' ? 30 : 60;
     log('Rescheduling bedtime by $extraMins mins.');
-    final currentBedTimeStr = prefs.getString('bed_time');
+    final currentBedTimeStr = prefs.getString('expected_sleep_start');
     if (currentBedTimeStr != null) {
       final newBedTime = DateTime.parse(currentBedTimeStr).add(Duration(minutes: extraMins));
-      await prefs.setString('bed_time', newBedTime.toIso8601String());
       await prefs.setString('expected_sleep_start', newBedTime.toIso8601String());
       await LocalNotificationService.scheduleAllSleepNotifications(newBedTime, null);
     }
@@ -248,6 +247,13 @@ class LocalNotificationService {
     final repeatCount = prefs.getString('sleepAlarmRepeatCount') ?? 'loop';
     final isInsistent = repeatCount == 'loop';
     final sound = await _getAndroidSoundForType(true, isSleepAlarm: true);
+
+    String soundSuffix = 'default';
+    try {
+      String soundPath = prefs.getString('selectedSleepAlarmSound') ?? 'Alarm';
+      soundSuffix = soundPath.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_');
+    } catch (_) {}
+
     await scheduleNotification(
       id: 4,
       title: '⏰ Good Morning!',
@@ -255,7 +261,7 @@ class LocalNotificationService {
       scheduledDate: wakeUpTime,
       playSound: true,
       sound: sound,
-      channelId: 'morning_alarm_channel',
+      channelId: 'morning_alarm_channel_$soundSuffix',
       channelName: 'Morning Alarm Notifications',
       channelDescription: 'Handles wake-up alarms with louder sounds',
       enableVibration: true,
@@ -304,6 +310,10 @@ class LocalNotificationService {
         final soundKey = isAlarm ? 'selectedAlarmSound' : 'selectedPushSound';
         final defaultSound = isAlarm ? 'Alarm' : 'Notification';
         soundPath = prefs.getString(soundKey) ?? defaultSound;
+      }
+
+      if (['rooster', 'clock', 'emergency', 'makkah_adhan', 'madinah_adhan', 'push_drop', 'push_chime', 'push_beep', 'alarm_breeze', 'alarm_energy', 'alarm_classic'].contains(soundPath)) {
+        return RawResourceAndroidNotificationSound(soundPath);
       }
 
       if (soundPath.startsWith('content://') ||
@@ -961,6 +971,22 @@ class SoundPlayer {
     }
 
     // If a custom sound URI is selected, use AudioPlayer to play it.
+    if (['rooster', 'clock', 'emergency', 'makkah_adhan', 'madinah_adhan', 'push_drop', 'push_chime', 'push_beep', 'alarm_breeze', 'alarm_energy', 'alarm_classic'].contains(finalSoundPath)) {
+      try {
+        await _appAudioPlayer.setVolume(volume);
+        if (looping) {
+          await _appAudioPlayer.setReleaseMode(ReleaseMode.loop);
+        } else {
+          await _appAudioPlayer.setReleaseMode(ReleaseMode.release);
+        }
+        await _appAudioPlayer.play(AssetSource('audio/$finalSoundPath.mp3'));
+        log('Playing asset sound: audio/$finalSoundPath.mp3');
+      } catch (e) {
+        log('Error playing raw resource sound: $e');
+      }
+      return;
+    }
+
     if (finalSoundPath.startsWith('content://') ||
         finalSoundPath.startsWith('file://')) {
       try {

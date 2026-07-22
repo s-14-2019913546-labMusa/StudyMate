@@ -47,6 +47,7 @@ import 'notifications_hub_screen.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_tts/flutter_tts.dart';
+import 'widgets/sound_picker_widget.dart';
 
 class ToolsScreen extends StatefulWidget {
   final Function(List<Task>) onTasksGenerated;
@@ -1133,17 +1134,20 @@ class _SleepTrackerScreenState extends State<SleepTrackerScreen> with SingleTick
   bool _alarmTriggered = false;
   bool _bedTimeTriggered = false;
 
-  String _selectedSleepAlarmSound = 'Alarm';
-  String _selectedSleepAlarmSoundName = 'System Default Alarm';
+  String _selectedSleepAlarmSound = 'rooster';
+  String _selectedSleepAlarmSoundName = 'মুরগির ডাক (Rooster)';
   String _sleepAlarmRepeatCount = 'loop';
-  Map<String, String> _customAlarmSounds = {};
+  
   final Map<String, String> _builtInSounds = {
-    'Notification': 'System Default Notification',
+    'rooster': 'মুরগির ডাক (Rooster)',
+    'clock': 'ঘড়ির শব্দ (Clock)',
+    'emergency': 'ইমার্জেন্সি (Emergency)',
+  };
+
+  final Map<String, String> _systemAlarmSounds = {
     'Alarm': 'System Default Alarm',
     'Ringtone': 'System Default Ringtone',
   };
-  bool _isPlayingPreview = false;
-  Timer? _previewTimer;
 
   @override
   void initState() {
@@ -1228,57 +1232,19 @@ class _SleepTrackerScreenState extends State<SleepTrackerScreen> with SingleTick
       final String? savedMorningTime = prefs.getString('morning_time');
       if (savedMorningTime != null) _morningTime = _parseTimeOfDay(savedMorningTime, const TimeOfDay(hour: 6, minute: 0));
 
-      _selectedSleepAlarmSound = prefs.getString('selectedSleepAlarmSound') ?? 'Alarm';
-      _selectedSleepAlarmSoundName = prefs.getString('selectedSleepAlarmSoundName') ?? 'System Default Alarm';
+      _selectedSleepAlarmSound = prefs.getString('selectedSleepAlarmSound') ?? 'rooster';
+      
+      if (!_builtInSounds.containsKey(_selectedSleepAlarmSound) && !_systemAlarmSounds.containsKey(_selectedSleepAlarmSound)) {
+        _selectedSleepAlarmSound = 'rooster';
+        _selectedSleepAlarmSoundName = _builtInSounds['rooster']!;
+      } else {
+        _selectedSleepAlarmSoundName = _builtInSounds[_selectedSleepAlarmSound] ?? _systemAlarmSounds[_selectedSleepAlarmSound]!;
+      }
       _sleepAlarmRepeatCount = prefs.getString('sleepAlarmRepeatCount') ?? 'loop';
-      try {
-        final customAlarmSoundsStr = prefs.getString('customAlarmSounds');
-        if (customAlarmSoundsStr != null) {
-          _customAlarmSounds = Map<String, String>.from(jsonDecode(customAlarmSoundsStr));
-        }
-      } catch (_) {}
     });
   }
 
-  Future<void> _pickSleepRingtone() async {
-    if (!Platform.isAndroid) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('This feature is available on Android only.')),
-      );
-      return;
-    }
 
-    if (_customAlarmSounds.length >= 8) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Maximum custom sounds limit reached.')),
-      );
-      return;
-    }
-
-    final result = await fp.FilePicker.platform.pickFiles(
-      type: fp.FileType.audio,
-      allowMultiple: false,
-    );
-
-    if (result != null && result.files.single.path != null) {
-      final file = result.files.single;
-      final soundUri = 'file://${file.path}';
-      
-      final prefs = await SharedPreferences.getInstance();
-      setState(() {
-        _customAlarmSounds[soundUri] = file.name;
-        _selectedSleepAlarmSound = soundUri;
-        _selectedSleepAlarmSoundName = file.name;
-      });
-      await prefs.setString('customAlarmSounds', jsonEncode(_customAlarmSounds));
-      await prefs.setString('selectedSleepAlarmSound', _selectedSleepAlarmSound);
-      await prefs.setString('selectedSleepAlarmSoundName', _selectedSleepAlarmSoundName);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Sound added and selected for sleep alarm!')),
-      );
-    }
-  }
 
   Future<void> _loadSleepState() async {
     final prefs = await SharedPreferences.getInstance();
@@ -1309,38 +1275,10 @@ class _SleepTrackerScreenState extends State<SleepTrackerScreen> with SingleTick
     _tabController.dispose();
     _uiUpdateTimer?.cancel();
     _alarmRingingTimer?.cancel();
-    _previewTimer?.cancel();
     super.dispose();
   }
 
-  void _togglePreviewSound(String soundName) {
-    _previewTimer?.cancel();
-    if (_isPlayingPreview) {
-      SoundPlayer.stopAlarm();
-      setState(() {
-        _isPlayingPreview = false;
-      });
-    } else {
-      SoundPlayer.stopAlarm();
-      SoundPlayer.playNotificationSoundAndVibration(
-        soundName: soundName,
-        volume: 1.0,
-        soundEnabled: true,
-        vibrationEnabled: false,
-        isAlarm: true,
-      );
-      setState(() {
-        _isPlayingPreview = true;
-      });
-      _previewTimer = Timer(const Duration(seconds: 8), () {
-        if (mounted) {
-          setState(() {
-            _isPlayingPreview = false;
-          });
-        }
-      });
-    }
-  }
+
 
   void _startUIUpdateTimer() {
     _uiUpdateTimer?.cancel();
@@ -1533,20 +1471,28 @@ class _SleepTrackerScreenState extends State<SleepTrackerScreen> with SingleTick
           _morningTime = picked;
         }
       });
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(isBedTime ? 'bed_time' : 'morning_time', picked.toString());
+    }
+  }
+
+  Future<void> _saveSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('bed_time', _bedTime.toString());
+    await prefs.setString('morning_time', _morningTime.toString());
+    
+    // Reschedule if they are not sleeping yet
+    if (!_isSleeping) {
+      final now = DateTime.now();
+      DateTime actualBedTime = DateTime(now.year, now.month, now.day, _bedTime.hour, _bedTime.minute);
+      if (actualBedTime.isBefore(now)) actualBedTime = actualBedTime.add(const Duration(days: 1));
       
-      // Reschedule if they are not sleeping yet
-      if (!_isSleeping) {
-        final now = DateTime.now();
-        DateTime actualBedTime = DateTime(now.year, now.month, now.day, _bedTime.hour, _bedTime.minute);
-        if (actualBedTime.isBefore(now)) actualBedTime = actualBedTime.add(const Duration(days: 1));
-        
-        DateTime actualWakeTime = DateTime(now.year, now.month, now.day, _morningTime.hour, _morningTime.minute);
-        if (actualWakeTime.isBefore(now)) actualWakeTime = actualWakeTime.add(const Duration(days: 1));
-        
-        await LocalNotificationService.scheduleAllSleepNotifications(actualBedTime, actualWakeTime);
-      }
+      DateTime actualWakeTime = DateTime(now.year, now.month, now.day, _morningTime.hour, _morningTime.minute);
+      if (actualWakeTime.isBefore(now)) actualWakeTime = actualWakeTime.add(const Duration(days: 1));
+      
+      await LocalNotificationService.scheduleAllSleepNotifications(actualBedTime, actualWakeTime);
+    }
+    
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('স্লিপ টাইম সেভ করা হয়েছে!')));
     }
   }
 
@@ -1687,6 +1633,18 @@ class _SleepTrackerScreenState extends State<SleepTrackerScreen> with SingleTick
             ],
           ),
           
+          const SizedBox(height: 16),
+          ElevatedButton.icon(
+            onPressed: _saveSettings,
+            icon: const Icon(Icons.save_rounded),
+            label: const Text('Save Time', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            style: ElevatedButton.styleFrom(
+               padding: const EdgeInsets.symmetric(vertical: 14),
+               backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
+               foregroundColor: Theme.of(context).colorScheme.onSecondaryContainer,
+               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            ),
+          ),
           const SizedBox(height: 24),
           Card(
             elevation: 2,
@@ -1718,83 +1676,26 @@ class _SleepTrackerScreenState extends State<SleepTrackerScreen> with SingleTick
                                 'Morning Alarm Sound',
                                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                               ),
-                              const SizedBox(height: 2),
-                              Text(
-                                _selectedSleepAlarmSoundName,
-                                style: const TextStyle(color: Colors.grey, fontSize: 12),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                              const SizedBox(height: 8),
+                              SoundPickerWidget(
+                                selectedSoundKey: _selectedSleepAlarmSound,
+                                selectedSoundName: _selectedSleepAlarmSoundName,
+                                systemSounds: _systemAlarmSounds,
+                                favoriteSounds: _builtInSounds,
+                                isAlarm: true,
+                                primaryColor: Colors.indigo,
+                                onSoundSelected: (value) async {
+                                  final prefs = await SharedPreferences.getInstance();
+                                  setState(() {
+                                    _selectedSleepAlarmSound = value;
+                                    _selectedSleepAlarmSoundName = _systemAlarmSounds[value] ?? _builtInSounds[value] ?? value;
+                                  });
+                                  await prefs.setString('selectedSleepAlarmSound', _selectedSleepAlarmSound);
+                                  await prefs.setString('selectedSleepAlarmSoundName', _selectedSleepAlarmSoundName);
+                                },
                               ),
                             ],
                           ),
-                        ),
-                        IconButton(
-                          icon: Icon(
-                            _isPlayingPreview ? Icons.stop_circle_rounded : Icons.play_circle_fill_rounded,
-                            color: Colors.indigo,
-                            size: 28,
-                          ),
-                          onPressed: () => _togglePreviewSound(_selectedSleepAlarmSound),
-                        ),
-                        PopupMenuButton<String>(
-                          icon: const Icon(Icons.arrow_drop_down_circle_outlined, color: Colors.indigo),
-                          onSelected: (String value) async {
-                            if (value == 'pick_custom_sleep') {
-                              await _pickSleepRingtone();
-                              return;
-                            }
-                            final prefs = await SharedPreferences.getInstance();
-                            setState(() {
-                              _selectedSleepAlarmSound = value;
-                              _selectedSleepAlarmSoundName = _builtInSounds[value] ?? _customAlarmSounds[value] ?? value;
-                            });
-                            await prefs.setString('selectedSleepAlarmSound', _selectedSleepAlarmSound);
-                            await prefs.setString('selectedSleepAlarmSoundName', _selectedSleepAlarmSoundName);
-                          },
-                          itemBuilder: (BuildContext context) {
-                            return [
-                              ..._builtInSounds.entries.map((entry) {
-                                final isSelected = entry.key == _selectedSleepAlarmSound;
-                                return PopupMenuItem<String>(
-                                  value: entry.key,
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Expanded(child: Text(entry.value)),
-                                      if (isSelected)
-                                        const Icon(Icons.check_circle_rounded, size: 18, color: Colors.green),
-                                    ],
-                                  ),
-                                );
-                              }),
-                              if (_customAlarmSounds.isNotEmpty) const PopupMenuDivider(),
-                              ..._customAlarmSounds.entries.map((entry) {
-                                final isSelected = entry.key == _selectedSleepAlarmSound;
-                                return PopupMenuItem<String>(
-                                  value: entry.key,
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Expanded(child: Text(entry.value)),
-                                      if (isSelected)
-                                        const Icon(Icons.check_circle_rounded, size: 18, color: Colors.green),
-                                    ],
-                                  ),
-                                );
-                              }),
-                              const PopupMenuDivider(),
-                              const PopupMenuItem<String>(
-                                value: 'pick_custom_sleep',
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.add_circle_outline_rounded, size: 18),
-                                    SizedBox(width: 8),
-                                    Text('নিজের ডিভাইস থেকে যোগ করুন...'),
-                                  ],
-                                ),
-                              ),
-                            ];
-                          },
                         ),
                       ],
                     ),
