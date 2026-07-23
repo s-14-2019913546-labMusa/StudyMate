@@ -8,7 +8,9 @@ import 'package:path_provider/path_provider.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:file_picker/file_picker.dart' as fp;
+import 'package:url_launcher/url_launcher.dart';
 import 'islamic_service.dart';
+import 'islamic_daily_service.dart';
 import 'local_notification_service.dart';
 import 'quran_reader_screen.dart';
 import 'qibla_compass_screen.dart';
@@ -2127,9 +2129,149 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                       },
                     ),
                   const SizedBox(height: 16),
+                  _buildSpecialDeedsSection(),
+                  const SizedBox(height: 16),
+                  _buildDailyHistorySection(),
+                  const SizedBox(height: 16),
                 ],
               ),
             ),
+    );
+  }
+
+  Widget _buildSpecialDeedsSection() {
+    final deeds = IslamicDailyService.getSpecialDeedsForToday();
+    const goldAccent = Color(0xFFE5B842);
+    const cardBg = Color(0xFF162D24);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: goldAccent.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.star_rounded, color: goldAccent),
+              const SizedBox(width: 8),
+              Text(
+                LanguageManager().isBengali ? 'আজকের বিশেষ আমল' : "Today's Special Deeds",
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (deeds.isEmpty)
+            Text(
+              LanguageManager().isBengali ? 'আজকের জন্য বিশেষ কোনো আমল নেই।' : 'No special deeds for today.',
+              style: const TextStyle(color: Colors.white70),
+            )
+          else
+            ...deeds.map((deed) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.only(top: 4.0),
+                        child: Icon(Icons.circle, size: 8, color: goldAccent),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          LanguageManager().isBengali ? deed.split(' (').last.replaceAll(')', '') : deed.split(' (').first,
+                          style: const TextStyle(color: Colors.white70, fontSize: 14),
+                        ),
+                      ),
+                    ],
+                  ),
+                )),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDailyHistorySection() {
+    final event = IslamicDailyService.getTodayHistoryEvent();
+    const cardBg = Color(0xFF162D24);
+    const goldAccent = Color(0xFFE5B842);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.auto_stories_rounded, color: Colors.blueAccent),
+              const SizedBox(width: 8),
+              Text(
+                LanguageManager().isBengali ? 'ইসলামের ইতিহাসে আজকের দিন' : "Today in Islamic History",
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            LanguageManager().isBengali ? event.title.split(' (').last.replaceAll(')', '') : event.title.split(' (').first,
+            style: const TextStyle(color: goldAccent, fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            LanguageManager().isBengali ? event.summary : event.summary,
+            style: const TextStyle(color: Colors.white70, fontSize: 14),
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    backgroundColor: const Color(0xFF162D24),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    title: Text(
+                      LanguageManager().isBengali ? event.title.split(' (').last.replaceAll(')', '') : event.title.split(' (').first,
+                      style: const TextStyle(color: Color(0xFFE5B842), fontWeight: FontWeight.bold),
+                    ),
+                    content: SingleChildScrollView(
+                      child: Text(
+                        event.summary,
+                        style: const TextStyle(color: Colors.white70, fontSize: 15, height: 1.5),
+                      ),
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        child: Text(LanguageManager().isBengali ? 'বন্ধ করুন' : 'Close', style: const TextStyle(color: Colors.blueAccent)),
+                      ),
+                    ],
+                  ),
+                );
+              },
+              icon: const Icon(Icons.chrome_reader_mode_rounded, size: 16, color: Colors.blueAccent),
+              label: Text(
+                LanguageManager().isBengali ? 'বিস্তারিত পড়ুন' : 'Read More',
+                style: const TextStyle(color: Colors.blueAccent),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

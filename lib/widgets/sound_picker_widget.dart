@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../local_notification_service.dart';
+import '../language_manager.dart';
 
 class SoundPickerWidget extends StatefulWidget {
   final String selectedSoundKey;
@@ -75,7 +76,7 @@ class _SoundPickerWidgetState extends State<SoundPickerWidget> {
         children: [
           Expanded(
             child: Text(
-              widget.selectedSoundName,
+              widget.selectedSoundName.tr(),
               style: TextStyle(
                 color: onSurface,
                 fontWeight: FontWeight.w500,
@@ -112,10 +113,10 @@ class _SoundPickerWidgetState extends State<SoundPickerWidget> {
                 itemBuilder: (BuildContext context) {
                   return [
                     // --- System Default Sounds ---
-                    const PopupMenuItem<String>(
+                    PopupMenuItem<String>(
                       enabled: false,
                       child: Text(
-                        'System Defaults',
+                        'System Defaults'.tr(),
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
@@ -130,7 +131,7 @@ class _SoundPickerWidgetState extends State<SoundPickerWidget> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Expanded(child: Text(entry.value)),
+                            Expanded(child: Text(entry.value.tr())),
                             if (isSelected)
                               const Icon(
                                 Icons.check_circle_rounded,
@@ -145,10 +146,10 @@ class _SoundPickerWidgetState extends State<SoundPickerWidget> {
                     const PopupMenuDivider(),
 
                     // --- StudyMate Favorites ---
-                    const PopupMenuItem<String>(
+                    PopupMenuItem<String>(
                       enabled: false,
                       child: Text(
-                        'StudyMate Favorites',
+                        'StudyMate Favorites'.tr(),
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
@@ -174,7 +175,7 @@ class _SoundPickerWidgetState extends State<SoundPickerWidget> {
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
-                                      entry.value,
+                                      entry.value.tr(),
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),

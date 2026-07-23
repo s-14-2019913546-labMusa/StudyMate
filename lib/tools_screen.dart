@@ -1313,15 +1313,23 @@ class _SleepTrackerScreenState extends State<SleepTrackerScreen> with SingleTick
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('🌙 Bed Time!', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold)),
-        content: const Text('Your sleep session has started. Please put your phone away.', textAlign: TextAlign.center),
+        title: Text('Bed Time!'.tr(), textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold)),
+        content: Text('Your sleep session has started. Please put your phone away.'.tr(), textAlign: TextAlign.center),
         actions: [
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await _pickTime(true); // Open time picker to reschedule bedtime
+              _saveSettings();
+            },
+            child: Text('Reschedule'.tr(), style: TextStyle(color: Theme.of(context).colorScheme.primary)),
+          ),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(ctx);
               if (!_isSleeping) _startSleep();
             },
-            child: const Text('Go to Sleep'),
+            child: Text('Go to Sleep'.tr()),
           ),
         ],
       ),
@@ -1419,10 +1427,42 @@ class _SleepTrackerScreenState extends State<SleepTrackerScreen> with SingleTick
         .orderBy('wakeTime', descending: true)
         .get();
 
-    if (todayRecords.docs.length >= 3) {
-      for (int i = 2; i < todayRecords.docs.length; i++) {
-        await collection.doc(todayRecords.docs[i].id).delete();
+    bool isDuplicate = false;
+    for (var doc in todayRecords.docs) {
+      final data = doc.data();
+      final savedBedTime = (data['bedTime'] as Timestamp).toDate();
+      if (savedBedTime.difference(_sleepStartTime!).inMinutes.abs() < 2) {
+        isDuplicate = true;
+        break;
       }
+    }
+
+    if (isDuplicate) {
+      // Clear local state without saving
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('expected_sleep_start');
+      await prefs.setBool('needs_to_save_sleep_history', false);
+      setState(() {
+        _isSleeping = false;
+        _sleepStartTime = null;
+      });
+      _uiUpdateTimer?.cancel();
+      return;
+    }
+
+    if (todayRecords.docs.length >= 3) {
+      if (mounted) {
+         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Maximum 3 sleep records allowed per day!'.tr())));
+      }
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('expected_sleep_start');
+      await prefs.setBool('needs_to_save_sleep_history', false);
+      setState(() {
+        _isSleeping = false;
+        _sleepStartTime = null;
+      });
+      _uiUpdateTimer?.cancel();
+      return;
     }
 
     await collection.add({
@@ -1808,55 +1848,118 @@ class _SleepTrackerScreenState extends State<SleepTrackerScreen> with SingleTick
       stream: _sleepHistoryStream,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) return const Center(child: Text("No sleep records found.", style: TextStyle(color: Colors.grey)));
+        
+        final allDocs = snapshot.hasData ? snapshot.data!.docs : [];
+        
+        Map<String, List<QueryDocumentSnapshot>> groupedByDate = {};
+        DateTime oldestDate = DateTime.now();
+        for (var doc in allDocs) {
+          final data = doc.data() as Map<String, dynamic>;
+          final wakeTime = (data['wakeTime'] as Timestamp).toDate();
+          if (wakeTime.isBefore(oldestDate)) {
+            oldestDate = wakeTime;
+          }
+          String dateKey = DateFormat('yyyy-MM-dd').format(wakeTime);
+          if (!groupedByDate.containsKey(dateKey)) {
+            groupedByDate[dateKey] = [];
+          }
+          if (groupedByDate[dateKey]!.length < 3) {
+            groupedByDate[dateKey]!.add(doc);
+          }
+        }
+
+        int daysCount = 7; // Show at least 7 days
+        if (allDocs.isNotEmpty) {
+          int diff = DateTime.now().difference(oldestDate).inDays;
+          if (diff + 1 > daysCount) {
+            daysCount = diff + 1;
+          }
+        }
+
+        List<DateTime> allDaysList = List.generate(daysCount, (index) => DateTime.now().subtract(Duration(days: index)));
 
         return ListView.builder(
           padding: const EdgeInsets.all(16),
-          itemCount: snapshot.data!.docs.length,
+          itemCount: allDaysList.length,
           itemBuilder: (context, index) {
-            final doc = snapshot.data!.docs[index];
-            final data = doc.data() as Map<String, dynamic>;
-            final wakeTime = (data['wakeTime'] as Timestamp).toDate();
-            final bedTime = (data['bedTime'] as Timestamp).toDate();
-            final durationMins = data['durationMinutes'] ?? 0;
-            
-            int hours = durationMins ~/ 60;
-            int mins = durationMins % 60;
+            final day = allDaysList[index];
+            final dateKey = DateFormat('yyyy-MM-dd').format(day);
+            final docsForDay = groupedByDate[dateKey] ?? [];
 
-            String dateStr = DateFormat('MMM dd, yyyy').format(wakeTime);
-            String bedStr = DateFormat('hh:mm a').format(bedTime);
-            String wakeStr = DateFormat('hh:mm a').format(wakeTime);
+            String dayHeader = DateFormat('MMM dd, yyyy').format(day);
+            if (index == 0) dayHeader = "Today ($dayHeader)".tr();
+            else if (index == 1) dayHeader = "Yesterday ($dayHeader)".tr();
 
-            return Card(
-              margin: const EdgeInsets.only(bottom: 12),
-              child: ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                leading: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(color: Colors.indigo.withValues(alpha: 0.1), shape: BoxShape.circle),
-                  child: const Icon(Icons.nights_stay_rounded, color: Colors.indigo),
-                ),
-                title: Text(dateStr, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                subtitle: Text('Bed: $bedStr  •  Wake: $wakeStr'),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        const Text('Total Sleep', style: TextStyle(fontSize: 10, color: Colors.grey)),
-                        Text('${hours}h ${mins}m', style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary, fontSize: 16)),
-                      ],
+            List<Widget> dayWidgets = [];
+            dayWidgets.add(
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Text(dayHeader, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.indigoAccent)),
+              )
+            );
+
+            if (docsForDay.isEmpty) {
+              dayWidgets.add(
+                Card(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    leading: const Icon(Icons.history_toggle_off_rounded, color: Colors.grey),
+                    title: Text("No sleep history".tr(), style: const TextStyle(color: Colors.grey, fontStyle: FontStyle.italic)),
+                  ),
+                )
+              );
+            } else {
+              for (var doc in docsForDay) {
+                final data = doc.data() as Map<String, dynamic>;
+                final wakeTime = (data['wakeTime'] as Timestamp).toDate();
+                final bedTime = (data['bedTime'] as Timestamp).toDate();
+                final durationMins = data['durationMinutes'] ?? 0;
+                
+                int hours = durationMins ~/ 60;
+                int mins = durationMins % 60;
+
+                String bedStr = DateFormat('hh:mm a').format(bedTime);
+                String wakeStr = DateFormat('hh:mm a').format(wakeTime);
+
+                dayWidgets.add(
+                  Card(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                      leading: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(color: Colors.indigo.withValues(alpha: 0.1), shape: BoxShape.circle),
+                        child: const Icon(Icons.nights_stay_rounded, color: Colors.indigo),
+                      ),
+                      title: Text('Bed: $bedStr  •  Wake: $wakeStr'),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text('Total Sleep'.tr(), style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                              Text('${hours}h ${mins}m', style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary, fontSize: 16)),
+                            ],
+                          ),
+                          const SizedBox(width: 8),
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
+                            onPressed: () => _deleteSleepRecord(doc.id),
+                          ),
+                        ],
+                      ),
                     ),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
-                      onPressed: () => _deleteSleepRecord(doc.id),
-                    ),
-                  ],
-                ),
-              ),
+                  )
+                );
+              }
+            }
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: dayWidgets,
             );
           },
         );
