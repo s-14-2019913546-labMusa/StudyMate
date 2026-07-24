@@ -11,6 +11,8 @@ import 'local_notification_service.dart';
 import 'fcm_service.dart';
 import 'app_lock_service.dart';
 import 'app_lock_screen.dart';
+import 'sleep_timer_service.dart';
+import 'prayer_timer_service.dart';
 
 // Global key for context-less notifications
 final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
@@ -101,11 +103,18 @@ class _StudyMateAppState extends State<StudyMateApp> with WidgetsBindingObserver
     if (AppLockService().isAppLockEnabled()) {
       AppLockService().lockSession();
     }
+    // Start global sleep timer service
+    SleepTimerService().start();
+    
+    // Start global prayer timer service
+    PrayerTimerService().start();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    SleepTimerService().stop();
+    PrayerTimerService().stop();
     super.dispose();
   }
 

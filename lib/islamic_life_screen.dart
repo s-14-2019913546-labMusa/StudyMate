@@ -18,6 +18,8 @@ import 'tasbeeh_counter_screen.dart';
 import 'prayer_history_screen.dart';
 import 'language_manager.dart';
 import 'widgets/sound_picker_widget.dart';
+import 'package:hijri/hijri_calendar.dart';
+import 'bengali_date_helper.dart';
 
 class IslamicLifeScreen extends StatefulWidget {
   const IslamicLifeScreen({super.key});
@@ -32,6 +34,9 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
   Map<String, String>? _prayerTimes;
   Map<String, String>? _dailyVerse;
   Map<String, String>? _dailyHadith;
+  List<IslamicHistoryEvent> _todayHistoryEvents = [];
+  TodayDeeds? _todayDeeds;
+  DateTime _lastLoadDate = DateTime.now();
 
   Timer? _countdownTimer;
   String _nextPrayerName = "";
@@ -42,6 +47,7 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
   final AudioPlayer _audioPlayer = AudioPlayer();
   final Set<String> _notifiedEvents = {};
   Map<String, Map<String, bool>> _historyData = {};
+  bool _translateHistory = false;
 
   // ── Islamic Notification Settings (independent from global settings) ──────
   // Keys: prayerStart, prayerWarning, jummaReminder, prayerAlarmEnabled, selectedPrayerAlarmSound, selectedPrayerAlarmSoundName
@@ -111,6 +117,11 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
         _updateCountdown();
         _checkNotifications();
       }
+      
+      // Reload daily content if the day has changed (midnight passed)
+      if (DateTime.now().day != _lastLoadDate.day) {
+        _loadDailyContent();
+      }
     });
   }
 
@@ -121,11 +132,18 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
     super.dispose();
   }
 
-  void _loadDailyContent() {
-    setState(() {
-      _dailyVerse = IslamicService.getVerseOfTheDay();
-      _dailyHadith = IslamicService.getHadithOfTheDay();
-    });
+  void _loadDailyContent() async {
+    final events = await IslamicDailyService.getTodayHistoryEvents();
+    final deeds = await IslamicDailyService.getSpecialDeedsForTodayAsync();
+    if (mounted) {
+      setState(() {
+        _dailyVerse = IslamicService.getVerseOfTheDay();
+        _dailyHadith = IslamicService.getHadithOfTheDay();
+        _todayHistoryEvents = events;
+        _todayDeeds = deeds;
+        _lastLoadDate = DateTime.now();
+      });
+    }
   }
 
   Future<void> _loadLocationAndPrayerTimes() async {
@@ -491,44 +509,47 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
     final bool isOn = _islamicNotifSettings[key] ?? true;
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-        leading: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: isOn
-                ? goldAccent.withValues(alpha: 0.12)
-                : Colors.white.withValues(alpha: 0.04),
-            borderRadius: BorderRadius.circular(12),
+      child: Material(
+        color: Colors.transparent,
+        child: ListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          leading: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: isOn
+                  ? goldAccent.withValues(alpha: 0.12)
+                  : Colors.white.withValues(alpha: 0.04),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              icon,
+              color: isOn ? goldAccent : Colors.white38,
+              size: 20,
+            ),
           ),
-          child: Icon(
-            icon,
-            color: isOn ? goldAccent : Colors.white38,
-            size: 20,
+          title: Text(
+            title,
+            style: TextStyle(
+              color: isOn ? Colors.white : Colors.white54,
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
+            ),
           ),
-        ),
-        title: Text(
-          title,
-          style: TextStyle(
-            color: isOn ? Colors.white : Colors.white54,
-            fontWeight: FontWeight.w600,
-            fontSize: 14,
+          subtitle: Text(
+            subtitle,
+            style: const TextStyle(color: Colors.white38, fontSize: 11),
           ),
-        ),
-        subtitle: Text(
-          subtitle,
-          style: const TextStyle(color: Colors.white38, fontSize: 11),
-        ),
-        trailing: Switch(
-          value: isOn,
-          activeTrackColor: goldAccent.withValues(alpha: 0.5),
-          activeThumbColor: goldAccent,
-          onChanged: (val) {
-            setModal(() => _islamicNotifSettings[key] = val);
-            setState(() => _islamicNotifSettings[key] = val);
-            _saveIslamicNotifSettings();
-          },
+          trailing: Switch(
+            value: isOn,
+            activeTrackColor: goldAccent.withValues(alpha: 0.5),
+            activeThumbColor: goldAccent,
+            onChanged: (val) {
+              setModal(() => _islamicNotifSettings[key] = val);
+              setState(() => _islamicNotifSettings[key] = val);
+              _saveIslamicNotifSettings();
+            },
+          ),
         ),
       ),
     );
@@ -1125,25 +1146,28 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                               size: 20,
                             ),
                             const SizedBox(width: 8),
-                            Text(
-                              _isCloseToEnd
-                                  ? LanguageManager().isBengali
-                                        ? 'জরুরী ওয়াক্ত শেষ হওয়ার কাউন্টডাউন'
-                                        : 'Countdown to end of urgent prayer time'
-                                  : (isFriday
-                                        ? LanguageManager().isBengali
-                                              ? 'জুম্মাবার মোবারক'
-                                              : 'Jumma Mubarak'
-                                        : LanguageManager().isBengali
-                                        ? 'নামাজের কাউন্টডাউন'
-                                        : 'Prayer Countdown'),
-                              style: TextStyle(
-                                color: _isCloseToEnd
-                                    ? Colors.redAccent
-                                    : goldAccent,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                                letterSpacing: 1,
+                            Flexible(
+                              child: Text(
+                                _isCloseToEnd
+                                    ? LanguageManager().isBengali
+                                          ? 'জরুরী ওয়াক্ত শেষ হওয়ার কাউন্টডাউন'
+                                          : 'Countdown to end of urgent prayer time'
+                                    : (isFriday
+                                          ? LanguageManager().isBengali
+                                                ? 'জুম্মাবার মোবারক'
+                                                : 'Jumma Mubarak'
+                                          : LanguageManager().isBengali
+                                          ? 'নামাজের কাউন্টডাউন'
+                                          : 'Prayer Countdown'),
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: _isCloseToEnd
+                                      ? Colors.redAccent
+                                      : goldAccent,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                  letterSpacing: 1,
+                                ),
                               ),
                             ),
                           ],
@@ -1296,28 +1320,31 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                               index,
                             ) {
                               final item = _jummaSunnahs[index];
-                              return CheckboxListTile(
-                                contentPadding: EdgeInsets.zero,
-                                activeColor: Colors.tealAccent.shade400,
-                                checkColor: Colors.black,
-                                title: Text(
-                                  item['title'],
-                                  style: TextStyle(
-                                    color: item['done']
-                                        ? Colors.white54
-                                        : textLight,
-                                    fontSize: 14,
-                                    decoration: item['done']
-                                        ? TextDecoration.lineThrough
-                                        : null,
+                              return Material(
+                                color: Colors.transparent,
+                                child: CheckboxListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  activeColor: Colors.tealAccent.shade400,
+                                  checkColor: Colors.black,
+                                  title: Text(
+                                    item['title'],
+                                    style: TextStyle(
+                                      color: item['done']
+                                          ? Colors.white54
+                                          : textLight,
+                                      fontSize: 14,
+                                      decoration: item['done']
+                                          ? TextDecoration.lineThrough
+                                          : null,
+                                    ),
                                   ),
+                                  value: item['done'],
+                                  onChanged: (val) {
+                                    setState(() {
+                                      _jummaSunnahs[index]['done'] = val ?? false;
+                                    });
+                                  },
                                 ),
-                                value: item['done'],
-                                onChanged: (val) {
-                                  setState(() {
-                                    _jummaSunnahs[index]['done'] = val ?? false;
-                                  });
-                                },
                               );
                             }),
                           ),
@@ -2140,9 +2167,99 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
   }
 
   Widget _buildSpecialDeedsSection() {
-    final deeds = IslamicDailyService.getSpecialDeedsForToday();
     const goldAccent = Color(0xFFE5B842);
     const cardBg = Color(0xFF162D24);
+
+    print('TodayDeeds: ${_todayDeeds?.hijriDeeds}');
+    if (_todayDeeds == null) {
+       return const SizedBox();
+    }
+
+    final bool hasHijriDeeds = _todayDeeds!.hijriDeeds != null;
+    final bool hasWeeklyDeeds = _todayDeeds!.weeklyDeeds != null;
+    final bool hasMonthlyFocus = _todayDeeds!.monthlyFocus != null;
+
+    if (!hasHijriDeeds && !hasWeeklyDeeds && !hasMonthlyFocus) {
+       return const SizedBox(); // Nothing to show
+    }
+
+    Widget _buildDeedItem(String text, {bool isWarning = false}) {
+      if (text.isEmpty) return const SizedBox();
+      final lines = text.split('\n').where((l) => l.trim().isNotEmpty).toList();
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: lines.map((line) {
+          final trimmed = line.trim();
+          bool isSubHeading = trimmed.startsWith('বিশেষ আমলসমূহ:') || trimmed.startsWith('বিশেষ আমল:') || trimmed.startsWith('হাদিস:');
+          bool hasBullet = RegExp(r'^[০-৯1-9]\.').hasMatch(trimmed) || trimmed.startsWith('-') || trimmed.startsWith('•');
+          
+          if (isSubHeading) {
+            return Padding(
+              padding: const EdgeInsets.only(top: 8.0, bottom: 6.0),
+              child: Text(
+                trimmed,
+                style: const TextStyle(color: goldAccent, fontWeight: FontWeight.bold, fontSize: 14),
+              ),
+            );
+          } else if (!hasBullet) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8.0),
+              child: Text(
+                trimmed,
+                style: TextStyle(
+                  color: isWarning ? Colors.redAccent.shade100 : Colors.white70,
+                  fontSize: 14,
+                  height: 1.4,
+                ),
+              ),
+            );
+          }
+          
+          // Render as bullet
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8.0),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 2.0),
+                  child: Icon(
+                    isWarning ? Icons.warning_amber_rounded : Icons.check_circle_outline,
+                    color: isWarning ? Colors.redAccent : goldAccent,
+                    size: 16,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    trimmed,
+                    style: TextStyle(
+                      color: isWarning ? Colors.redAccent.shade100 : Colors.white70,
+                      fontSize: 14,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      );
+    }
+
+    // Hijri date for title
+    String hijriDateText = "";
+    if (hasHijriDeeds) {
+      final hNow = HijriCalendar.now();
+      final List<String> banglaHijriMonths = [
+        '', 'মুহাররম', 'সফর', 'রবিউল আউয়াল', 'রবিউস সানি',
+        'জমাদিউল আউয়াল', 'জমাদিউস সানি', 'রজব', 'শাবান',
+        'রমজান', 'শাওয়াল', 'জিলকদ', 'জিলহজ'
+      ];
+      String dayBn = LanguageManager().isBengali ? BengaliDateHelper.toBengaliDigits(hNow.hDay.toString()) : hNow.hDay.toString();
+      String monthName = LanguageManager().isBengali ? banglaHijriMonths[hNow.hMonth] : hNow.longMonthName;
+      hijriDateText = "আজ $dayBn $monthName";
+    }
 
     return Container(
       width: double.infinity,
@@ -2159,51 +2276,73 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
             children: [
               const Icon(Icons.star_rounded, color: goldAccent),
               const SizedBox(width: 8),
-              Text(
-                LanguageManager().isBengali ? 'আজকের বিশেষ আমল' : "Today's Special Deeds",
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+              Expanded(
+                child: Text(
+                  LanguageManager().isBengali ? 'আজকের বিশেষ আমল' : "Today's Special Deeds",
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+                ),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          if (deeds.isEmpty)
+          
+          if (hasWeeklyDeeds) ...[
             Text(
-              LanguageManager().isBengali ? 'আজকের জন্য বিশেষ কোনো আমল নেই।' : 'No special deeds for today.',
-              style: const TextStyle(color: Colors.white70),
-            )
-          else
-            ...deeds.map((deed) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8.0),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Padding(
-                        padding: EdgeInsets.only(top: 4.0),
-                        child: Icon(Icons.circle, size: 8, color: goldAccent),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          LanguageManager().isBengali ? deed.split(' (').last.replaceAll(')', '') : deed.split(' (').first,
-                          style: const TextStyle(color: Colors.white70, fontSize: 14),
-                        ),
-                      ),
-                    ],
-                  ),
-                )),
+              "সাপ্তাহিক আমল (${_todayDeeds!.weeklyDeeds!['day']})",
+              style: const TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold, fontSize: 15),
+            ),
+            const SizedBox(height: 8),
+            _buildDeedItem(_todayDeeds!.weeklyDeeds!['deeds'] ?? ''),
+            if (_todayDeeds!.weeklyDeeds!['warning']?.isNotEmpty ?? false)
+               _buildDeedItem(_todayDeeds!.weeklyDeeds!['warning'], isWarning: true),
+            const SizedBox(height: 14),
+          ],
+          
+          if (hasHijriDeeds) ...[
+            Text(
+              "চন্দ্র মাসের আমল - $hijriDateText${_todayDeeds!.hijriDeeds!['title'].isNotEmpty ? ' (${_todayDeeds!.hijriDeeds!['title']})' : ''}",
+              style: const TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold, fontSize: 15),
+            ),
+            const SizedBox(height: 8),
+            _buildDeedItem(_todayDeeds!.hijriDeeds!['regular'] ?? ''),
+            _buildDeedItem(_todayDeeds!.hijriDeeds!['special'] ?? ''),
+            if (_todayDeeds!.hijriDeeds!['warning']?.isNotEmpty ?? false)
+               _buildDeedItem(_todayDeeds!.hijriDeeds!['warning'], isWarning: true),
+          ],
         ],
       ),
     );
   }
 
   Widget _buildDailyHistorySection() {
-    final event = IslamicDailyService.getTodayHistoryEvent();
     const cardBg = Color(0xFF162D24);
     const goldAccent = Color(0xFFE5B842);
 
+    final events = _todayHistoryEvents;
+    if (events.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: cardBg,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+        ),
+        child: const Center(child: CircularProgressIndicator()),
+      );
+    }
+    
+    bool isAppBengali = LanguageManager().isBengali;
+    bool isHistoryBengali = isAppBengali ? !_translateHistory : _translateHistory;
+
+    String headerText = isAppBengali ? 'ইসলামের ইতিহাসে এই সময়ে' : "At this time in Islamic History";
+    
+    String translateBtnText = isAppBengali 
+        ? (_translateHistory ? 'বাংলায় পড়ুন' : 'Translate into English')
+        : (_translateHistory ? 'Read in English' : 'অনুবাদ করুন বাংলায়');
+
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: cardBg,
         borderRadius: BorderRadius.circular(16),
@@ -2212,64 +2351,177 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const Icon(Icons.auto_stories_rounded, color: Colors.blueAccent),
-              const SizedBox(width: 8),
-              Text(
-                LanguageManager().isBengali ? 'ইসলামের ইতিহাসে আজকের দিন' : "Today in Islamic History",
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+          Padding(
+            padding: const EdgeInsets.only(left: 16, top: 16, right: 8, bottom: 8),
+            child: Row(
+              children: [
+                const Icon(Icons.auto_stories_rounded, color: Colors.blueAccent),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    headerText,
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _translateHistory = !_translateHistory;
+                    });
+                  },
+                  icon: const Icon(Icons.translate_rounded, size: 14, color: Colors.white70),
+                  label: Text(
+                    translateBtnText,
+                    style: const TextStyle(color: Colors.white70, fontSize: 11),
+                  ),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                    minimumSize: const Size(0, 30),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    backgroundColor: Colors.white10,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          if (events.length > 1)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: Text(
+                  '${events.length} Events',
+                  style: const TextStyle(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.bold),
+                ),
               ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            LanguageManager().isBengali ? event.title.split(' (').last.replaceAll(')', '') : event.title.split(' (').first,
-            style: const TextStyle(color: goldAccent, fontWeight: FontWeight.bold, fontSize: 16),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            LanguageManager().isBengali ? event.summary : event.summary,
-            style: const TextStyle(color: Colors.white70, fontSize: 14),
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 12),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton.icon(
-              onPressed: () {
-                showDialog(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
-                    backgroundColor: const Color(0xFF162D24),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                    title: Text(
-                      LanguageManager().isBengali ? event.title.split(' (').last.replaceAll(')', '') : event.title.split(' (').first,
-                      style: const TextStyle(color: Color(0xFFE5B842), fontWeight: FontWeight.bold),
-                    ),
-                    content: SingleChildScrollView(
-                      child: Text(
-                        event.summary,
-                        style: const TextStyle(color: Colors.white70, fontSize: 15, height: 1.5),
+            ),
+            
+          SizedBox(
+            height: 180,
+            child: PageView.builder(
+              itemCount: events.length,
+              itemBuilder: (context, index) {
+                final event = events[index];
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (event.dateTextBn.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 4.0),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.calendar_today_rounded, size: 12, color: Colors.white54),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  event.dateTextBn,
+                                  style: const TextStyle(color: Colors.white54, fontSize: 12),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      Text(
+                        isHistoryBengali ? event.titleBn : event.titleEn,
+                        style: const TextStyle(color: goldAccent, fontWeight: FontWeight.bold, fontSize: 16),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(ctx),
-                        child: Text(LanguageManager().isBengali ? 'বন্ধ করুন' : 'Close', style: const TextStyle(color: Colors.blueAccent)),
+                      const SizedBox(height: 8),
+                      Expanded(
+                        child: Text(
+                          isHistoryBengali ? event.descriptionBn : event.descriptionEn,
+                          style: const TextStyle(color: Colors.white70, fontSize: 14),
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton.icon(
+                          onPressed: () {
+                            showDialog(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                backgroundColor: const Color(0xFF162D24),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                title: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (event.dateTextBn.isNotEmpty)
+                                      Padding(
+                                        padding: const EdgeInsets.only(bottom: 6.0),
+                                        child: Row(
+                                          children: [
+                                            const Icon(Icons.calendar_today_rounded, size: 14, color: Colors.white54),
+                                            const SizedBox(width: 6),
+                                            Expanded(
+                                              child: Text(
+                                                event.dateTextBn,
+                                                style: const TextStyle(color: Colors.white54, fontSize: 13),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    Text(
+                                      isHistoryBengali ? event.titleBn : event.titleEn,
+                                      style: const TextStyle(color: Color(0xFFE5B842), fontWeight: FontWeight.bold),
+                                    ),
+                                  ],
+                                ),
+                                content: SingleChildScrollView(
+                                  child: Text(
+                                    isHistoryBengali ? event.descriptionBn : event.descriptionEn,
+                                    style: const TextStyle(color: Colors.white70, fontSize: 15, height: 1.5),
+                                  ),
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(ctx),
+                                    child: Text(isAppBengali ? 'বন্ধ করুন' : 'Close', style: const TextStyle(color: Colors.blueAccent)),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.chrome_reader_mode_rounded, size: 16, color: Colors.blueAccent),
+                          label: Text(
+                            isAppBengali ? 'বিস্তারিত পড়ুন' : 'Read More',
+                            style: const TextStyle(color: Colors.blueAccent),
+                          ),
+                        ),
                       ),
                     ],
                   ),
                 );
               },
-              icon: const Icon(Icons.chrome_reader_mode_rounded, size: 16, color: Colors.blueAccent),
-              label: Text(
-                LanguageManager().isBengali ? 'বিস্তারিত পড়ুন' : 'Read More',
-                style: const TextStyle(color: Colors.blueAccent),
-              ),
             ),
           ),
+          if (events.length > 1)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12.0),
+              child: Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: List.generate(events.length, (index) => Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 2),
+                    width: 6,
+                    height: 6,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white30,
+                    ),
+                  )),
+                ),
+              ),
+            ),
         ],
       ),
     );

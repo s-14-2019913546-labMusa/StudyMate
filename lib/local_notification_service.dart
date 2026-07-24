@@ -156,8 +156,8 @@ class LocalNotificationService {
     await cancelAllNotifications();
     final prefs = await SharedPreferences.getInstance();
 
-    // 1. 15 mins before bedtime
-    final reminderTime = bedTime.subtract(const Duration(minutes: 15));
+    // 1. 5 mins before bedtime
+    final reminderTime = bedTime.subtract(const Duration(minutes: 5));
     if (reminderTime.isAfter(DateTime.now())) {
       await scheduleNotification(
         id: 1,
@@ -209,10 +209,10 @@ class LocalNotificationService {
       );
     }
 
-    // 3. 15 mins after bedtime checkup
-    final checkupTime = bedTime.add(const Duration(minutes: 15));
+    // 3. 10 mins after bedtime checkup
+    final checkupTime = bedTime.add(const Duration(minutes: 10));
     if (checkupTime.isAfter(DateTime.now())) {
-      await scheduleCheckupNotification(const Duration(minutes: 15), fromNow: false, checkupTime: checkupTime);
+      await scheduleCheckupNotification(const Duration(minutes: 10), fromNow: false, checkupTime: checkupTime);
     }
 
     // 4. Wake up alarm
@@ -714,6 +714,11 @@ class LocalNotificationService {
   static Future<void> cancelAllNotifications() async {
     if (kIsWeb) return;
     await _notificationsPlugin.cancelAll();
+  }
+
+  static Future<void> cancelNotification(int id) async {
+    if (kIsWeb) return;
+    await _notificationsPlugin.cancel(id: id);
   }
 
   // ============================================================

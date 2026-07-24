@@ -1287,105 +1287,10 @@ class _SleepTrackerScreenState extends State<SleepTrackerScreen> with SingleTick
       setState(() {});
       
       final now = DateTime.now();
-      
-      // Check for BedTime
-      if (!_bedTimeTriggered && now.hour == _bedTime.hour && now.minute == _bedTime.minute) {
-        _bedTimeTriggered = true;
-        _showBedTimePopup();
-      }
-      if (now.minute != _bedTime.minute) {
-        _bedTimeTriggered = false;
-      }
-
-      // Check for WakeTime
-      if (!_alarmTriggered && now.hour == _morningTime.hour && now.minute == _morningTime.minute && _isSleeping) {
-        _alarmTriggered = true;
-        _triggerAlarm();
-      }
-      if (now.minute != _morningTime.minute) {
-        _alarmTriggered = false;
-      }
     });
   }
 
-  void _showBedTimePopup() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('Bed Time!'.tr(), textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold)),
-        content: Text('Your sleep session has started. Please put your phone away.'.tr(), textAlign: TextAlign.center),
-        actions: [
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(ctx);
-              await _pickTime(true); // Open time picker to reschedule bedtime
-              _saveSettings();
-            },
-            child: Text('Reschedule'.tr(), style: TextStyle(color: Theme.of(context).colorScheme.primary)),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              if (!_isSleeping) _startSleep();
-            },
-            child: Text('Go to Sleep'.tr()),
-          ),
-        ],
-      ),
-    );
-  }
 
-  void _triggerAlarm() {
-    HapticFeedback.heavyImpact();
-    _alarmRingingTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
-      HapticFeedback.vibrate();
-      SystemSound.play(SystemSoundType.alert);
-    });
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('⏰ Good Morning!', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold)),
-        content: const Text('It is time to rise and shine. Do you want to snooze or turn off the alarm?', textAlign: TextAlign.center),
-        actionsAlignment: MainAxisAlignment.spaceEvenly,
-        actions: [
-          TextButton(
-            onPressed: () {
-              _alarmRingingTimer?.cancel();
-              Navigator.pop(ctx);
-              _snoozeAlarm();
-            },
-            child: const Text('Snooze (5m)', style: TextStyle(fontWeight: FontWeight.bold)),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              _alarmRingingTimer?.cancel();
-              Navigator.pop(ctx);
-              _stopSleepAndSave();
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-            child: const Text('Turn Off'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _snoozeAlarm() async {
-    final snoozeTime = DateTime.now().add(const Duration(minutes: 5));
-    setState(() {
-      _morningTime = TimeOfDay.fromDateTime(snoozeTime);
-      _alarmTriggered = false; // Reset trigger for snooze
-    });
-    // Reschedule background alarm
-    await LocalNotificationService.scheduleMorningAlarm(snoozeTime);
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Alarm snoozed. Will ring again in 5 minutes.')));
-    }
-  }
 
   Future<void> _startSleep() async {
     final prefs = await SharedPreferences.getInstance();
