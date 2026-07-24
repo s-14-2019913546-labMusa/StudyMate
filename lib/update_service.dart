@@ -3,12 +3,20 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'language_manager.dart';
 
+import 'package:package_info_plus/package_info_plus.dart';
+
 class UpdateService {
-  static const String currentAppVersion = "1.0.3";
+  // Read dynamically instead of hardcoding
+  // static const String currentAppVersion = "1.0.3";
 
   static Future<void> checkUpdate(BuildContext context) async {
     try {
       debugPrint("DEBUG_UPDATE: Start checking updates...");
+      
+      // Get current version dynamically
+      final packageInfo = await PackageInfo.fromPlatform();
+      final String currentAppVersion = packageInfo.version;
+      
       final doc = await FirebaseFirestore.instance
           .collection('app_config')
           .doc('update')
@@ -48,8 +56,12 @@ class UpdateService {
   // Simple semver comparison helper
   static bool _isNewerVersion(String current, String latest) {
     try {
-      List<int> currentParts = current.split('.').map(int.parse).toList();
-      List<int> latestParts = latest.split('.').map(int.parse).toList();
+      // Strip anything after '+' (build number)
+      String cleanCurrent = current.split('+').first.trim();
+      String cleanLatest = latest.split('+').first.trim();
+
+      List<int> currentParts = cleanCurrent.split('.').map((s) => int.tryParse(s) ?? 0).toList();
+      List<int> latestParts = cleanLatest.split('.').map((s) => int.tryParse(s) ?? 0).toList();
 
       for (int i = 0; i < latestParts.length; i++) {
         int currentPart = i < currentParts.length ? currentParts[i] : 0;
