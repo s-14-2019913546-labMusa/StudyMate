@@ -292,7 +292,7 @@ class LocalNotificationService {
       String soundPath = isAlarm ? 'Alarm' : 'Notification';
 
       if (isSleepAlarm) {
-        soundPath = prefs.getString('selectedSleepAlarmSound') ?? 'Alarm';
+        soundPath = prefs.getString('selectedSleepAlarmSound') ?? 'rooster';
       } else if (isPrayerAlarm) {
         try {
           final directory = await getApplicationDocumentsDirectory();
@@ -301,10 +301,13 @@ class LocalNotificationService {
             final decoded =
                 json.decode(await file.readAsString()) as Map<String, dynamic>;
             soundPath =
-                decoded['selectedPrayerAlarmSound'] as String? ?? 'Alarm';
+                decoded['selectedPrayerAlarmSound'] as String? ?? 'makkah_adhan';
+          } else {
+            soundPath = 'makkah_adhan';
           }
         } catch (e) {
           log('Error loading prayer alarm sound: $e');
+          soundPath = 'makkah_adhan';
         }
       } else {
         final soundKey = isAlarm ? 'selectedAlarmSound' : 'selectedPushSound';
@@ -1085,13 +1088,32 @@ class SoundPlayer {
   }
 
   // Wrapper method to play Alarm sound
-  static Future<void> playAlarmNotificationSound({bool looping = false}) async {
+  static Future<void> playAlarmNotificationSound({bool looping = false, bool isSleepAlarm = false, bool isPrayerAlarm = false}) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final bool soundEnabled = prefs.getBool('soundEnabled') ?? true;
       final bool vibrationEnabled = prefs.getBool('vibrationEnabled') ?? true;
       final double volume = prefs.getDouble('volumeLevel') ?? 0.8;
-      final String soundName = prefs.getString('selectedAlarmSound') ?? 'Alarm';
+      
+      String soundName = prefs.getString('selectedAlarmSound') ?? 'Alarm';
+      
+      if (isSleepAlarm) {
+        soundName = prefs.getString('selectedSleepAlarmSound') ?? 'rooster';
+      } else if (isPrayerAlarm) {
+        try {
+          final directory = await getApplicationDocumentsDirectory();
+          final file = File('${directory.path}/islamic_notif_settings.json');
+          if (await file.exists()) {
+            final decoded = json.decode(await file.readAsString()) as Map<String, dynamic>;
+            soundName = decoded['selectedPrayerAlarmSound'] as String? ?? 'makkah_adhan';
+          } else {
+            soundName = 'makkah_adhan';
+          }
+        } catch (e) {
+          log('Error loading prayer alarm sound: $e');
+          soundName = 'makkah_adhan';
+        }
+      }
 
       await playNotificationSoundAndVibration(
         soundName: soundName,

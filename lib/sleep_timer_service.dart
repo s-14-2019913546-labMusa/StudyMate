@@ -27,7 +27,7 @@ class SleepTimerService {
 
   void stop() {
     _globalTimer?.cancel();
-    _alarmRingingTimer?.cancel();
+    SoundPlayer.stopAlarm();
   }
 
   Future<void> _checkSleepTimes() async {
@@ -119,12 +119,7 @@ class SleepTimerService {
     final context = navigatorKey.currentState?.overlay?.context;
     if (context == null) return;
 
-    HapticFeedback.heavyImpact();
-    _alarmRingingTimer?.cancel();
-    _alarmRingingTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
-      HapticFeedback.vibrate();
-      SystemSound.play(SystemSoundType.alert);
-    });
+    SoundPlayer.playAlarmNotificationSound(looping: true, isSleepAlarm: true);
 
     showDialog(
       context: context,
@@ -137,7 +132,7 @@ class SleepTimerService {
         actions: [
           TextButton(
             onPressed: () async {
-              _alarmRingingTimer?.cancel();
+              SoundPlayer.stopAlarm();
               Navigator.pop(ctx);
               
               final snoozeTime = DateTime.now().add(const Duration(minutes: 5));
@@ -150,7 +145,7 @@ class SleepTimerService {
           ),
           ElevatedButton(
             onPressed: () async {
-              _alarmRingingTimer?.cancel();
+              SoundPlayer.stopAlarm();
               Navigator.pop(ctx);
               await _stopSleepAndSaveGlobally(context);
             },

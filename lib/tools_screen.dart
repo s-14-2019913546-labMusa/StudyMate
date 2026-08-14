@@ -1578,7 +1578,10 @@ class _SleepTrackerScreenState extends State<SleepTrackerScreen> with SingleTick
             ],
           ),
           
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
+          _buildSleepDurationInfo(),
+          const SizedBox(height: 20),
+
           ElevatedButton.icon(
             onPressed: _saveSettings,
             icon: const Icon(Icons.save_rounded),
@@ -1716,6 +1719,118 @@ class _SleepTrackerScreenState extends State<SleepTrackerScreen> with SingleTick
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSleepDurationInfo() {
+    final now = DateTime.now();
+    DateTime actualBedTime = DateTime(now.year, now.month, now.day, _bedTime.hour, _bedTime.minute);
+    DateTime actualWakeTime = DateTime(now.year, now.month, now.day, _morningTime.hour, _morningTime.minute);
+    
+    if (actualWakeTime.isBefore(actualBedTime) || actualWakeTime == actualBedTime) {
+      actualWakeTime = actualWakeTime.add(const Duration(days: 1));
+    }
+    
+    final duration = actualWakeTime.difference(actualBedTime);
+    final int totalMinutes = duration.inMinutes;
+    final int hours = totalMinutes ~/ 60;
+    final int minutes = totalMinutes % 60;
+    
+    // A standard sleep cycle is roughly 90 minutes
+    final double sleepCycles = totalMinutes / 90.0;
+    
+    final int remainingMinutes = totalMinutes % 90;
+    // We consider a margin of +/- 15 minutes as acceptable cycle boundary
+    bool isOptimal = remainingMinutes <= 15 || remainingMinutes >= 75;
+
+    Widget suggestionWidget = const SizedBox.shrink();
+    if (!isOptimal) {
+      final int lowerCycleMinutes = (totalMinutes ~/ 90) * 90;
+      final int upperCycleMinutes = ((totalMinutes ~/ 90) + 1) * 90;
+      
+      final DateTime lowerWakeTime = actualBedTime.add(Duration(minutes: lowerCycleMinutes));
+      final DateTime upperWakeTime = actualBedTime.add(Duration(minutes: upperCycleMinutes));
+      
+      final TimeOfDay lowerTime = TimeOfDay.fromDateTime(lowerWakeTime);
+      final TimeOfDay upperTime = TimeOfDay.fromDateTime(upperWakeTime);
+      
+      suggestionWidget = Column(
+        children: [
+          const SizedBox(height: 16),
+          const Divider(),
+          const SizedBox(height: 8),
+          const Text('স্লিপ সাইকেল পূর্ণ করতে ওঠার সময় পরিবর্তন করুন:', textAlign: TextAlign.center, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey)),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              ActionChip(
+                backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
+                label: Text('${lowerTime.format(context)} (${lowerCycleMinutes ~/ 90} cycle)'),
+                onPressed: () {
+                  setState(() {
+                    _morningTime = lowerTime;
+                  });
+                },
+              ),
+              ActionChip(
+                backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                label: Text('${upperTime.format(context)} (${upperCycleMinutes ~/ 90} cycle)'),
+                onPressed: () {
+                  setState(() {
+                    _morningTime = upperTime;
+                  });
+                },
+              ),
+            ],
+          ),
+        ],
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.timer_rounded, color: Theme.of(context).colorScheme.primary),
+              const SizedBox(width: 8),
+              Text(
+                'Total Sleep: $hours hr ${minutes} min',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.loop_rounded, color: Theme.of(context).colorScheme.secondary),
+              const SizedBox(width: 8),
+              Text(
+                'Sleep Cycles: ${sleepCycles.toStringAsFixed(1)} (Ideal: 4-6 cycles)',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Theme.of(context).colorScheme.secondary,
+                ),
+              ),
+            ],
+          ),
+          suggestionWidget,
         ],
       ),
     );
@@ -7070,7 +7185,9 @@ class _PartnerTasksScreenState extends State<PartnerTasksScreen> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Shared Tasks for the Room'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      Expanded(
+                        child: Text('Shared Tasks for the Room'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      ),
                       if (isCreator)
                         TextButton.icon(
                           onPressed: () => _showPartnersTasksSheet(participants, participantNames),
@@ -7119,12 +7236,14 @@ class _PartnerTasksScreenState extends State<PartnerTasksScreen> {
                                     children: [
                                       Icon(Icons.check_circle_rounded, color: Colors.green.shade600, size: 20),
                                       const SizedBox(width: 8),
-                                      Text(
-                                        '${'Done Tasks'.tr()} (${completedTaskDocs.length})',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold, 
-                                          fontSize: 14, 
-                                          color: Colors.green.shade700
+                                      Expanded(
+                                        child: Text(
+                                          '${'Done Tasks'.tr()} (${completedTaskDocs.length})',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold, 
+                                            fontSize: 14, 
+                                            color: Colors.green.shade700
+                                          ),
                                         ),
                                       ),
                                     ],

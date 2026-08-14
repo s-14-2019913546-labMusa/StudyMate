@@ -157,17 +157,11 @@ class PrayerTimerService {
   
   void _startAlarm() {
     _stopAlarm();
-    HapticFeedback.heavyImpact();
-    // Play a basic system sound in loop as a fallback if real Azaan isn't hooked up here.
-    // The OS flutter_local_notifications will play the real Azaan in background simultaneously.
-    _alarmRingingTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
-      HapticFeedback.vibrate();
-      SystemSound.play(SystemSoundType.alert);
-    });
+    SoundPlayer.playAlarmNotificationSound(looping: true, isPrayerAlarm: true);
   }
   
   void _stopAlarm() {
-    _alarmRingingTimer?.cancel();
+    SoundPlayer.stopAlarm();
   }
 
   void _cancelBackgroundNotification(String pKey) {

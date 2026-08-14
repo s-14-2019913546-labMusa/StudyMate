@@ -34,7 +34,14 @@ class CountdownFolder {
   IconData get icon {
     try {
       final cp = int.parse(iconCodePoint);
-      return IconData(cp, fontFamily: 'MaterialIcons');
+      if (cp == Icons.work_rounded.codePoint) return Icons.work_rounded;
+      if (cp == Icons.school_rounded.codePoint) return Icons.school_rounded;
+      if (cp == Icons.star_rounded.codePoint) return Icons.star_rounded;
+      if (cp == Icons.business_center_rounded.codePoint) return Icons.business_center_rounded;
+      if (cp == Icons.public_rounded.codePoint) return Icons.public_rounded;
+      if (cp == Icons.local_hospital_rounded.codePoint) return Icons.local_hospital_rounded;
+      if (cp == Icons.account_balance_rounded.codePoint) return Icons.account_balance_rounded;
+      return Icons.folder_rounded;
     } catch (_) {
       return Icons.folder_rounded;
     }
