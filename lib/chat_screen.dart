@@ -254,14 +254,19 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
-  Future<void> _pickAndUploadFile({bool pickImage = true}) async {
+  Future<void> _pickAndUploadFile({bool pickImage = true, ImageSource source = ImageSource.gallery}) async {
     if (_isUploading) return;
 
     File? fileToUpload;
     String? fileName;
 
     if (pickImage) {
-      final pickedFile = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 70);
+      final pickedFile = await ImagePicker().pickImage(
+        source: source,
+        maxWidth: 1280,
+        maxHeight: 1280,
+        imageQuality: 70,
+      );
       if (pickedFile != null) {
         fileToUpload = File(pickedFile.path);
         fileName = pickedFile.name;
@@ -283,28 +288,39 @@ class _ChatScreenState extends State<ChatScreen> {
 
     try {
       final fileType = pickImage ? 'image' : 'file';
+      final cleanName = (fileName ?? 'media').replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
       final ref = FirebaseStorage.instance
-          .ref('chat_media')
+          .ref()
+          .child('chat_media')
           .child(widget.chatId)
-          .child('${DateTime.now().millisecondsSinceEpoch}_$fileName');
+          .child('${DateTime.now().millisecondsSinceEpoch}_$cleanName');
 
-      final uploadTask = ref.putFile(fileToUpload);
-      final snapshot = await uploadTask.whenComplete(() {});
+      final metadata = SettableMetadata(
+        contentType: pickImage ? 'image/jpeg' : null,
+      );
+
+      final uploadTask = ref.putFile(fileToUpload, metadata);
+      final snapshot = await uploadTask;
       final downloadUrl = await snapshot.ref.getDownloadURL();
       final fileSize = await fileToUpload.length();
 
       await _addMessageToFirestore(
         content: downloadUrl,
         type: fileType,
-        fileName: fileName,
+        fileName: fileName ?? cleanName,
         fileSize: fileSize,
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to upload file: $e')),
-      );
+      debugPrint('Failed to upload file: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to upload file: $e')),
+        );
+      }
     } finally {
-      setState(() => _isUploading = false);
+      if (mounted) {
+        setState(() => _isUploading = false);
+      }
     }
   }
 
@@ -833,15 +849,23 @@ class _ChatScreenState extends State<ChatScreen> {
           child: Wrap(
             children: <Widget>[
               ListTile(
-                leading: const Icon(Icons.photo_library),
-                title: const Text('Photo'),
+                leading: const Icon(Icons.camera_alt_rounded),
+                title: const Text('Camera'),
                 onTap: () {
                   Navigator.of(context).pop();
-                  _pickAndUploadFile(pickImage: true);
+                  _pickAndUploadFile(pickImage: true, source: ImageSource.camera);
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.insert_drive_file),
+                leading: const Icon(Icons.photo_library_rounded),
+                title: const Text('Gallery'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _pickAndUploadFile(pickImage: true, source: ImageSource.gallery);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.insert_drive_file_rounded),
                 title: const Text('Document (PDF)'),
                 onTap: () {
                   Navigator.of(context).pop();
