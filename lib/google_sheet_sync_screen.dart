@@ -25,6 +25,7 @@ class _GoogleSheetSyncScreenState extends State<GoogleSheetSyncScreen> {
 
   Future<void> _loadSavedUrl() async {
     final savedUrl = await GoogleSheetRoutineService.getSavedSheetUrl();
+    debugPrint('DEBUG_SAVED_SHEET_URL: $savedUrl');
     if (savedUrl != null && savedUrl.isNotEmpty) {
       setState(() {
         _urlController.text = savedUrl;
@@ -434,31 +435,130 @@ class _GoogleSheetSyncScreenState extends State<GoogleSheetSyncScreen> {
                   final date = row['date'] ?? 'Today';
                   final duration = row['duration'] ?? '60';
 
+                  final displayTitle = subject.isNotEmpty && subject != 'General' && subject != 'Study'
+                      ? subject
+                      : (topic.isNotEmpty ? topic.split('\n').first : 'Study Session');
+                  final bool isDone = row['status']?.toLowerCase().contains('সম্পন্ন') == true ||
+                      row['status'] == 'completed';
+
                   return Card(
-                    margin: const EdgeInsets.symmetric(vertical: 4),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: const Color(0xFF10B981).withValues(alpha: 0.2),
-                        child: Text(
-                          '${index + 1}',
-                          style: const TextStyle(
-                            color: Color(0xFF10B981),
-                            fontWeight: FontWeight.bold,
-                          ),
+                    margin: const EdgeInsets.symmetric(vertical: 5),
+                    elevation: 1,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: isDone
+                              ? Colors.green.withValues(alpha: 0.2)
+                              : const Color(0xFF10B981).withValues(alpha: 0.15),
+                          child: isDone
+                              ? const Icon(Icons.check, color: Colors.green, size: 20)
+                              : Text(
+                                  '${index + 1}',
+                                  style: const TextStyle(
+                                    color: Color(0xFF10B981),
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                        ),
+                        title: Text(
+                          displayTitle,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        ),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (topic.isNotEmpty && topic != displayTitle) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                topic.split('\n').first,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                            ],
+                            const SizedBox(height: 4),
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    date,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: theme.colorScheme.primary,
+                                    ),
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    start.isNotEmpty ? "$start - $end" : "$duration mins",
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.blue,
+                                    ),
+                                  ),
+                                ),
+                                if (row['category'] != null && row['category']!.isNotEmpty)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Colors.purple.withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      row['category']!,
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.purple,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (isDone)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.green.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: const Text(
+                                  'সম্পন্ন',
+                                  style: TextStyle(
+                                    color: Colors.green,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            if (row['notes'] != null && row['notes']!.isNotEmpty) ...[
+                              const SizedBox(width: 4),
+                              const Icon(Icons.notes_rounded, size: 18, color: Colors.grey),
+                            ],
+                          ],
                         ),
                       ),
-                      title: Text(
-                        topic,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      subtitle: Text(
-                        '$subject • $date • ${start.isNotEmpty ? "$start - $end" : "$duration mins"}',
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                      trailing: row['notes'] != null && row['notes']!.isNotEmpty
-                          ? const Icon(Icons.notes_rounded, size: 18, color: Colors.grey)
-                          : null,
                     ),
                   );
                 },
