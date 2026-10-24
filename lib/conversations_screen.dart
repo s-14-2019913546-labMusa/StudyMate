@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'chat_screen.dart';
+import 'bot_chat_screen.dart';
 
 class ConversationsScreen extends StatefulWidget {
   final bool isEmbedded;
@@ -72,6 +73,79 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
     });
   }
 
+  Widget _buildBotTile(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primaryContainer.withOpacity(0.35),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: theme.colorScheme.primary.withOpacity(0.25)),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+        leading: Stack(
+          children: [
+            CircleAvatar(
+              backgroundColor: Colors.teal.shade700,
+              radius: 22,
+              child: const Icon(Icons.smart_toy_rounded, color: Colors.white, size: 24),
+            ),
+            Positioned(
+              right: 0,
+              bottom: 0,
+              child: Container(
+                width: 12,
+                height: 12,
+                decoration: BoxDecoration(
+                  color: Colors.greenAccent.shade700,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2),
+                ),
+              ),
+            ),
+          ],
+        ),
+        title: Row(
+          children: [
+            const Text(
+              'StudyMate Bot',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.teal,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: const Text(
+                'BOT',
+                style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        subtitle: Text(
+          '🤖 অফলাইন কুইজ, মোটিভেশন ও এআই স্টাডি সহকারী',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 12,
+            color: theme.colorScheme.onSurface.withOpacity(0.75),
+          ),
+        ),
+        trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.grey),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const BotChatScreen()),
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (currentUser == null) {
@@ -86,17 +160,7 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-          if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const Center(
-              child: Text(
-                'No friends or conversations yet.\nFind new study buddies in the Social Hub!',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey, fontSize: 16),
-              ),
-            );
-          }
-
-          List<dynamic> items = snapshot.data!;
+          final items = snapshot.hasData ? List.from(snapshot.data!) : [];
 
           // Sort items: Pinned > Unread > Recent Chats > Friends without chats
           items.sort((a, b) {
@@ -128,9 +192,12 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
           });
 
           return ListView.builder(
-            itemCount: items.length,
+            itemCount: items.length + 1,
             itemBuilder: (context, index) {
-              final item = items[index];
+              if (index == 0) {
+                return _buildBotTile(context);
+              }
+              final item = items[index - 1];
               final itemData = item.data() as Map<String, dynamic>;
 
               // Check if it's a chat or just a friend document
