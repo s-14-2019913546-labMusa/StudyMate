@@ -78,11 +78,22 @@ class _SharedTaskFormState extends State<SharedTaskForm> {
     _startTime = widget.initialStartTime;
     _endTime = widget.initialEndTime;
     if (widget.initialCategory != null && widget.initialCategory!.isNotEmpty) {
-      if (widget.categories.contains(widget.initialCategory)) {
-        _selectedCategory = widget.initialCategory!;
+      final rawCat = widget.initialCategory!.trim();
+      if (widget.categories.contains(rawCat)) {
+        _selectedCategory = rawCat;
+        _selectedSubCategory = 'None';
       } else {
         _selectedCategory = 'Study';
-        _selectedSubCategory = widget.initialCategory!;
+        final lower = rawCat.toLowerCase();
+        if (lower.contains('bcs') || lower.contains('বিসিএস')) {
+          _selectedSubCategory = 'BCS Preparation (বিসিএস)';
+        } else if (lower.contains('bank') || lower.contains('ব্যাংক')) {
+          _selectedSubCategory = 'Bank Job (জব উইথ মানিক)';
+        } else if (lower.contains('primary') || lower.contains('govt') || lower.contains('প্রাইমারি')) {
+          _selectedSubCategory = 'Primary / Govt Job';
+        } else {
+          _selectedSubCategory = rawCat;
+        }
       }
     }
     _loadCustomFolders();
@@ -579,48 +590,60 @@ class _SharedTaskFormState extends State<SharedTaskForm> {
             // Category (Work, Sports, Study, Other)
             Text('Category'.tr(), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: onSurfaceColor)),
             const SizedBox(height: 8),
-            DropdownButtonFormField<String>(
-              initialValue: _selectedCategory,
-              items: widget.categories.map((c) => DropdownMenuItem(value: c, child: Text(c, style: TextStyle(color: onSurfaceColor)))).toList(),
-              onChanged: (v) {
-                setState(() {
-                  _selectedCategory = v ?? _selectedCategory;
-                  if (_selectedCategory != 'Study') {
-                    _selectedSubCategory = 'None';
-                  }
-                });
-              },
-              decoration: InputDecoration(
-                border: const OutlineInputBorder(),
-                enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: onSurfaceColor.withValues(alpha: 0.3))),
-                focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: colorScheme.primary)),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              ),
-            ),
+            Builder(builder: (ctx) {
+              final catItems = {
+                ...widget.categories,
+                _selectedCategory,
+              }.toList();
+
+              return DropdownButtonFormField<String>(
+                initialValue: _selectedCategory,
+                items: catItems.map((c) => DropdownMenuItem(value: c, child: Text(c, style: TextStyle(color: onSurfaceColor)))).toList(),
+                onChanged: (v) {
+                  setState(() {
+                    _selectedCategory = v ?? _selectedCategory;
+                    if (_selectedCategory != 'Study') {
+                      _selectedSubCategory = 'None';
+                    }
+                  });
+                },
+                decoration: InputDecoration(
+                  border: const OutlineInputBorder(),
+                  enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: onSurfaceColor.withValues(alpha: 0.3))),
+                  focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: colorScheme.primary)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
+              );
+            }),
             const SizedBox(height: 16),
 
             // Job Category (Renamed from Sub-category when Study is chosen)
             if (_selectedCategory == 'Study') ...[
               Text('Job Category (জব ক্যাটাগরি / ফোল্ডার)'.tr(), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: onSurfaceColor)),
               const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                initialValue: _selectedSubCategory,
-                items: {
+              Builder(builder: (ctx) {
+                final subCatItems = {
                   'None',
                   'BCS Preparation (বিসিএস)',
                   'Bank Job (জব উইথ মানিক)',
                   'Primary / Govt Job',
                   ..._studyFolders,
-                }.map((c) => DropdownMenuItem(value: c, child: Text(c, style: TextStyle(color: onSurfaceColor)))).toList(),
-                onChanged: (v) => setState(() => _selectedSubCategory = v ?? 'None'),
-                decoration: InputDecoration(
-                  prefixIcon: const Icon(Icons.work_outline_rounded, color: Colors.orange),
-                  border: const OutlineInputBorder(),
-                  enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: onSurfaceColor.withValues(alpha: 0.3))),
-                  focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: colorScheme.primary)),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                ),
-              ),
+                  _selectedSubCategory,
+                }.toList();
+
+                return DropdownButtonFormField<String>(
+                  initialValue: _selectedSubCategory,
+                  items: subCatItems.map((c) => DropdownMenuItem(value: c, child: Text(c, style: TextStyle(color: onSurfaceColor)))).toList(),
+                  onChanged: (v) => setState(() => _selectedSubCategory = v ?? 'None'),
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.work_outline_rounded, color: Colors.orange),
+                    border: const OutlineInputBorder(),
+                    enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: onSurfaceColor.withValues(alpha: 0.3))),
+                    focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: colorScheme.primary)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
+                );
+              }),
               const SizedBox(height: 16),
             ],
             // Private toggle
