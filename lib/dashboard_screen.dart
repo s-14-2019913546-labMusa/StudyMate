@@ -2859,12 +2859,28 @@ class AddTaskBottomSheet extends StatefulWidget {
   final Function(Task) onTaskAdded;
   final String title;
   final String submitButtonText;
+  final String? initialSubject;
+  final String? initialTopic;
+  final TimeOfDay? initialStartTime;
+  final TimeOfDay? initialEndTime;
+  final String? initialCategory;
+  final String? initialNotes;
+  final bool allowPast;
+  final DateTime? targetDate;
 
   const AddTaskBottomSheet({
     super.key,
     required this.onTaskAdded,
     this.title = 'টাস্ক যুক্ত করুন (Add Task)',
     this.submitButtonText = 'Save',
+    this.initialSubject,
+    this.initialTopic,
+    this.initialStartTime,
+    this.initialEndTime,
+    this.initialCategory,
+    this.initialNotes,
+    this.allowPast = false,
+    this.targetDate,
   });
 
   @override
@@ -2872,96 +2888,7 @@ class AddTaskBottomSheet extends StatefulWidget {
 }
 
 class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
-  String? _timeError;
-  final _formKey = GlobalKey<FormState>();
-  final TextEditingController _subjectController = TextEditingController();
-  final TextEditingController _topicController = TextEditingController();
-  final TextEditingController _challengesController = TextEditingController();
-  final TextEditingController _notesController = TextEditingController();
-
-  TimeOfDay? _startTime;
-  TimeOfDay? _endTime;
-  final bool _isPrivate = false;
-  final String _selectedCategory = 'Study';
   final List<String> _categories = ['Study', 'Work', 'Sports', 'Other'];
-  final List<Map<String, dynamic>> _customFolders = [];
-  String? _selectedFolderSubject;
-  String? _selectedFolderTopic;
-
-  Future<void> _pickTime(bool isStart) async {
-    final TimeOfDay? picked = await showTimePicker(
-      context: context,
-      initialTime: isStart
-          ? (_startTime ?? TimeOfDay.now())
-          : (_endTime ?? TimeOfDay.now()),
-    );
-    if (picked != null) {
-      setState(() {
-        if (isStart) {
-          _startTime = picked;
-        } else {
-          _endTime = picked;
-        }
-      });
-    }
-  }
-
-  void _submit() {
-    if (_formKey.currentState?.validate() ?? false) {
-      if (_startTime == null || _endTime == null) {
-        setState(() => _timeError = 'Please select both start and end times.');
-        return;
-      }
-      final now = DateTime.now();
-      final start = DateTime(
-        now.year,
-        now.month,
-        now.day,
-        _startTime!.hour,
-        _startTime!.minute,
-      );
-      var end = DateTime(
-        now.year,
-        now.month,
-        now.day,
-        _endTime!.hour,
-        _endTime!.minute,
-      );
-
-      if (end.isBefore(start)) {
-        end = end.add(const Duration(days: 1));
-      }
-
-      final bufferTime = now.subtract(const Duration(minutes: 1));
-      if (start.isBefore(bufferTime)) {
-        setState(() => _timeError = 'Start time cannot be in the past!');
-        return;
-      }
-      if (end.isBefore(bufferTime)) {
-        setState(() => _timeError = 'End time cannot be in the past!');
-        return;
-      }
-
-      final durationMinutes = end.difference(start).inMinutes;
-
-      final newTask = Task(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        title: _subjectController.text.trim(),
-        subject: _subjectController.text.trim(),
-        topic: _topicController.text.trim(),
-        challenges: _challengesController.text.trim(),
-        notes: _notesController.text.trim(),
-        startTime: start,
-        endTime: end,
-        isPrivate: _isPrivate,
-        category: _selectedCategory,
-        totalDurationMinutes: durationMinutes,
-      );
-
-      widget.onTaskAdded(newTask);
-      Navigator.pop(context);
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -3007,6 +2934,14 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
             child: SharedTaskForm(
               categories: _categories,
               submitButtonText: widget.submitButtonText,
+              initialSubject: widget.initialSubject,
+              initialTopic: widget.initialTopic,
+              initialStartTime: widget.initialStartTime,
+              initialEndTime: widget.initialEndTime,
+              initialCategory: widget.initialCategory,
+              initialNotes: widget.initialNotes,
+              allowPast: widget.allowPast,
+              targetDate: widget.targetDate,
               onSubmit: (Task newTask) {
                 widget.onTaskAdded(newTask);
                 Navigator.pop(context);

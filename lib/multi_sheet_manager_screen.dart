@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dashboard_screen.dart';
 import 'google_sheet_routine_service.dart';
 
 // ─────────────────────────────────────────────
@@ -902,6 +904,7 @@ class _SheetFolderDetailScreenState
   List<Map<String, String>> _preview = [];
   String? _msg;
   bool _ok = false;
+  final Set<String> _addedTaskKeys = {};
 
   Color _parseColor(String hex) {
     try {
@@ -915,12 +918,33 @@ class _SheetFolderDetailScreenState
   void initState() {
     super.initState();
     _urlCtrl = TextEditingController(text: widget.folder.url);
+    _loadCachedPreview();
   }
 
   @override
   void dispose() {
     _urlCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadCachedPreview() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cachedJson = prefs.getString('sheet_cache_${widget.folder.id}');
+      if (cachedJson != null && cachedJson.isNotEmpty) {
+        final decoded = jsonDecode(cachedJson) as List<dynamic>;
+        final rows = decoded
+            .map((e) => Map<String, String>.from(e as Map))
+            .toList();
+        if (rows.isNotEmpty && mounted) {
+          setState(() {
+            _preview = rows;
+            _msg = 'ক্যাশ থেকে ${rows.length}টি টাস্ক লোড করা হয়েছে';
+            _ok = true;
+          });
+        }
+      }
+    } catch (_) {}
   }
 
   Future<void> _paste() async {
@@ -935,7 +959,11 @@ class _SheetFolderDetailScreenState
           const SnackBar(content: Text('Paste your Google Sheet link first')));
       return;
     }
-    setState(() { _loading = true; _msg = null; _preview = []; });
+    setState(() {
+      _loading = true;
+      _msg = null;
+      _preview = [];
+    });
     try {
       widget.folder.url = url;
       // persist url update
@@ -947,6 +975,14 @@ class _SheetFolderDetailScreenState
       final csv = await GoogleSheetRoutineService.fetchCsvContent(url);
       final rows = GoogleSheetRoutineService.parseCsvToRows(csv);
       if (rows.isEmpty) throw Exception('No valid routine data found.');
+
+      // Cache rows locally for offline instant loading
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(
+            'sheet_cache_${widget.folder.id}', jsonEncode(rows));
+      } catch (_) {}
+
       setState(() {
         _preview = rows;
         _msg = 'Found ${rows.length} tasks in "${widget.folder.name}"!';
@@ -970,7 +1006,8 @@ class _SheetFolderDetailScreenState
           rows: _preview, replaceExisting: _replace);
       await widget.onSyncComplete(count);
       setState(() {
-        _msg = '🎉 Synced $count tasks from "${widget.folder.name}" to Daily Routine!';
+        _msg =
+            '🎉 Synced $count tasks from "${widget.folder.name}" to Daily Routine!';
         _ok = true;
       });
       if (mounted) {
@@ -984,9 +1021,176 @@ class _SheetFolderDetailScreenState
         ));
       }
     } catch (e) {
-      setState(() { _msg = e.toString().replaceAll('Exception: ', ''); _ok = false; });
+      setState(() {
+        _msg = e.toString().replaceAll('Exception: ', '');
+        _ok = false;
+      });
     } finally {
       setState(() => _loading = false);
+    }
+  }
+
+  TimeOfDay? _parseTimeOfDay(String? timeStr) {
+    if (timeStr == null || timeStr.trim().isEmpty) return null;
+    final clean = timeStr.trim().toUpperCase();
+    final timeFormats = [
+      'hh:mm a',
+      'h:mm a',
+      'hh:mma',
+      'h:mma',
+      'HH:mm',
+      'H:mm',
+    ];
+    for (final tf in timeFormats) {
+      try {
+        final dt = DateFormat(tf).parseStrict(clean);
+        return TimeOfDay(hour: dt.hour, minute: dt.minute);
+      } catch (_) {}
+    }
+    return null;
+  }
+
+  Future<void> _openAddTaskForm({
+    required Map<String, String> row,
+    required String taskKey,
+    required DateTime targetDate,
+  }) async {
+    final subj = row['subject'] ?? '';
+    final topic = row['topic'] ?? '';
+    final rawStart = row['start_time'];
+    final rawEnd = row['end_time'];
+    final rawCategory = row['category'] ?? 'Study';
+    final notes = row['notes'] ?? '';
+
+    TimeOfDay? startTod = _parseTimeOfDay(rawStart);
+    TimeOfDay? endTod = _parseTimeOfDay(rawEnd);
+
+    // If start is known but end is not, calculate from duration or default 60 min
+    if (startTod != null && endTod == null) {
+      final durMin = int.tryParse(row['duration'] ?? '60') ?? 60;
+      final tempDt = DateTime(2026, 1, 1, startTod.hour, startTod.minute)
+          .add(Duration(minutes: durMin));
+      endTod = TimeOfDay(hour: tempDt.hour, minute: tempDt.minute);
+    }
+
+    // If both are null, default to current time
+    if (startTod == null && endTod == null) {
+      final nowTod = TimeOfDay.now();
+      startTod = nowTod;
+      endTod = TimeOfDay(hour: (nowTod.hour + 1) % 24, minute: nowTod.minute);
+    }
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => AddTaskBottomSheet(
+        title: 'টাস্ক এডিট ও সংরক্ষণ (${DateFormat('dd MMM').format(targetDate)})',
+        submitButtonText: 'টাস্কে যুক্ত করুন',
+        initialSubject: subj,
+        initialTopic: topic,
+        initialStartTime: startTod,
+        initialEndTime: endTod,
+        initialCategory: rawCategory.isNotEmpty ? rawCategory : 'Study',
+        initialNotes: notes,
+        targetDate: targetDate,
+        allowPast: true,
+        onTaskAdded: (newTask) async {
+          try {
+            await GoogleSheetRoutineService.addSingleTaskToRoutine(
+              task: newTask,
+              targetDate: targetDate,
+            );
+            if (mounted) {
+              setState(() {
+                _addedTaskKeys.add(taskKey);
+              });
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  backgroundColor: Colors.green.shade700,
+                  content: Text(
+                      '✓ "${newTask.title}" সফলভাবে অ্যাপের টাস্কে যুক্ত হয়েছে!'),
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            }
+          } catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  backgroundColor: Colors.red.shade700,
+                  content: Text('Error adding task: $e'),
+                ),
+              );
+            }
+          }
+        },
+      ),
+    );
+  }
+
+  Future<void> _batchAddDayTasks({
+    required List<Map<String, String>> dayRows,
+    required DateTime targetDate,
+    required String dayKey,
+  }) async {
+    setState(() => _loading = true);
+    try {
+      final count = await GoogleSheetRoutineService.syncRowsToFirestore(
+        rows: dayRows,
+        replaceExisting: _replace,
+      );
+      for (int i = 0; i < dayRows.length; i++) {
+        _addedTaskKeys.add('${dayKey}_$i');
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Colors.green.shade700,
+            content: Text(
+                '✓ $count টি টাস্ক ${DateFormat('dd MMM').format(targetDate)} রুটিনে সফলভাবে যোগ করা হয়েছে!'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Colors.red.shade700,
+            content: Text('Error: $e'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Map<String, List<Map<String, String>>> _groupTasksByDay() {
+    final Map<String, List<Map<String, String>>> groups = {};
+    for (final row in _preview) {
+      final rawDate = row['date'] ?? 'Today';
+      groups.putIfAbsent(rawDate, () => []).add(row);
+    }
+    return groups;
+  }
+
+  String _getDayHeaderTitle(String rawDate, DateTime dt) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final comp = DateTime(dt.year, dt.month, dt.day);
+    final diff = comp.difference(today).inDays;
+
+    if (diff == 0) {
+      return '🌟 আজকের রুটিন (Today • ${DateFormat('dd MMM').format(dt)})';
+    } else if (diff == 1) {
+      return '🌅 আগামীকালের রুটিন (Tomorrow • ${DateFormat('dd MMM').format(dt)})';
+    } else if (diff == -1) {
+      return '📜 গতকালের রুটিন (Yesterday • ${DateFormat('dd MMM').format(dt)})';
+    } else {
+      return '📅 ${DateFormat('EEEE, dd MMM').format(dt)} ($rawDate)';
     }
   }
 
@@ -996,14 +1200,27 @@ class _SheetFolderDetailScreenState
     final theme = Theme.of(context);
     final accent = _parseColor(widget.folder.color);
 
+    final dayGroups = _groupTasksByDay();
+    final sortedDayKeys = dayGroups.keys.toList()
+      ..sort((a, b) {
+        final dtA = GoogleSheetRoutineService.parseTargetDate(a);
+        final dtB = GoogleSheetRoutineService.parseTargetDate(b);
+        return dtA.compareTo(dtB);
+      });
+
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+      backgroundColor:
+          isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
       appBar: AppBar(
         title: Row(children: [
           Text(widget.folder.icon, style: const TextStyle(fontSize: 22)),
           const SizedBox(width: 8),
-          Text(widget.folder.name,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+          Expanded(
+            child: Text(widget.folder.name,
+                style: const TextStyle(
+                    fontWeight: FontWeight.bold, fontSize: 18),
+                overflow: TextOverflow.ellipsis),
+          ),
         ]),
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -1053,7 +1270,7 @@ class _SheetFolderDetailScreenState
                 ),
               ]),
             ),
-            const SizedBox(height: 22),
+            const SizedBox(height: 20),
 
             // URL
             Text('Google Sheet Link',
@@ -1097,7 +1314,7 @@ class _SheetFolderDetailScreenState
                         ? 'Replaces tasks for matching dates'
                         : 'Merges with existing tasks',
                     style: const TextStyle(fontSize: 12)),
-                activeColor: accent,
+                activeThumbColor: accent,
                 secondary: Icon(
                     _replace
                         ? Icons.restart_alt_rounded
@@ -1119,7 +1336,7 @@ class _SheetFolderDetailScreenState
                         child: CircularProgressIndicator(
                             color: Colors.white, strokeWidth: 2))
                     : const Icon(Icons.cloud_download_rounded),
-                label: Text(_loading ? 'Fetching...' : 'Fetch & Preview',
+                label: Text(_loading ? 'Fetching...' : 'Fetch & Preview Routine',
                     style: const TextStyle(
                         fontSize: 15, fontWeight: FontWeight.bold)),
                 style: ElevatedButton.styleFrom(
@@ -1160,77 +1377,386 @@ class _SheetFolderDetailScreenState
               ),
             ],
 
-            // Preview
+            // Day-by-Day Routine Section
             if (_preview.isNotEmpty) ...[
-              const SizedBox(height: 22),
+              const SizedBox(height: 24),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Preview (${_preview.length} tasks)',
+                  Text('প্রতিদিনের রুটিন (${_preview.length} Tasks)',
                       style: theme.textTheme.titleMedium
                           ?.copyWith(fontWeight: FontWeight.bold)),
                   TextButton.icon(
-                    icon: const Icon(Icons.add_task_rounded),
-                    label: const Text('Import All'),
+                    icon: const Icon(Icons.sync_rounded),
+                    label: const Text('Sync All'),
                     style: TextButton.styleFrom(foregroundColor: accent),
                     onPressed: _loading ? null : _sync,
                   ),
                 ],
               ),
-              ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: _preview.length,
-                itemBuilder: (ctx, i) {
-                  final row = _preview[i];
-                  final subj = row['subject'] ?? '';
-                  final topic = row['topic'] ?? '';
-                  final date = row['date'] ?? 'Today';
-                  final start = row['start_time'] ?? '';
-                  final end = row['end_time'] ?? '';
-                  final done = row['status']?.contains('সম্পন্ন') == true ||
-                      row['status'] == 'completed';
-                  return Card(
-                    margin: const EdgeInsets.symmetric(vertical: 4),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor:
-                            accent.withValues(alpha: 0.15),
-                        child: done
-                            ? Icon(Icons.check, color: accent, size: 18)
-                            : Text('${i + 1}',
-                                style: TextStyle(
-                                    color: accent,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13)),
-                      ),
-                      title: Text(
-                          subj.isNotEmpty ? subj : topic,
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 14)),
-                      subtitle: Text(
-                          '$date${start.isNotEmpty ? '  •  $start–$end' : ''}',
-                          style: const TextStyle(fontSize: 12)),
-                      trailing: done
-                          ? Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                  color: Colors.green.withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(6)),
-                              child: const Text('সম্পন্ন',
-                                  style: TextStyle(
-                                      color: Colors.green,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold)),
-                            )
-                          : null,
+              const SizedBox(height: 10),
+
+              // Grouped by Day
+              ...sortedDayKeys.map((dayKey) {
+                final dayRows = dayGroups[dayKey]!;
+                final targetDate =
+                    GoogleSheetRoutineService.parseTargetDate(dayKey);
+                final headerTitle =
+                    _getDayHeaderTitle(dayKey, targetDate);
+
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 20),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? const Color(0xFF1E293B)
+                        : Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: accent.withValues(alpha: 0.25),
+                      width: 1.2,
                     ),
-                  );
-                },
-              ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.04),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Day Header
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: accent.withValues(alpha: 0.08),
+                          borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(17)),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.calendar_month_rounded,
+                                size: 20, color: accent),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                headerTitle,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                  color: isDark
+                                      ? Colors.white
+                                      : Colors.black87,
+                                ),
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: accent.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                '${dayRows.length}টি টাস্ক',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: accent,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            IconButton(
+                              icon: const Icon(Icons.playlist_add_check_rounded),
+                              color: accent,
+                              tooltip: 'এই দিনের সব টাস্ক যোগ করুন',
+                              onPressed: _loading
+                                  ? null
+                                  : () => _batchAddDayTasks(
+                                        dayRows: dayRows,
+                                        targetDate: targetDate,
+                                        dayKey: dayKey,
+                                      ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // Tasks in this Day
+                      ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: dayRows.length,
+                        separatorBuilder: (_, _) => Divider(
+                          height: 1,
+                          color: isDark
+                              ? Colors.white12
+                              : Colors.grey.shade200,
+                        ),
+                        itemBuilder: (ctx, idx) {
+                          final row = dayRows[idx];
+                          final taskKey = '${dayKey}_$idx';
+                          final isAdded =
+                              _addedTaskKeys.contains(taskKey);
+                          final subj = row['subject'] ?? '';
+                          final topic = row['topic'] ?? '';
+                          final start = row['start_time'] ?? '';
+                          final end = row['end_time'] ?? '';
+                          final dur = row['duration'] ?? '';
+                          final notes = row['notes'] ?? '';
+                          final category = row['category'] ?? 'Study';
+
+                          return Padding(
+                            padding: const EdgeInsets.all(14),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    CircleAvatar(
+                                      radius: 14,
+                                      backgroundColor:
+                                          accent.withValues(alpha: 0.12),
+                                      child: Text(
+                                        '${idx + 1}',
+                                        style: TextStyle(
+                                          color: accent,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            subj.isNotEmpty
+                                                ? subj
+                                                : topic,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 15,
+                                            ),
+                                          ),
+                                          if (topic.isNotEmpty &&
+                                              topic != subj) ...[
+                                            const SizedBox(height: 3),
+                                            Text(
+                                              topic,
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                color: isDark
+                                                    ? Colors.white70
+                                                    : Colors.black87,
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                                    if (category.isNotEmpty)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 7, vertical: 3),
+                                        decoration: BoxDecoration(
+                                          color: accent
+                                              .withValues(alpha: 0.1),
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                        ),
+                                        child: Text(
+                                          category,
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: accent,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+
+                                // Timing and details
+                                Wrap(
+                                  spacing: 12,
+                                  runSpacing: 6,
+                                  children: [
+                                    if (start.isNotEmpty || end.isNotEmpty)
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Icons.access_time_rounded,
+                                              size: 14,
+                                              color: accent),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            '$start${end.isNotEmpty ? ' – $end' : ''}',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight:
+                                                  FontWeight.w600,
+                                              color: isDark
+                                                  ? Colors.white70
+                                                  : Colors.black87,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    if (dur.isNotEmpty)
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Icons.timelapse_rounded,
+                                              size: 14,
+                                              color: Colors.orange.shade700),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            '$dur মিনিট',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: isDark
+                                                  ? Colors.white60
+                                                  : Colors.black54,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                  ],
+                                ),
+
+                                if (notes.isNotEmpty) ...[
+                                  const SizedBox(height: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 10, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: isDark
+                                          ? Colors.white.withValues(alpha: 0.05)
+                                          : Colors.grey.shade100,
+                                      borderRadius:
+                                          BorderRadius.circular(8),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        const Icon(
+                                            Icons.sticky_note_2_outlined,
+                                            size: 14,
+                                            color: Colors.amber),
+                                        const SizedBox(width: 6),
+                                        Expanded(
+                                          child: Text(
+                                            notes,
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: isDark
+                                                  ? Colors.white60
+                                                  : Colors.black54,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+
+                                const SizedBox(height: 12),
+
+                                // Action Row: Edit & Add to App Task Form
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    if (isAdded)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 10, vertical: 5),
+                                        decoration: BoxDecoration(
+                                          color: Colors.green
+                                              .withValues(alpha: 0.15),
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                          border: Border.all(
+                                              color: Colors.green
+                                                  .withValues(alpha: 0.4)),
+                                        ),
+                                        child: const Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(Icons.check_circle_rounded,
+                                                size: 14,
+                                                color: Colors.green),
+                                            SizedBox(width: 5),
+                                            Text(
+                                              'টাস্কে যুক্ত হয়েছে',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                color: Colors.green,
+                                                fontWeight:
+                                                    FontWeight.bold,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      )
+                                    else
+                                      const SizedBox.shrink(),
+
+                                    // Button opening the standard App Task Form
+                                    OutlinedButton.icon(
+                                      icon: Icon(
+                                        isAdded
+                                            ? Icons.edit_note_rounded
+                                            : Icons.edit_calendar_rounded,
+                                        size: 16,
+                                      ),
+                                      label: Text(
+                                        isAdded
+                                            ? 'টাইম এডিট করুন'
+                                            : '➕ এডিট ও টাস্কে যোগ করুন',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: accent,
+                                        side: BorderSide(
+                                            color: accent.withValues(
+                                                alpha: 0.5)),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(10),
+                                        ),
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 12, vertical: 8),
+                                      ),
+                                      onPressed: () => _openAddTaskForm(
+                                        row: row,
+                                        taskKey: taskKey,
+                                        targetDate: targetDate,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                );
+              }),
+
               const SizedBox(height: 12),
               SizedBox(
                 width: double.infinity,

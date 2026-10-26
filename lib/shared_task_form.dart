@@ -9,11 +9,28 @@ class SharedTaskForm extends StatefulWidget {
   final Function(Task) onSubmit;
   final List<String> categories;
   final String submitButtonText;
+  final String? initialSubject;
+  final String? initialTopic;
+  final TimeOfDay? initialStartTime;
+  final TimeOfDay? initialEndTime;
+  final String? initialCategory;
+  final String? initialNotes;
+  final bool allowPast;
+  final DateTime? targetDate;
+
   const SharedTaskForm({
     super.key,
     required this.onSubmit,
     required this.categories,
     this.submitButtonText = 'Save',
+    this.initialSubject,
+    this.initialTopic,
+    this.initialStartTime,
+    this.initialEndTime,
+    this.initialCategory,
+    this.initialNotes,
+    this.allowPast = false,
+    this.targetDate,
   });
 
   @override
@@ -49,6 +66,25 @@ class _SharedTaskFormState extends State<SharedTaskForm> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialSubject != null && widget.initialSubject!.isNotEmpty) {
+      _subjectController.text = widget.initialSubject!;
+    }
+    if (widget.initialTopic != null && widget.initialTopic!.isNotEmpty) {
+      _topicController.text = widget.initialTopic!;
+    }
+    if (widget.initialNotes != null && widget.initialNotes!.isNotEmpty) {
+      _notesController.text = widget.initialNotes!;
+    }
+    _startTime = widget.initialStartTime;
+    _endTime = widget.initialEndTime;
+    if (widget.initialCategory != null && widget.initialCategory!.isNotEmpty) {
+      if (widget.categories.contains(widget.initialCategory)) {
+        _selectedCategory = widget.initialCategory!;
+      } else {
+        _selectedCategory = 'Study';
+        _selectedSubCategory = widget.initialCategory!;
+      }
+    }
     _loadCustomFolders();
     _loadSyllabusData();
   }
@@ -142,17 +178,20 @@ class _SharedTaskFormState extends State<SharedTaskForm> {
       return;
     }
     final now = DateTime.now();
-    final start = DateTime(now.year, now.month, now.day, _startTime!.hour, _startTime!.minute);
-    var end = DateTime(now.year, now.month, now.day, _endTime!.hour, _endTime!.minute);
+    final baseDate = widget.targetDate ?? now;
+    final start = DateTime(baseDate.year, baseDate.month, baseDate.day, _startTime!.hour, _startTime!.minute);
+    var end = DateTime(baseDate.year, baseDate.month, baseDate.day, _endTime!.hour, _endTime!.minute);
     if (end.isBefore(start)) end = end.add(const Duration(days: 1));
-    final bufferTime = now.subtract(const Duration(minutes: 1));
-    if (start.isBefore(bufferTime)) {
-      setState(() => _timeError = 'Start time cannot be in the past!');
-      return;
-    }
-    if (end.isBefore(bufferTime)) {
-      setState(() => _timeError = 'End time cannot be in the past!');
-      return;
+    if (!widget.allowPast) {
+      final bufferTime = now.subtract(const Duration(minutes: 1));
+      if (start.isBefore(bufferTime)) {
+        setState(() => _timeError = 'Start time cannot be in the past!');
+        return;
+      }
+      if (end.isBefore(bufferTime)) {
+        setState(() => _timeError = 'End time cannot be in the past!');
+        return;
+      }
     }
     final durationMinutes = end.difference(start).inMinutes;
     final newTask = Task(
