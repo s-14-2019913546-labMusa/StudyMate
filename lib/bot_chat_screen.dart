@@ -8,6 +8,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
+import 'google_sheet_syllabus_service.dart';
+import 'multi_sheet_manager_screen.dart';
 
 class BotChatMessage {
   final String id;
@@ -410,6 +412,35 @@ class _BotChatScreenState extends State<BotChatScreen> {
       await _sendStudyAnalyticsSummary();
       return;
     }
+    if (lower.contains('syllabus') || lower.contains('সিলেবাস') || lower.contains('টপিক') || lower.contains('বিষয়ভিত্তিক')) {
+      String? filter;
+      if (lower.contains('বাংলা')) {
+        filter = 'বাংলা';
+      } else if (lower.contains('ইংরেজি') || lower.contains('english')) {
+        filter = 'ইংরেজি';
+      } else if (lower.contains('গণিত') || lower.contains('math')) {
+        filter = 'গণিত';
+      } else if (lower.contains('বিজ্ঞান') || lower.contains('science')) {
+        filter = 'বিজ্ঞান';
+      } else if (lower.contains('বাংলাদেশ')) {
+        filter = 'বাংলাদেশ';
+      } else if (lower.contains('আন্তর্জাতিক')) {
+        filter = 'আন্তর্জাতিক';
+      } else if (lower.contains('ভূগোল')) {
+        filter = 'ভূগোল';
+      } else if (lower.contains('কম্পিউটার') || lower.contains('ict')) {
+        filter = 'কম্পিউটার';
+      } else if (lower.contains('মানসিক')) {
+        filter = 'মানসিক';
+      } else if (lower.contains('সুশাসন') || lower.contains('নৈতিকতা')) {
+        filter = 'নৈতিকতা';
+      } else if (lower.contains('ব্যাংক') || lower.contains('bank')) {
+        filter = 'ব্যাংক';
+      }
+
+      await _sendSyllabusTracker(filter);
+      return;
+    }
     if (lower.contains('help') || lower.contains('সাহায্য') || lower.contains('কমান্ড')) {
       _sendHelpMenu();
       return;
@@ -453,6 +484,8 @@ class _BotChatScreenState extends State<BotChatScreen> {
       _sendFlashcardReview();
     } else if (lowerCmd.startsWith('/analytics') || lowerCmd.startsWith('/stat')) {
       _sendStudyAnalyticsSummary();
+    } else if (lowerCmd.startsWith('/syllabus') || lowerCmd.startsWith('/sheet')) {
+      _sendSyllabusTracker();
     } else if (lowerCmd.startsWith('/tasbeeh')) {
       _sendTasbeeh();
     } else if (lowerCmd.startsWith('/calc')) {
@@ -1387,6 +1420,91 @@ class _BotChatScreenState extends State<BotChatScreen> {
     _scrollToBottom();
   }
 
+  // ==================== GOOGLE SHEET SYLLABUS TRACKER ====================
+  Future<void> _sendSyllabusTracker([String? subjectFilter]) async {
+    final buffer = StringBuffer();
+    final tree = await GoogleSheetSyllabusService.loadSyllabusTree();
+    final sheetUrl = await GoogleSheetSyllabusService.getSavedSyllabusUrl();
+    final folders = await SheetFolderStorage.loadAll();
+
+    if (subjectFilter != null && subjectFilter.trim().isNotEmpty) {
+      final f = subjectFilter.trim().toLowerCase();
+      String? matchedSubjectKey;
+      for (var key in tree.keys) {
+        if (key.toLowerCase().contains(f)) {
+          matchedSubjectKey = key;
+          break;
+        }
+      }
+
+      if (matchedSubjectKey != null) {
+        buffer.writeln('📋 **সিলেবাস ট্র্যাকার: $matchedSubjectKey**\n');
+        final chapters = tree[matchedSubjectKey]!;
+
+        for (var chap in chapters.keys) {
+          buffer.writeln('📂 **$chap:**');
+          final topics = chapters[chap]!;
+          for (var t in topics) {
+            buffer.writeln('  • $t');
+          }
+          buffer.writeln();
+        }
+
+        buffer.writeln('💡 **পরামর্শ:** এই টপিকগুলো পড়ে আপনার রুটিনে টাস্ক হিসেবে যোগ করুন। বট অটোমেটিক ১-৪-৭ দিনে রিভিশন মনে করিয়ে দেবে!');
+      } else {
+        buffer.writeln('📋 **সিলেবাস তালিকা:** "$subjectFilter" সম্পর্কিত কোনো নির্দিষ্ট বিষয় পাওয়া যায়নি।\n');
+        buffer.writeln('উপলব্ধ বিষয়সমূহ:');
+        for (var k in tree.keys) {
+          buffer.writeln('• $k');
+        }
+      }
+    } else {
+      int totalTopics = 0;
+      for (var sub in tree.values) {
+        for (var list in sub.values) {
+          totalTopics += list.length;
+        }
+      }
+
+      buffer.writeln('📋 **গুগল শিট ও বিসিএস সিলেবাস ট্র্যাকার:**\n');
+      buffer.writeln('• মোট বিষয়: **${tree.keys.length}টি**');
+      buffer.writeln('• মোট টপিক সংখ্যা: **$totalTopics টি**\n');
+
+      if (folders.isNotEmpty) {
+        buffer.writeln('📂 **আপনার সিঙ্ককৃত স্টাডি শিট ফোল্ডার:**');
+        for (var f in folders) {
+          final syncTime = f.lastSynced != null ? DateFormat('dd MMM, hh:mm a').format(f.lastSynced!) : 'সিঙ্ক করা হয়নি';
+          buffer.writeln('${f.icon} **${f.name}** (শেষ সিঙ্ক: $syncTime)');
+        }
+        buffer.writeln();
+      } else if (sheetUrl != null && sheetUrl.isNotEmpty) {
+        buffer.writeln('🔗 **সংযুক্ত গুগল শিট:** রুটিন ও সিলেবাস শিট অ্যাপের সাথে কানেক্টেড রয়েছে।\n');
+      }
+
+      buffer.writeln('📚 **সিলেবাসের বিষয়ভিত্তিক তালিকা:**');
+      for (var key in tree.keys) {
+        final totalSubTopics = tree[key]!.values.fold(0, (prev, elem) => prev + elem.length);
+        buffer.writeln('• **$key** — _$totalSubTopics টি টপিক_');
+      }
+
+      buffer.writeln('\n💡 **টপিক দেখতে লিখুন:** যেমন *"বাংলা সিলেবাস"*, *"ইংরেজি সিলেবাস"*, *"গণিত সিলেবাস"* বা *"বিজ্ঞান সিলেবাস"* লিখে পাঠালেই সেই বিষয়ের সম্পূর্ণ টপিক তালিকা দেখতে পাবেন!');
+    }
+
+    setState(() {
+      _messages.add(
+        BotChatMessage(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          text: buffer.toString(),
+          isUser: false,
+          timestamp: DateTime.now(),
+          mode: 'study_info',
+        ),
+      );
+    });
+    _saveChatHistory();
+    _scrollToBottom();
+  }
+
   void _sendHelpMenu() {
     setState(() {
       _messages.add(
@@ -1400,6 +1518,7 @@ class _BotChatScreenState extends State<BotChatScreen> {
               '📖 `/vocab` — বিসিএস ও ব্যাংক পরীক্ষার হাই-ফ্রিকোয়েন্সি ভোকাবুলারি\n'
               '🃏 `/flashcard` — সক্রিয় ডেক রিভিউ ও কুইজ চ্যালেঞ্জ\n'
               '📈 `/analytics` — পড়াশোনার মোট সময় ও বিষয়ভিত্তিক অগ্রগতি\n'
+              '📋 `/syllabus` — গুগল শিট ও বিসিএস বিষয়ভিত্তিক সিলেবাস ট্র্যাকার\n'
               '🎯 `/quiz` — বিসিএস ও সাধারণ জ্ঞানের লাইভ কুইজ খেলা\n'
               '💡 `/motivate` — পড়ার মন বসানোর অনুপ্রেরণামূলক উক্তি\n'
               '📚 `/bcs` — বিসিএস পরীক্ষার ২০০ নম্বরের মানবণ্টন ও গাইড\n'
@@ -1731,6 +1850,7 @@ class _BotChatScreenState extends State<BotChatScreen> {
                   _buildQuickChip('📖 ভোকাবুলারি', () => _sendVocabChallenge()),
                   _buildQuickChip('🃏 ফ্ল্যাশকার্ড', () => _sendFlashcardReview()),
                   _buildQuickChip('📈 স্টাডি সময়', () => _sendStudyAnalyticsSummary()),
+                  _buildQuickChip('📋 সিলেবাস ট্র্যাকার', () => _sendSyllabusTracker()),
                   _buildQuickChip('🎯 কুইজ', () => _sendQuizQuestion()),
                   _buildQuickChip('💡 মোটিভেশন', () => _sendMotivation()),
                   _buildQuickChip('📚 বিসিএস সিলেবাস', () => _sendBcsInfo()),
