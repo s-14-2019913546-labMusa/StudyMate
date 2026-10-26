@@ -127,7 +127,7 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
           ],
         ),
         subtitle: Text(
-          '🤖 অফলাইন কুইজ, মোটিভেশন ও এআই স্টাডি সহকারী',
+          '🤖 স্মার্ট স্টাডি অ্যাসিস্ট্যান্ট (কুইজ, রুটিন ও স্টাডি গাইড)',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
