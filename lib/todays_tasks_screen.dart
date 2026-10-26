@@ -5,7 +5,7 @@ import 'package:intl/intl.dart';
 import 'daily_routine.dart';
 import 'dashboard_screen.dart'; // For AddTaskBottomSheet
 import 'language_manager.dart';
-import 'google_sheet_sync_screen.dart';
+import 'multi_sheet_manager_screen.dart';
 
 // ==========================================
 // 6. Today's Tasks Screen (আজকের টাস্ক স্ক্রিন)
@@ -49,12 +49,12 @@ class _TodaysTasksScreenState extends State<TodaysTasksScreen> {
         iconTheme: IconThemeData(color: Theme.of(context).colorScheme.onSurface), // Back button color
         actions: [
           IconButton(
-            icon: const Icon(Icons.table_chart_rounded, color: Color(0xFF10B981)),
-            tooltip: 'Sync from Google Sheets',
+            icon: const Icon(Icons.folder_special_rounded, color: Color(0xFF6366F1)),
+            tooltip: 'My Study Sheets',
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const GoogleSheetSyncScreen()),
+                MaterialPageRoute(builder: (_) => const MultiSheetManagerScreen()),
               );
             },
           ),

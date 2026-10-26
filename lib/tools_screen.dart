@@ -44,6 +44,7 @@ import 'bookmarks_screen.dart';
 import 'news_reader_screen.dart';
 import 'social_hub_screen.dart';
 import 'google_sheet_sync_screen.dart';
+import 'multi_sheet_manager_screen.dart';
 import 'notifications_hub_screen.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:http/http.dart' as http;
@@ -110,7 +111,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
           {'title': 'Study Map', 'icon': Icons.folder_copy_rounded, 'color': Colors.teal, 'action': 'study_folders'},
           {'title': 'Countdown', 'icon': Icons.event_note_rounded, 'color': const Color(0xFF6366F1), 'action': 'countdown'},
           {'title': 'Calendar', 'icon': Icons.calendar_month_rounded, 'color': Colors.teal, 'action': 'calendar'},
-          {'title': 'Sheet Sync', 'icon': Icons.table_chart_rounded, 'color': const Color(0xFF10B981), 'action': 'gsheet_sync', 'requiresInternet': true},
+          {'title': 'My Study Sheets', 'icon': Icons.folder_special_rounded, 'color': const Color(0xFF6366F1), 'action': 'multi_sheet', 'requiresInternet': true},
         ]
       },
       {
@@ -261,6 +262,8 @@ class _ToolsScreenState extends State<ToolsScreen> {
                                       Navigator.push(context, MaterialPageRoute(builder: (_) => const CalendarScreen()));
                                     } else if (tool['action'] == 'gsheet_sync') {
                                       Navigator.push(context, MaterialPageRoute(builder: (_) => const GoogleSheetSyncScreen()));
+                                    } else if (tool['action'] == 'multi_sheet') {
+                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const MultiSheetManagerScreen()));
                                     } else if (tool['action'] == 'islamic') {
                                       Navigator.push(context, MaterialPageRoute(builder: (_) => const IslamicLifeScreen()));
                                     } else if (tool['action'] == 'daily_diary') {

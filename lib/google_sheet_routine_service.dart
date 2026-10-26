@@ -465,6 +465,65 @@ class GoogleSheetRoutineService {
     return totalImported;
   }
 
+  /// Add a single Task into the user's Firestore Daily Routine
+  static Future<void> addSingleTaskToRoutine({
+    required Task task,
+    DateTime? targetDate,
+  }) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('Please log in first to save task.');
+
+    final firestore = FirebaseFirestore.instance;
+    final date = targetDate ?? task.startTime ?? DateTime.now();
+    final dateStr = DateFormat('yyyy-MM-dd').format(date);
+
+    final docRef = firestore
+        .collection('users')
+        .doc(user.uid)
+        .collection('dailyRoutines')
+        .doc(dateStr);
+
+    final docSnap = await docRef.get();
+    List<Task> currentTasks = [];
+
+    if (docSnap.exists && docSnap.data() != null) {
+      final existingRoutine = DailyRoutine.fromMap(docSnap.data()!, docSnap.id);
+      currentTasks = List.from(existingRoutine.tasks);
+    }
+
+    // Replace if same ID, or append
+    final idx = currentTasks.indexWhere((t) => t.id == task.id);
+    if (idx >= 0) {
+      currentTasks[idx] = task;
+    } else {
+      currentTasks.add(task);
+    }
+
+    final routine = DailyRoutine(
+      id: dateStr,
+      userId: user.uid,
+      date: date,
+      tasks: currentTasks,
+    );
+
+    await docRef.set(routine.toMap(), SetOptions(merge: true));
+
+    // Also save to tasks collection for cross-screen visibility
+    try {
+      await firestore
+          .collection('users')
+          .doc(user.uid)
+          .collection('tasks')
+          .doc(task.id)
+          .set(task.toMap(), SetOptions(merge: true));
+    } catch (_) {}
+  }
+
+  /// Public helper to parse target date from sheet string
+  static DateTime parseTargetDate(String? dateStr, [DateTime? fallback]) {
+    return _parseTargetDate(dateStr, fallback ?? DateTime.now());
+  }
+
   /// Helper: Parse Target Date
   static DateTime _parseTargetDate(String? dateStr, DateTime fallback) {
     if (dateStr == null || dateStr.trim().isEmpty) return fallback;
