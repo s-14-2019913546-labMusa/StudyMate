@@ -129,6 +129,130 @@ class _BotChatScreenState extends State<BotChatScreen> {
       'answer': 0,
       'explanation': '১৯৭১ সালের মহান মুক্তিযুদ্ধে সমগ্র বাংলাদেশকে ১১টি সেক্টর এবং ৬৪টি সাব-সেক্টরে বিভক্ত করা হয়।'
     },
+    {
+      'question': 'ঐতিহাসিক ৬ দফা দাবি বঙ্গবন্ধু শেখ মুজিবুর রহমান কত সালে এবং কোথায় পেশ করেন?',
+      'options': ['১৯৬৬ সালে, লাহোরে', '১৯৬৯ সালে, ঢাকায়', '১৯৭১ সালে, রেসকোর্স ময়দানে', '১৯৫৪ সালে, করাচিতে'],
+      'answer': 0,
+      'explanation': '১৯৬৬ সালের ৫-৬ ফেব্রুয়ারি পাকিস্তানের লাহোরে অনুষ্ঠিত সর্বদলীয় বিরোধী রাজনৈতিক সম্মেলনে বঙ্গবন্ধু ৬ দফা পেশ করেন।'
+    },
+    {
+      'question': 'Who is the author of "Hamlet" and "Macbeth"?',
+      'options': ['William Shakespeare', 'John Milton', 'William Wordsworth', 'George Bernard Shaw'],
+      'answer': 0,
+      'explanation': 'William Shakespeare (1564-1616) রচিত এই দুটি বিখ্যাত ট্র্যাজেডি।'
+    },
+    {
+      'question': 'কম্পিউটারের স্থায়ী মেমোরি (Non-volatile memory) কোনটি?',
+      'options': ['ROM', 'RAM', 'Cache', 'Virtual Memory'],
+      'answer': 0,
+      'explanation': 'ROM (Read Only Memory) হলো স্থায়ী মেমোরি, বিদ্যুৎ চলে গেলেও এর সংরক্ষিত তথ্য মুছে যায় না।'
+    },
+    {
+      'question': 'মুজিবনগর সরকার আনুষ্ঠানিকভাবে কবে শপথ গ্রহণ করে?',
+      'options': ['১৭ এপ্রিল ১৯৭১', '১০ এপ্রিল ১৯৭১', '২৬ মার্চ ১৯৭১', '২৫ মার্চ ১৯৭১'],
+      'answer': 0,
+      'explanation': '১০ এপ্রিল ১৯৭১ মুজিবনগর সরকার গঠিত হয় এবং ১৭ এপ্রিল মেহেরপুরের বৈদ্যনাথতলায় (মুজিবনগর) শপথ গ্রহণ করে।'
+    },
+    {
+      'question': 'A person who knows many languages is called a —',
+      'options': ['Polyglot', 'Linguist', 'Grammarian', 'Philologist'],
+      'answer': 0,
+      'explanation': 'Polyglot অর্থ বহুভাষাবিদ (যিনি একাধিক ভাষা জানেন বা অনর্গল বলতে পারেন)।'
+    },
+    {
+      'question': '১০ থেকে ৬০ পর্যন্ত যে সকল মৌলিক সংখ্যার একক স্থানীয় অংক ৯, তাদের সমষ্টি কত?',
+      'options': ['১০৭', '১২৬', '১০৫', '৯৯'],
+      'answer': 0,
+      'explanation': '১০ থেকে ৬০ পর্যন্ত ৯ দিয়ে শেষ হওয়া মৌলিক সংখ্যা হলো: ১৯, ২৯, ৫৯ (৩৯ মৌলিক নয় কারণ ৩৯ = ৩ × ১৩)। সমষ্টি = ১৯ + ২৯ + ৫৯ = ১০৭।'
+    },
+    {
+      'question': 'আন্তর্জাতিক মাতৃভাষা দিবস হিসেবে ২১শে ফেব্রুয়ারিকে ইউনেস্কো কবে স্বীকৃতি দেয়?',
+      'options': ['১৭ নভেম্বর ১৯৯৯', '২১ ফেব্রুয়ারি ২০০০', '২৬ মার্চ ১৯৯৯', '১৬ ডিসেম্বর ১৯৯৯'],
+      'answer': 0,
+      'explanation': '১৭ নভেম্বর ১৯৯৯ প্যারিসে ইউনেস্কোর ৩০তম সাধারণ অধিবেশনে ২১শে ফেব্রুয়ারিকে আন্তর্জাতিক মাতৃভাষা দিবস হিসেবে ঘোষণা করা হয়।'
+    },
+    {
+      'question': '‘ভানুসিংহ ঠাকুর’ কার ছদ্মনাম?',
+      'options': ['রবীন্দ্রনাথ ঠাকুর', 'কাজী নজরুল ইসলাম', 'বঙ্কিমচন্দ্র চট্টোপাধ্যায়', 'শরৎচন্দ্র চট্টোপাধ্যায়'],
+      'answer': 0,
+      'explanation': '‘ভানুসিংহ ঠাকুর’ ছিল রবীন্দ্রনাথ ঠাকুরের বিখ্যাত ছদ্মনাম, যার অধীনে তিনি "ভানুসিংহ ঠাকুরের পদাবলী" রচনা করেন।'
+    },
+  ];
+
+  // Local Vocabulary Bank for BCS & Bank Aspirants
+  final List<Map<String, dynamic>> _vocabList = [
+    {
+      'word': 'Ephemeral',
+      'phonetic': '/ɪˈfem.ər.əl/',
+      'pos': 'Adjective',
+      'meaning': 'ক্ষণস্থায়ী, ক্ষণভঙ্গুর, স্বল্পস্থায়ী',
+      'synonyms': 'Transient, Fleeting, Momentary, Short-lived',
+      'antonyms': 'Permanent, Eternal, Everlasting',
+      'example': 'Fame in the digital world is often ephemeral.',
+    },
+    {
+      'word': 'Pragmatic',
+      'phonetic': '/præɡˈmæt.ɪk/',
+      'pos': 'Adjective',
+      'meaning': 'বাস্তবসম্মত, বাস্তবধর্মী, বাস্তববাদী',
+      'synonyms': 'Practical, Realistic, Sensible',
+      'antonyms': 'Idealistic, Impractical, Theoretical',
+      'example': 'We need a pragmatic approach to achieve our study routine goals.',
+    },
+    {
+      'word': 'Meticulous',
+      'phonetic': '/məˈtɪk.jə.ləs/',
+      'pos': 'Adjective',
+      'meaning': 'খুঁতখুঁতে, অত্যন্ত সতর্ক ও নিখুঁত',
+      'synonyms': 'Painstaking, Scrupulous, Diligent, Precise',
+      'antonyms': 'Careless, Sloppy, Negligent',
+      'example': 'He was meticulous about keeping his daily study and revision records.',
+    },
+    {
+      'word': 'Resilient',
+      'phonetic': '/rɪˈzɪl.jənt/',
+      'pos': 'Adjective',
+      'meaning': 'প্রতিকূলতা কাটিয়ে ওঠার মতো শক্তিধর, সহনশীল',
+      'synonyms': 'Tough, Hardy, Adaptable, Buoyant',
+      'antonyms': 'Fragile, Vulnerable, Weak',
+      'example': 'A successful candidate must be resilient in the face of exam challenges.',
+    },
+    {
+      'word': 'Eloquent',
+      'phonetic': '/ˈel.ə.kwənt/',
+      'pos': 'Adjective',
+      'meaning': 'মিষ্টভাষী, বাকপটু, চিত্তাকর্ষক কথাবলা',
+      'synonyms': 'Fluent, Expressive, Articulate, Persuasive',
+      'antonyms': 'Inarticulate, Hesitant, Dull',
+      'example': 'His eloquent answer impressed the interview viva board.',
+    },
+    {
+      'word': 'Ambiguous',
+      'phonetic': '/æmˈbɪɡ.ju.əs/',
+      'pos': 'Adjective',
+      'meaning': 'দ্ব্যর্থবোধক, অস্পষ্ট, একাধিক অর্থ হতে পারে এমন',
+      'synonyms': 'Equivocal, Obscure, Vague, Unclear',
+      'antonyms': 'Clear, Explicit, Lucid, Unambiguous',
+      'example': 'The law was phrased in an ambiguous manner.',
+    },
+    {
+      'word': 'Benevolent',
+      'phonetic': '/bəˈnev.əl.ənt/',
+      'pos': 'Adjective',
+      'meaning': 'দয়ালু, পরোপকারী, কল্যাণকামী',
+      'synonyms': 'Kind, Altruistic, Charitable, Generous',
+      'antonyms': 'Malevolent, Spiteful, Cruel',
+      'example': 'A benevolent teacher always guides students with boundless patience.',
+    },
+    {
+      'word': 'Diligent',
+      'phonetic': '/ˈdɪl.ɪ.dʒənt/',
+      'pos': 'Adjective',
+      'meaning': 'পরিশ্রমী, অধ্যবসায়ী',
+      'synonyms': 'Hardworking, Industrious, Assiduous',
+      'antonyms': 'Lazy, Idle, Lethargic',
+      'example': 'Diligent candidates achieve outstanding results in competitive exams.',
+    },
   ];
 
   // Local Motivational Quotes
@@ -274,6 +398,18 @@ class _BotChatScreenState extends State<BotChatScreen> {
       await _sendPrayerTimes();
       return;
     }
+    if (lower.contains('vocab') || lower.contains('ভোকাব') || lower.contains('শব্দার্থ') || lower.contains('ইংরেজি শব্দ') || lower.contains('vocabulary')) {
+      await _sendVocabChallenge();
+      return;
+    }
+    if (lower.contains('flashcard') || lower.contains('ফ্ল্যাশকার্ড') || lower.contains('ডেক') || lower.contains('deck')) {
+      await _sendFlashcardReview();
+      return;
+    }
+    if (lower.contains('analytics') || lower.contains('অ্যানালিটিক্স') || lower.contains('স্টাডি সময়') || lower.contains('কত সময় পড়েছি') || lower.contains('পরিসংখ্যান') || lower.contains('পড়ার হিসাব')) {
+      await _sendStudyAnalyticsSummary();
+      return;
+    }
     if (lower.contains('help') || lower.contains('সাহায্য') || lower.contains('কমান্ড')) {
       _sendHelpMenu();
       return;
@@ -311,6 +447,12 @@ class _BotChatScreenState extends State<BotChatScreen> {
       _sendExamCountdown();
     } else if (lowerCmd.startsWith('/prayer') || lowerCmd == '/namaz') {
       _sendPrayerTimes();
+    } else if (lowerCmd.startsWith('/vocab') || lowerCmd.startsWith('/word')) {
+      _sendVocabChallenge();
+    } else if (lowerCmd.startsWith('/flashcard') || lowerCmd.startsWith('/deck')) {
+      _sendFlashcardReview();
+    } else if (lowerCmd.startsWith('/analytics') || lowerCmd.startsWith('/stat')) {
+      _sendStudyAnalyticsSummary();
     } else if (lowerCmd.startsWith('/tasbeeh')) {
       _sendTasbeeh();
     } else if (lowerCmd.startsWith('/calc')) {
@@ -607,7 +749,7 @@ class _BotChatScreenState extends State<BotChatScreen> {
             pending++;
           }
 
-          buffer.writeln('$index. ${isDone ? "✅ [সম্পন্ন]" : "⏳ [বাকি আছে]"} **$title** ${cat.isNotEmpty ? "• _$cat_" : ""}');
+          buffer.writeln('$index. ${isDone ? "✅ [সম্পন্ন]" : "⏳ [বাকি আছে]"} **$title** ${cat.isNotEmpty ? "• _${cat}_" : ""}');
           index++;
         }
 
@@ -959,6 +1101,292 @@ class _BotChatScreenState extends State<BotChatScreen> {
     _scrollToBottom();
   }
 
+  // ==================== VOCABULARY CHALLENGE ====================
+  Future<void> _sendVocabChallenge() async {
+    final random = Random();
+    final item = _vocabList[random.nextInt(_vocabList.length)];
+
+    final buffer = StringBuffer('📖 **ইংরেজি ভোকাবুলারি এক্সপ্লোরার:**\n\n');
+    buffer.writeln('🔤 **${item['word']}**  _${item['phonetic']}_');
+    buffer.writeln('• **Part of Speech:** ${item['pos']}');
+    buffer.writeln('• **বাংলা অর্থ:** **${item['meaning']}**');
+    buffer.writeln('• **Synonyms:** ${item['synonyms']}');
+    buffer.writeln('• **Antonyms:** ${item['antonyms']}');
+    buffer.writeln('• **Example:** *"${item['example']}"*\n');
+
+    // Check user's favorite words in Firestore
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      try {
+        final favSnap = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .collection('favorite_words')
+            .limit(5)
+            .get();
+
+        if (favSnap.docs.isNotEmpty) {
+          buffer.writeln('⭐ **আপনার সেভ করা ফেভারিট শব্দসমূহ:**');
+          for (var doc in favSnap.docs) {
+            final w = doc.data()['word'] ?? '';
+            final m = doc.data()['meaning'] ?? doc.data()['bengaliMeaning'] ?? '';
+            if (w.toString().isNotEmpty) {
+              buffer.writeln('• **$w** ${m.toString().isNotEmpty ? "— $m" : ""}');
+            }
+          }
+          buffer.writeln('\n*(নতুন শব্দ সেভ ও শুনতে অ্যাপের ডিকশনারি স্ক্রিন দেখুন)*');
+        }
+      } catch (_) {}
+    }
+
+    setState(() {
+      _messages.add(
+        BotChatMessage(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          text: buffer.toString(),
+          isUser: false,
+          timestamp: DateTime.now(),
+          mode: 'study_info',
+        ),
+      );
+    });
+    _saveChatHistory();
+    _scrollToBottom();
+  }
+
+  // ==================== FLASHCARD REVIEW ====================
+  Future<void> _sendFlashcardReview() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      setState(() {
+        _messages.add(
+          BotChatMessage(
+            id: DateTime.now().millisecondsSinceEpoch.toString(),
+            text: '⚠️ ফ্ল্যাশকার্ড পর্যালোচনা দেখতে অ্যাপে লগইন করুন।',
+            isUser: false,
+            timestamp: DateTime.now(),
+            mode: 'cmd',
+          ),
+        );
+      });
+      return;
+    }
+
+    try {
+      final decksSnap = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('flashcard_decks')
+          .limit(10)
+          .get();
+
+      if (decksSnap.docs.isEmpty) {
+        setState(() {
+          _messages.add(
+            BotChatMessage(
+              id: DateTime.now().millisecondsSinceEpoch.toString(),
+              text: '🃏 **ফ্ল্যাশকার্ড স্টাডি ডেক:**\n\n'
+                  'আপনার অ্যাকাউন্টে বর্তমানে কোনো কাস্টম ফ্ল্যাশকার্ড ডেক নেই।\n\n'
+                  '💡 **ফ্ল্যাশকার্ডের উপকারিতা:**\n'
+                  'স্পেসড রিপিটেশন ফ্ল্যাশকার্ড ব্যবহার করে দ্রুত শব্দার্থ, সংবিধানের অনুচ্ছেদ, বিজ্ঞান ও ব্যাকরণের কঠিন নিয়ম সহজে মুখস্থ করা যায়।\n\n'
+                  '🎯 **নমুনা ফ্ল্যাশকার্ড চ্যালেঞ্জ:**\n'
+                  '📌 **প্রশ্ন:** *বাংলাদেশের সংবিধানের কত নম্বর অনুচ্ছেদে "মৌলিক অধিকার নিশ্চিতকরণ" ও "আইনের দৃষ্টিতে সমতা" উল্লেখ আছে?*\n\n'
+                  '💡 **উত্তর:** **অনুচ্ছেদ ২৭** *(সকল নাগরিক আইনের দৃষ্টিতে সমান এবং আইনের সমান আশ্রয় লাভের অধিকারী)*',
+              isUser: false,
+              timestamp: DateTime.now(),
+              mode: 'study_info',
+            ),
+          );
+        });
+      } else {
+        int totalCards = 0;
+        int dueCards = 0;
+        int masteredCards = 0;
+        Map<String, dynamic>? sampleCard;
+        String sampleDeckTitle = '';
+
+        final now = DateTime.now();
+
+        for (var doc in decksSnap.docs) {
+          final data = doc.data();
+          final title = data['title'] ?? 'ডেক';
+          final cards = data['cards'] as List<dynamic>? ?? [];
+
+          totalCards += cards.length;
+
+          for (var c in cards) {
+            if (c is Map) {
+              int interval = c['interval'] ?? 0;
+              Timestamp? nextReviewTs = c['nextReviewDate'];
+              DateTime? nextReview = nextReviewTs?.toDate();
+
+              if (interval >= 21) {
+                masteredCards++;
+              }
+              if (nextReview == null || nextReview.isBefore(now) || nextReview.isAtSameMomentAs(now)) {
+                dueCards++;
+                if (sampleCard == null && c['front'] != null && c['back'] != null) {
+                  sampleCard = Map<String, dynamic>.from(c);
+                  sampleDeckTitle = title;
+                }
+              }
+            }
+          }
+        }
+
+        final buffer = StringBuffer('🃏 **ফ্ল্যাশকার্ড ডেক সারসংক্ষেপ:**\n\n');
+        buffer.writeln('• মোট ডেক: **${decksSnap.docs.length}টি**');
+        buffer.writeln('• মোট কার্ড: **$totalCards টি**');
+        buffer.writeln('• আজকে রিভিশন বাকি (Due): **$dueCards টি**');
+        buffer.writeln('• সম্পূর্ণ আয়ত্তে (Mastered): **$masteredCards টি**\n');
+
+        if (sampleCard != null) {
+          buffer.writeln('🎯 **আজকের ফ্ল্যাশকার্ড কুইজ (`$sampleDeckTitle`):**');
+          buffer.writeln('❓ **প্রশ্ন:** ${sampleCard['front']}');
+          buffer.writeln('\n👉 **উত্তর:** ||${sampleCard['back']}||');
+          buffer.writeln('\n*(সম্পূর্ণ ডেক প্র্যাকটিস করতে অ্যাপের Flashcards স্ক্রিন খুলুন)*');
+        } else {
+          buffer.writeln('🎉 আজকের মতো আপনার সব ফ্ল্যাশকার্ড রিভিশন সম্পন্ন হয়েছে!');
+        }
+
+        setState(() {
+          _messages.add(
+            BotChatMessage(
+              id: DateTime.now().millisecondsSinceEpoch.toString(),
+              text: buffer.toString(),
+              isUser: false,
+              timestamp: DateTime.now(),
+              mode: 'study_info',
+            ),
+          );
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _messages.add(
+          BotChatMessage(
+            id: DateTime.now().millisecondsSinceEpoch.toString(),
+            text: '🃏 **ফ্ল্যাশকার্ড:** অফলাইনে ডেক লোড করা সম্ভব হয়নি। সংযোগ চেক করুন।',
+            isUser: false,
+            timestamp: DateTime.now(),
+            mode: 'cmd',
+          ),
+        );
+      });
+    }
+
+    _saveChatHistory();
+    _scrollToBottom();
+  }
+
+  // ==================== STUDY ANALYTICS SUMMARY ====================
+  Future<void> _sendStudyAnalyticsSummary() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      setState(() {
+        _messages.add(
+          BotChatMessage(
+            id: DateTime.now().millisecondsSinceEpoch.toString(),
+            text: '⚠️ স্টাডি অ্যানালিটিক্স দেখতে অনুগ্রহ করে অ্যাপে লগইন করুন।',
+            isUser: false,
+            timestamp: DateTime.now(),
+            mode: 'cmd',
+          ),
+        );
+      });
+      return;
+    }
+
+    try {
+      final now = DateTime.now();
+      final thirtyDaysAgo = now.subtract(const Duration(days: 30));
+
+      final snapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('dailyRoutines')
+          .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(thirtyDaysAgo))
+          .get();
+
+      int totalCompletedTasks = 0;
+      int totalMinutes = 0;
+      Map<String, int> subjectMinutes = {};
+
+      for (var doc in snapshot.docs) {
+        final data = doc.data();
+        final tasks = data['tasks'] as List<dynamic>? ?? [];
+
+        for (var t in tasks) {
+          if (t is Map) {
+            final isDone = t['isCompleted'] == true || t['status'] == 'completed';
+            final duration = (t['completedDurationMinutes'] ?? t['totalDurationMinutes'] ?? 0) as int;
+            final sub = (t['subject'] ?? t['category'] ?? 'অন্যান্য').toString().trim();
+
+            if (isDone) totalCompletedTasks++;
+            totalMinutes += duration;
+
+            if (duration > 0 && sub.isNotEmpty) {
+              subjectMinutes[sub] = (subjectMinutes[sub] ?? 0) + duration;
+            }
+          }
+        }
+      }
+
+      final totalHours = (totalMinutes / 60).toStringAsFixed(1);
+      final daysTracked = snapshot.docs.length;
+
+      final buffer = StringBuffer('📈 **গত ৩০ দিনের স্টাডি অ্যানালিটিক্স:**\n\n');
+      buffer.writeln('⏱️ মোট পড়াশোনার সময়: **$totalHours ঘণ্টা** ($totalMinutes মিনিট)');
+      buffer.writeln('✅ সম্পন্ন টাস্ক সংখ্যা: **$totalCompletedTasks টি**');
+      buffer.writeln('📅 রুটিন রেকর্ডকৃত দিন: **$daysTracked দিন**\n');
+
+      if (subjectMinutes.isNotEmpty) {
+        final sortedSubs = subjectMinutes.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+        buffer.writeln('📚 **সর্বোচ্চ সময় দেওয়া বিষয়সমূহ:**');
+        for (var entry in sortedSubs.take(4)) {
+          final h = (entry.value / 60).toStringAsFixed(1);
+          buffer.writeln('• ${entry.key}: **$h ঘণ্টা** (${entry.value} মিনিট)');
+        }
+      }
+
+      buffer.writeln('\n💡 **বটের মতামত:** ');
+      if (totalMinutes > 1200) {
+        buffer.writeln('চমৎকার অধ্যবসায়! আপনি বেশ চমৎকার ধারাবাহিকতা বজায় রাখছেন। এভাবে চললে লক্ষ্য অর্জন সুনিশ্চিত!');
+      } else if (totalMinutes > 0) {
+        buffer.writeln('ভালো অগ্রগতি! তবে প্রতিদিন নির্দিষ্ট সময়ে একটানা ২-৩ ঘণ্টা পড়ার অভ্যাস গড়ে তুললে প্রগ্রেস দ্বিগুণ হবে।');
+      } else {
+        buffer.writeln('প্রতিদিন টাস্ক কমপ্লিট করার পর রুটিনে সময় রেকর্ড করুন, বট আপনার অগ্রগতি নিখুঁতভাবে বিশ্লেষণ করবে!');
+      }
+
+      setState(() {
+        _messages.add(
+          BotChatMessage(
+            id: DateTime.now().millisecondsSinceEpoch.toString(),
+            text: buffer.toString(),
+            isUser: false,
+            timestamp: DateTime.now(),
+            mode: 'study_info',
+          ),
+        );
+      });
+    } catch (e) {
+      setState(() {
+        _messages.add(
+          BotChatMessage(
+            id: DateTime.now().millisecondsSinceEpoch.toString(),
+            text: '📈 **অ্যানালিটিক্স:** অফলাইনে স্টাডি হিস্ট্রি লোড করা সম্ভব হয়নি। সংযোগ চেক করুন।',
+            isUser: false,
+            timestamp: DateTime.now(),
+            mode: 'cmd',
+          ),
+        );
+      });
+    }
+
+    _saveChatHistory();
+    _scrollToBottom();
+  }
+
   void _sendHelpMenu() {
     setState(() {
       _messages.add(
@@ -969,6 +1397,9 @@ class _BotChatScreenState extends State<BotChatScreen> {
               '🔄 `/revision` — ১-৪-৭ স্পেসড রিপিটেশন রিভিশন শিডিউল\n'
               '⏳ `/countdown` — পরীক্ষার দিন গণনা ও ডেডলাইন ট্র্যাকিং\n'
               '🕌 `/prayer` — নামাজের সময়সূচি ও পড়াশোনার দু’আ\n'
+              '📖 `/vocab` — বিসিএস ও ব্যাংক পরীক্ষার হাই-ফ্রিকোয়েন্সি ভোকাবুলারি\n'
+              '🃏 `/flashcard` — সক্রিয় ডেক রিভিউ ও কুইজ চ্যালেঞ্জ\n'
+              '📈 `/analytics` — পড়াশোনার মোট সময় ও বিষয়ভিত্তিক অগ্রগতি\n'
               '🎯 `/quiz` — বিসিএস ও সাধারণ জ্ঞানের লাইভ কুইজ খেলা\n'
               '💡 `/motivate` — পড়ার মন বসানোর অনুপ্রেরণামূলক উক্তি\n'
               '📚 `/bcs` — বিসিএস পরীক্ষার ২০০ নম্বরের মানবণ্টন ও গাইড\n'
@@ -1297,6 +1728,9 @@ class _BotChatScreenState extends State<BotChatScreen> {
                   _buildQuickChip('🔄 ১-৪-৭ রিভিশন', () => _sendRevisionAnalysis()),
                   _buildQuickChip('⏳ পরীক্ষার কাউন্টডাউন', () => _sendExamCountdown()),
                   _buildQuickChip('🕌 নামাজের সময়', () => _sendPrayerTimes()),
+                  _buildQuickChip('📖 ভোকাবুলারি', () => _sendVocabChallenge()),
+                  _buildQuickChip('🃏 ফ্ল্যাশকার্ড', () => _sendFlashcardReview()),
+                  _buildQuickChip('📈 স্টাডি সময়', () => _sendStudyAnalyticsSummary()),
                   _buildQuickChip('🎯 কুইজ', () => _sendQuizQuestion()),
                   _buildQuickChip('💡 মোটিভেশন', () => _sendMotivation()),
                   _buildQuickChip('📚 বিসিএস সিলেবাস', () => _sendBcsInfo()),
