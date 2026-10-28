@@ -268,6 +268,155 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
     }
   }
 
+  void _showChatBubbleSettingsSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            final bubbleService = ChatBubbleService();
+
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 22),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF6366F1).withValues(alpha: 0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.bubble_chart_rounded, color: Color(0xFF6366F1), size: 26),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'ফ্লোটিং চ্যাট বাবল সেটিংস',
+                              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                            ),
+                            Text(
+                              'মেসেঞ্জারের মতো ভাসমান বাবল নিয়ন্ত্রণ করুন',
+                              style: TextStyle(fontSize: 12, color: Colors.grey),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 24),
+
+                  // Option 1: In-App Bubble
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('অ্যাপের ভেতর ফ্লোটিং বাবল', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14.5)),
+                    subtitle: const Text('স্টাডিমেটের ভেতরে সব পেজে ভাসমান বাবল দেখতে পাবেন', style: TextStyle(fontSize: 12)),
+                    value: bubbleService.isEnabled.value,
+                    activeColor: const Color(0xFF6366F1),
+                    onChanged: (val) async {
+                      await bubbleService.setEnabled(val);
+                      setModalState(() {});
+                    },
+                  ),
+
+                  // Option 2: Outside App (System Overlay)
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('অ্যাপের বাইরেও বাবল (হোম স্ক্রিনে)', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14.5)),
+                    subtitle: const Text('অন্য অ্যাপ বা হোম স্ক্রিনে থাকা অবস্থায়ও বাবল ভাসবে', style: TextStyle(fontSize: 12)),
+                    value: bubbleService.isSystemOverlayEnabled.value,
+                    activeColor: const Color(0xFF6366F1),
+                    onChanged: (val) async {
+                      if (val) {
+                        final hasPerm = await bubbleService.hasSystemOverlayPermission();
+                        if (!hasPerm) {
+                          final granted = await bubbleService.requestSystemOverlayPermission();
+                          if (!granted) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('হোম স্ক্রিনে বাবল দেখাতে "Display over other apps" পারমিশন প্রয়োজন।'),
+                                ),
+                              );
+                            }
+                            return;
+                          }
+                        }
+                      }
+                      await bubbleService.setSystemOverlayEnabled(val);
+                      setModalState(() {});
+                    },
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  // Test Bubble Button
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                      icon: const Icon(Icons.play_arrow_rounded, color: Color(0xFF6366F1)),
+                      label: const Text('টেস্ট বাবল চালু করে পরীক্ষা করুন'),
+                      onPressed: () async {
+                        Navigator.pop(ctx);
+                        final hasPerm = await bubbleService.hasSystemOverlayPermission();
+                        if (bubbleService.isSystemOverlayEnabled.value && !hasPerm) {
+                          await bubbleService.requestSystemOverlayPermission();
+                        }
+
+                        bubbleService.showBubble(
+                          chatId: 'test_chat',
+                          chatName: 'StudyMate Demo',
+                          lastMessage: 'হ্যালো! বাইরে বাবল সফলভাবে চালু হয়েছে 🎉',
+                          unreadCount: 1,
+                        );
+
+                        if (bubbleService.isSystemOverlayEnabled.value) {
+                          await bubbleService.startSystemOverlayBubble(
+                            chatTitle: 'StudyMate Demo',
+                            lastMessage: 'হ্যালো! বাইরে বাবল সফলভাবে চালু হয়েছে 🎉',
+                            chatId: 'test_chat',
+                          );
+                        }
+
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              backgroundColor: Color(0xFF6366F1),
+                              content: Text('🫧 বাবল চালু হয়েছে! হোম স্ক্রিনে গিয়ে দেখুন।'),
+                              duration: Duration(seconds: 3),
+                            ),
+                          );
+                        }
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -277,32 +426,13 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
         elevation: 0,
         title: const Text('Social Hub', style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
-          ValueListenableBuilder<bool>(
-            valueListenable: ChatBubbleService().isEnabled,
-            builder: (context, enabled, _) {
-              return IconButton(
-                icon: Icon(
-                  enabled ? Icons.bubble_chart_rounded : Icons.bubble_chart_outlined,
-                  color: enabled ? Theme.of(context).colorScheme.primary : Colors.grey,
-                ),
-                tooltip: enabled
-                    ? 'ফ্লোটিং বাবল চালু আছে (ট্যাপ করে বন্ধ করুন)'
-                    : 'ফ্লোটিং বাবল বন্ধ (ট্যাপ করে চালু করুন)',
-                onPressed: () {
-                  ChatBubbleService().setEnabled(!enabled);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        !enabled
-                            ? '🫧 ফ্লোটিং চ্যাট বাবল চালু করা হয়েছে!'
-                            : 'ফ্লোটিং চ্যাট বাবল বন্ধ করা হয়েছে',
-                      ),
-                      duration: const Duration(seconds: 2),
-                    ),
-                  );
-                },
-              );
-            },
+          IconButton(
+            icon: const Icon(
+              Icons.bubble_chart_rounded,
+              color: Color(0xFF6366F1),
+            ),
+            tooltip: 'চ্যাট বাবল সেটিংস',
+            onPressed: () => _showChatBubbleSettingsSheet(context),
           ),
         ],
         bottom: TabBar(

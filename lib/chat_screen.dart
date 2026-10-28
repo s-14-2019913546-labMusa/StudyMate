@@ -385,20 +385,32 @@ class _ChatScreenState extends State<ChatScreen> {
               IconButton(
                 icon: const Icon(Icons.bubble_chart_rounded),
                 tooltip: 'ফ্লোটিং বাবল হিসেবে চালু করুন',
-                onPressed: () {
-                  ChatBubbleService().showBubble(
+                onPressed: () async {
+                  final bubbleService = ChatBubbleService();
+                  bubbleService.showBubble(
                     chatId: widget.chatId,
                     chatName: chatTitle,
                     isGroupChat: widget.isGroupChat,
                     receiverId: widget.receiverId,
                   );
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('🫧 ফ্লোটিং চ্যাট বাবল চালু হয়েছে!'),
-                      duration: Duration(seconds: 2),
-                    ),
-                  );
+                  if (bubbleService.isSystemOverlayEnabled.value) {
+                    await bubbleService.startSystemOverlayBubble(
+                      chatTitle: chatTitle,
+                      lastMessage: 'চ্যাট চলমান...',
+                      chatId: widget.chatId,
+                      receiverId: widget.receiverId,
+                      isGroup: widget.isGroupChat,
+                    );
+                  }
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('🫧 ফ্লোটিং চ্যাট বাবল চালু হয়েছে!'),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  }
                 },
               ),
               if (widget.isGroupChat)

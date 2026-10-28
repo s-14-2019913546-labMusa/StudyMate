@@ -14,6 +14,7 @@ import 'app_lock_screen.dart';
 import 'sleep_timer_service.dart';
 import 'prayer_timer_service.dart';
 import 'widgets/floating_chat_bubble.dart';
+import 'widgets/overlay_chat_bubble_widget.dart';
 
 // Global key for context-less notifications
 final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
@@ -186,3 +187,15 @@ class _StudyMateAppState extends State<StudyMateApp> with WidgetsBindingObserver
     );
   }
 }
+
+// Overlay Window Entry Point for system-level floating bubble (outside the app)
+@pragma("vm:entry-point")
+void overlayMain() {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(
+    const MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: OverlayChatBubbleWidget(),
+    ),
+  );
+}
