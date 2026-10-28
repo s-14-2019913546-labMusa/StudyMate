@@ -79,82 +79,181 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
   Future<void> _sendFriendRequest(String targetUserId) async {
     if (currentUser == null) return;
     
-    // Target User এর ফ্রেন্ডস কালেকশনে রিকুয়েস্ট পাঠানো হচ্ছে
-    await FirebaseFirestore.instance.collection('users').doc(targetUserId).collection('friends').doc(currentUser!.uid).set({
-      'status': 'pending',
-      'initiatedBy': currentUser!.uid,
-      'timestamp': FieldValue.serverTimestamp(),
-    });
+    try {
+      // 1. Target User এর ফ্রেন্ডস কালেকশনে রিকুয়েস্ট পাঠানো হচ্ছে
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(targetUserId)
+          .collection('friends')
+          .doc(currentUser!.uid)
+          .set({
+        'status': 'pending',
+        'initiatedBy': currentUser!.uid,
+        'timestamp': FieldValue.serverTimestamp(),
+      });
 
-    // নিজের কালেকশনেও রেকর্ড রাখা হচ্ছে
-    await FirebaseFirestore.instance.collection('users').doc(currentUser!.uid).collection('friends').doc(targetUserId).set({
-      'status': 'requested',
-      'initiatedBy': currentUser!.uid,
-      'timestamp': FieldValue.serverTimestamp(),
-    });
+      // 2. নিজের কালেকশনেও রেকর্ড রাখা হচ্ছে
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(currentUser!.uid)
+          .collection('friends')
+          .doc(targetUserId)
+          .set({
+        'status': 'requested',
+        'initiatedBy': currentUser!.uid,
+        'timestamp': FieldValue.serverTimestamp(),
+      });
 
-    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Friend request sent!')));
+      // 3. Target User-কে ইন-অ্যাপ নোটিফিকেশন পাঠানো
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(targetUserId)
+          .collection('notifications')
+          .add({
+        'title': 'নতুন ফ্রেন্ড রিকোয়েস্ট',
+        'body': '${currentUser!.displayName ?? "একজন শিক্ষার্থী"} আপনাকে ফ্রেন্ড রিকোয়েস্ট পাঠিয়েছেন।',
+        'type': 'friend_request',
+        'senderId': currentUser!.uid,
+        'timestamp': FieldValue.serverTimestamp(),
+        'isRead': false,
+      }).catchError((_) {});
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            backgroundColor: Colors.green,
+            content: Text('✓ ফ্রেন্ড রিকোয়েস্ট সফলভাবে পাঠানো হয়েছে!'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint("Friend request error: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Colors.red.shade700,
+            content: Text('রিকোয়েস্ট ব্যর্থ: $e'),
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    }
   }
 
   // রিকুয়েস্ট একসেপ্ট করার লজিক
   Future<void> _acceptFriendRequest(String requesterId) async {
     if (currentUser == null) return;
 
-    // উভয়ের স্ট্যাটাস 'accepted' করে দেওয়া
-    await FirebaseFirestore.instance.collection('users').doc(currentUser!.uid).collection('friends').doc(requesterId).update({
-      'status': 'accepted',
-    });
-    await FirebaseFirestore.instance.collection('users').doc(requesterId).collection('friends').doc(currentUser!.uid).update({
-      'status': 'accepted',
-    });
+    try {
+      // উভয়ের স্ট্যাটাস 'accepted' করে দেওয়া
+      await FirebaseFirestore.instance.collection('users').doc(currentUser!.uid).collection('friends').doc(requesterId).set({
+        'status': 'accepted',
+        'timestamp': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
 
-    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Friend request accepted!')));
+      await FirebaseFirestore.instance.collection('users').doc(requesterId).collection('friends').doc(currentUser!.uid).set({
+        'status': 'accepted',
+        'timestamp': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      // চ্যাট ডকুমেন্ট তৈরি নিশ্চিত করা
+      final chatId = _getOneOnOneChatId(currentUser!.uid, requesterId);
+      final chatRef = FirebaseFirestore.instance.collection('chats').doc(chatId);
+      final chatDoc = await chatRef.get();
+      if (!chatDoc.exists) {
+        await chatRef.set({
+          'participants': [currentUser!.uid, requesterId],
+          'isGroup': false,
+          'createdAt': FieldValue.serverTimestamp(),
+          'unreadCount': {currentUser!.uid: 0, requesterId: 0},
+        });
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            backgroundColor: Colors.green,
+            content: Text('✓ ফ্রেন্ড রিকোয়েস্ট গ্রহণ করা হয়েছে!'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint("Accept friend request error: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Colors.red.shade700,
+            content: Text('গ্রহণ করতে সমস্যা হয়েছে: $e'),
+          ),
+        );
+      }
+    }
   }
 
   // রিকুয়েস্ট ডিক্লাইন বা ক্যান্সেল করার লজিক
   Future<void> _declineFriendRequest(String requesterId) async {
     if (currentUser == null) return;
 
-    await FirebaseFirestore.instance.collection('users').doc(currentUser!.uid).collection('friends').doc(requesterId).delete();
-    await FirebaseFirestore.instance.collection('users').doc(requesterId).collection('friends').doc(currentUser!.uid).delete();
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(currentUser!.uid).collection('friends').doc(requesterId).delete();
+      await FirebaseFirestore.instance.collection('users').doc(requesterId).collection('friends').doc(currentUser!.uid).delete();
 
-    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Friend request cancelled.')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Friend request cancelled.')));
+    } catch (e) {
+      debugPrint("Decline friend request error: $e");
+    }
   }
 
   Future<void> _cancelFriendRequest(String targetUserId) async {
     await _declineFriendRequest(targetUserId);
   }
 
-  // নতুন সার্চ লজিক: ইমেইল এবং ইউজার আইডি (Document ID) উভয় দিয়ে সার্চ করা
+  // নতুন সার্চ লজিক: ইমেইল, নাম (displayName) এবং ইউজার আইডি (Document ID) দিয়ে সার্চ করা
   Future<List<DocumentSnapshot>> _searchUsers(String query) async {
     if (query.isEmpty) return [];
 
     final List<DocumentSnapshot> searchResults = [];
-    final Set<String> addedIds = {}; // ডুপ্লিকেট রেজাল্ট এড়ানোর জন্য
+    final Set<String> addedIds = {};
+    final cleanQuery = query.trim();
 
     // ১. ইমেইল দিয়ে সার্চ (Prefix Search)
     final emailSnapshot = await FirebaseFirestore.instance
         .collection('users')
-        .where('email', isGreaterThanOrEqualTo: query)
-        .where('email', isLessThanOrEqualTo: '$query\uf8ff')
+        .where('email', isGreaterThanOrEqualTo: cleanQuery)
+        .where('email', isLessThanOrEqualTo: '$cleanQuery\uf8ff')
         .get();
 
     for (var doc in emailSnapshot.docs) {
-      if (doc.id != currentUser?.uid) {
+      if (doc.id != currentUser?.uid && !addedIds.contains(doc.id)) {
         searchResults.add(doc);
         addedIds.add(doc.id);
       }
     }
 
-    // ২. ইউনিক ইউজার আইডি (Document ID) দিয়ে সার্চ (Exact Match)
+    // ২. নাম (displayName) দিয়ে সার্চ
+    final nameSnapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .where('displayName', isGreaterThanOrEqualTo: cleanQuery)
+        .where('displayName', isLessThanOrEqualTo: '$cleanQuery\uf8ff')
+        .get();
+
+    for (var doc in nameSnapshot.docs) {
+      if (doc.id != currentUser?.uid && !addedIds.contains(doc.id)) {
+        searchResults.add(doc);
+        addedIds.add(doc.id);
+      }
+    }
+
+    // ৩. ইউনিক ইউজার আইডি (Document ID) দিয়ে সার্চ (Exact Match)
     try {
-      final idDoc = await FirebaseFirestore.instance.collection('users').doc(query).get();
+      final idDoc = await FirebaseFirestore.instance.collection('users').doc(cleanQuery).get();
       if (idDoc.exists && idDoc.id != currentUser?.uid && !addedIds.contains(idDoc.id)) {
         searchResults.add(idDoc);
+        addedIds.add(idDoc.id);
       }
-    } catch (e) {
-      // যদি query কোনো ভ্যালিড Document ID ফরম্যাট না হয়, তাহলে এরর ইগনোর করবে
-    }
+    } catch (_) {}
 
     return searchResults;
   }
@@ -286,73 +385,120 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
                           ),
                           title: Text(userData['displayName'] ?? 'Unknown User', style: const TextStyle(fontWeight: FontWeight.bold)),
                           subtitle: Text('${userData['email'] ?? ''}\nID: $userId'), // ইমেইলের নিচে আইডিও দেখাবে
-                          trailing: StreamBuilder<DocumentSnapshot>(
-                            stream: FirebaseFirestore.instance
-                                .collection('users')
-                                .doc(currentUser!.uid)
-                                .collection('friends')
-                                .doc(userId)
-                                .snapshots(),
-                            builder: (context, friendSnap) {
-                              if (!friendSnap.hasData || !friendSnap.data!.exists) {
-                                return ElevatedButton.icon(
-                                  onPressed: () => _sendFriendRequest(userId),
-                                  icon: const Icon(Icons.person_add_alt_1_rounded, size: 16),
-                                  label: const Text('Add'),
-                                  style: ElevatedButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                  ),
-                                );
-                              }
-                              
-                              final relationData = friendSnap.data!.data() as Map<String, dynamic>;
-                              final status = relationData['status'] ?? '';
-                              
-                              if (status == 'accepted') {
-                                return OutlinedButton.icon(
-                                  onPressed: null,
-                                  icon: const Icon(Icons.check_rounded, size: 16),
-                                  label: const Text('Friends'),
-                                  style: OutlinedButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                  ),
-                                );
-                              } else if (status == 'requested') {
-                                return OutlinedButton.icon(
-                                  onPressed: () => _cancelFriendRequest(userId),
-                                  icon: const Icon(Icons.hourglass_empty_rounded, size: 16),
-                                  label: const Text('Request Sent'),
-                                  style: OutlinedButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                  ),
-                                );
-                              } else if (status == 'pending') {
-                                return Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    IconButton(
-                                      icon: const Icon(Icons.check_circle_rounded, color: Colors.green),
-                                      onPressed: () => _acceptFriendRequest(userId),
-                                      tooltip: 'Accept',
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.chat_bubble_rounded,
+                                    color: Color(0xFF6366F1), size: 20),
+                                tooltip: 'সরাসরি মেসেজ করুন',
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => ChatScreen(
+                                        chatId: _getOneOnOneChatId(
+                                            currentUser!.uid, userId),
+                                        chatName: userData['displayName'] ??
+                                            'Study Buddy',
+                                        receiverId: userId,
+                                        isGroupChat: false,
+                                      ),
                                     ),
-                                    IconButton(
-                                      icon: const Icon(Icons.cancel_rounded, color: Colors.red),
-                                      onPressed: () => _declineFriendRequest(userId),
-                                      tooltip: 'Decline',
+                                  );
+                                },
+                              ),
+                              StreamBuilder<DocumentSnapshot>(
+                                stream: FirebaseFirestore.instance
+                                    .collection('users')
+                                    .doc(currentUser!.uid)
+                                    .collection('friends')
+                                    .doc(userId)
+                                    .snapshots(),
+                                builder: (context, friendSnap) {
+                                  if (!friendSnap.hasData ||
+                                      !friendSnap.data!.exists) {
+                                    return ElevatedButton.icon(
+                                      onPressed: () =>
+                                          _sendFriendRequest(userId),
+                                      icon: const Icon(
+                                          Icons.person_add_alt_1_rounded,
+                                          size: 16),
+                                      label: const Text('Add'),
+                                      style: ElevatedButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 10, vertical: 6),
+                                      ),
+                                    );
+                                  }
+
+                                  final relationData = friendSnap.data!.data()
+                                      as Map<String, dynamic>;
+                                  final status = relationData['status'] ?? '';
+
+                                  if (status == 'accepted') {
+                                    return OutlinedButton.icon(
+                                      onPressed: null,
+                                      icon: const Icon(Icons.check_rounded,
+                                          size: 16),
+                                      label: const Text('Friends'),
+                                      style: OutlinedButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 10, vertical: 6),
+                                      ),
+                                    );
+                                  } else if (status == 'requested') {
+                                    return OutlinedButton.icon(
+                                      onPressed: () =>
+                                          _cancelFriendRequest(userId),
+                                      icon: const Icon(
+                                          Icons.hourglass_empty_rounded,
+                                          size: 16),
+                                      label: const Text('Sent'),
+                                      style: OutlinedButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 10, vertical: 6),
+                                      ),
+                                    );
+                                  } else if (status == 'pending') {
+                                    return Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        IconButton(
+                                          icon: const Icon(
+                                              Icons.check_circle_rounded,
+                                              color: Colors.green),
+                                          onPressed: () =>
+                                              _acceptFriendRequest(userId),
+                                          tooltip: 'Accept',
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(
+                                              Icons.cancel_rounded,
+                                              color: Colors.red),
+                                          onPressed: () =>
+                                              _declineFriendRequest(userId),
+                                          tooltip: 'Decline',
+                                        ),
+                                      ],
+                                    );
+                                  }
+
+                                  return ElevatedButton.icon(
+                                    onPressed: () =>
+                                        _sendFriendRequest(userId),
+                                    icon: const Icon(
+                                        Icons.person_add_alt_1_rounded,
+                                        size: 16),
+                                    label: const Text('Add'),
+                                    style: ElevatedButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 10, vertical: 6),
                                     ),
-                                  ],
-                                );
-                              }
-                              
-                              return ElevatedButton.icon(
-                                onPressed: () => _sendFriendRequest(userId),
-                                icon: const Icon(Icons.person_add_alt_1_rounded, size: 16),
-                                label: const Text('Add'),
-                                style: ElevatedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                ),
-                              );
-                            },
+                                  );
+                                },
+                              ),
+                            ],
                           ),
                         );
                       },
