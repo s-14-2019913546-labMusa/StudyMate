@@ -14,6 +14,7 @@ import 'group_details_screen.dart';
 import 'chat_profile_screen.dart';
 import 'language_manager.dart';
 import 'chat_theme_manager.dart';
+import 'chat_bubble_service.dart';
 
 class ChatScreen extends StatefulWidget {
   final String chatId;
@@ -371,6 +372,25 @@ class _ChatScreenState extends State<ChatScreen> {
                 ? _buildGroupAppBarTitle(context)
                 : _buildOneOnOneAppBarTitle(context, chatTitle),
             actions: [ // Actions
+              IconButton(
+                icon: const Icon(Icons.bubble_chart_rounded),
+                tooltip: 'ফ্লোটিং বাবল হিসেবে চালু করুন',
+                onPressed: () {
+                  ChatBubbleService().showBubble(
+                    chatId: widget.chatId,
+                    chatName: chatTitle,
+                    isGroupChat: widget.isGroupChat,
+                    receiverId: widget.receiverId,
+                  );
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('🫧 ফ্লোটিং চ্যাট বাবল চালু হয়েছে!'),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                },
+              ),
               if (widget.isGroupChat)
                 IconButton(
                   icon: const Icon(Icons.more_vert),

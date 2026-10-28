@@ -9,6 +9,7 @@ import 'task_details_screen.dart';
 import 'gamification_service.dart';
 import 'language_manager.dart';
 import 'conversations_screen.dart';
+import 'chat_bubble_service.dart';
 
 // ==========================================
 // Social Hub Screen
@@ -176,6 +177,35 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
         backgroundColor: Theme.of(context).colorScheme.surface,
         elevation: 0,
         title: const Text('Social Hub', style: TextStyle(fontWeight: FontWeight.bold)),
+        actions: [
+          ValueListenableBuilder<bool>(
+            valueListenable: ChatBubbleService().isEnabled,
+            builder: (context, enabled, _) {
+              return IconButton(
+                icon: Icon(
+                  enabled ? Icons.bubble_chart_rounded : Icons.bubble_chart_outlined,
+                  color: enabled ? Theme.of(context).colorScheme.primary : Colors.grey,
+                ),
+                tooltip: enabled
+                    ? 'ফ্লোটিং বাবল চালু আছে (ট্যাপ করে বন্ধ করুন)'
+                    : 'ফ্লোটিং বাবল বন্ধ (ট্যাপ করে চালু করুন)',
+                onPressed: () {
+                  ChatBubbleService().setEnabled(!enabled);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        !enabled
+                            ? '🫧 ফ্লোটিং চ্যাট বাবল চালু করা হয়েছে!'
+                            : 'ফ্লোটিং চ্যাট বাবল বন্ধ করা হয়েছে',
+                      ),
+                      duration: const Duration(seconds: 2),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: Theme.of(context).colorScheme.primary,

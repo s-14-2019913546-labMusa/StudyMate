@@ -13,6 +13,7 @@ import 'app_lock_service.dart';
 import 'app_lock_screen.dart';
 import 'sleep_timer_service.dart';
 import 'prayer_timer_service.dart';
+import 'widgets/floating_chat_bubble.dart';
 
 // Global key for context-less notifications
 final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
@@ -164,6 +165,11 @@ class _StudyMateAppState extends State<StudyMateApp> with WidgetsBindingObserver
           scaffoldMessengerKey: scaffoldMessengerKey,
           navigatorKey: navigatorKey,
           theme: ThemeManager().currentThemeData,
+          builder: (context, child) {
+            return FloatingChatManager(
+              child: child ?? const SizedBox.shrink(),
+            );
+          },
           home: showLockOnStartup
               ? AppLockScreen(
                   mode: AppLockMode.unlock,

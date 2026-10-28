@@ -12,20 +12,83 @@ import 'dart:developer';
 import 'dart:io';
 import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'daily_routine.dart';
 import 'notification_service.dart';
 
 @pragma('vm:entry-point')
-void notificationTapBackground(NotificationResponse notificationResponse) {
+void notificationTapBackground(NotificationResponse notificationResponse) async {
   // Handle background actions here
   log(
     'Background Notification Action Triggered: ${notificationResponse.actionId}',
   );
-  _handleNotificationAction(notificationResponse.actionId);
+  await _handleNotificationAction(notificationResponse);
 }
 
-Future<void> _handleNotificationAction(String? actionId) async {
-  if (actionId == null) return;
+Future<void> _handleNotificationAction(dynamic actionOrResponse) async {
+  String? actionId;
+  String? input;
+  String? payload;
+  int? id;
+
+  if (actionOrResponse is NotificationResponse) {
+    actionId = actionOrResponse.actionId;
+    input = actionOrResponse.input;
+    payload = actionOrResponse.payload;
+    id = actionOrResponse.id;
+  } else if (actionOrResponse is String?) {
+    actionId = actionOrResponse;
+  }
+
+  if (actionId == null && payload == null) return;
+
+  // Direct Reply from Android Notification Shade
+  if (actionId == 'chat_direct_reply') {
+    final replyText = input?.trim();
+    if (replyText != null && replyText.isNotEmpty && payload != null) {
+      try {
+        if (Firebase.apps.isEmpty) {
+          await Firebase.initializeApp();
+        }
+        final Map<String, dynamic> data = jsonDecode(payload);
+        final String? chatId = data['chatId'];
+        final currentUser = FirebaseAuth.instance.currentUser;
+        if (chatId != null && currentUser != null) {
+          final chatRef =
+              FirebaseFirestore.instance.collection('chats').doc(chatId);
+          await chatRef.collection('messages').add({
+            'senderId': currentUser.uid,
+            'senderName': currentUser.displayName ?? 'Study Mate',
+            'content': replyText,
+            'type': 'text',
+            'timestamp': FieldValue.serverTimestamp(),
+          });
+
+          final chatDoc = await chatRef.get();
+          final participants =
+              List<String>.from(chatDoc.data()?['participants'] ?? []);
+          final unreadUpdates = <String, dynamic>{};
+          for (var pId in participants) {
+            if (pId != currentUser.uid) {
+              unreadUpdates['unreadCount.$pId'] = FieldValue.increment(1);
+            }
+          }
+
+          await chatRef.update({
+            'lastMessage': replyText,
+            'lastMessageTimestamp': FieldValue.serverTimestamp(),
+            ...unreadUpdates,
+          });
+
+          log('Direct reply successfully sent to chat: $chatId');
+        }
+      } catch (e) {
+        log('Error processing chat_direct_reply: $e');
+      }
+    }
+    return;
+  }
 
   // Initialize timezone in background isolate before using any tz functions
   tz.initializeTimeZones();
@@ -123,7 +186,7 @@ class LocalNotificationService {
         settings: initializationSettings,
         onDidReceiveNotificationResponse: (NotificationResponse response) {
           log('Foreground Notification Action Triggered: ${response.actionId}');
-          _handleNotificationAction(response.actionId);
+          _handleNotificationAction(response);
         },
         onDidReceiveBackgroundNotificationResponse: notificationTapBackground,
       );
@@ -927,6 +990,77 @@ class LocalNotificationService {
       notificationDetails: platformDetails,
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
     );
+  }
+
+  /// Show Android Notification with Direct-Reply Action
+  static Future<void> showChatNotificationWithDirectReply({
+    required String chatId,
+    required String senderName,
+    required String messageText,
+    int unreadCount = 1,
+  }) async {
+    if (kIsWeb) return;
+
+    try {
+      final int notifId = (chatId.hashCode % 100000).abs();
+      final payloadJson = jsonEncode({
+        'chatId': chatId,
+        'senderName': senderName,
+        'type': 'chat_message',
+      });
+
+      final AndroidNotificationDetails androidDetails =
+          AndroidNotificationDetails(
+        'study_chat_channel',
+        'StudyMate Messages & Chat',
+        channelDescription: 'Direct reply notifications for StudyMate chats',
+        importance: Importance.max,
+        priority: Priority.high,
+        category: AndroidNotificationCategory.message,
+        actions: const [
+          AndroidNotificationAction(
+            'chat_direct_reply',
+            '💬 রিপ্লাই লিখুন',
+            inputs: [
+              AndroidNotificationActionInput(
+                label: 'এখানে মেসেজ লিখুন...',
+              ),
+            ],
+            allowGeneratedReplies: true,
+            showsUserInterface: false,
+          ),
+          AndroidNotificationAction(
+            'open_chat_bubble',
+            'চ্যাট খুলুন',
+            showsUserInterface: true,
+          ),
+        ],
+        styleInformation: BigTextStyleInformation(
+          messageText,
+          contentTitle: senderName,
+          summaryText: unreadCount > 1 ? '$unreadCount টি নতুন মেসেজ' : 'নতুন মেসেজ',
+        ),
+      );
+
+      final NotificationDetails notifDetails = NotificationDetails(
+        android: androidDetails,
+        iOS: const DarwinNotificationDetails(
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
+        ),
+      );
+
+      await _notificationsPlugin.show(
+        id: notifId,
+        title: senderName,
+        body: messageText,
+        notificationDetails: notifDetails,
+        payload: payloadJson,
+      );
+    } catch (e) {
+      log('Error showing chat notification with direct reply: $e');
+    }
   }
 }
 
