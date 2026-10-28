@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import '../chat_bubble_service.dart';
 import '../chat_screen.dart';
+import '../main.dart';
 
 class FloatingChatManager extends StatefulWidget {
   final Widget child;
@@ -184,18 +185,44 @@ class _FloatingChatManagerState extends State<FloatingChatManager>
             }
 
             return Positioned.fill(
-              child: Material(
-                color: Colors.black.withValues(alpha: 0.35),
-                child: GestureDetector(
-                  onTap: () => _bubbleService.collapse(),
-                  behavior: HitTestBehavior.opaque,
-                  child: Center(
-                    child: GestureDetector(
-                      onTap: () {}, // Prevent taps inside from closing
-                      child: _buildFloatingChatWindow(bubble, screenSize),
-                    ),
+              child: Overlay(
+                key: ValueKey('chat_modal_overlay_${bubble.chatId}_${_bubbleService.isExpanded.value}'),
+                initialEntries: [
+                  OverlayEntry(
+                    builder: (overlayCtx) {
+                      final media = MediaQuery.of(overlayCtx);
+                      final keyboardHeight = media.viewInsets.bottom;
+                      final availableHeight = media.size.height - keyboardHeight;
+                      final dialogHeight = (availableHeight * 0.72).clamp(280.0, 560.0);
+                      final dialogWidth = (media.size.width * 0.90).clamp(280.0, 420.0);
+
+                      return Material(
+                        color: Colors.black.withValues(alpha: 0.45),
+                        child: GestureDetector(
+                          onTap: () => _bubbleService.collapse(),
+                          behavior: HitTestBehavior.opaque,
+                          child: SafeArea(
+                            child: AnimatedPadding(
+                              padding: EdgeInsets.only(bottom: keyboardHeight),
+                              duration: const Duration(milliseconds: 150),
+                              curve: Curves.easeOut,
+                              child: Center(
+                                child: GestureDetector(
+                                  onTap: () {}, // Prevent taps inside from closing
+                                  child: _buildFloatingChatWindow(
+                                    bubble,
+                                    dialogWidth,
+                                    dialogHeight,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
                   ),
-                ),
+                ],
               ),
             );
           },
@@ -280,10 +307,9 @@ class _FloatingChatManagerState extends State<FloatingChatManager>
     );
   }
 
-  Widget _buildFloatingChatWindow(ChatBubbleInfo bubble, Size screenSize) {
+  Widget _buildFloatingChatWindow(
+      ChatBubbleInfo bubble, double width, double height) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final width = (screenSize.width * 0.88).clamp(300.0, 420.0);
-    final height = (screenSize.height * 0.65).clamp(420.0, 580.0);
 
     return Container(
       width: width,
@@ -378,8 +404,7 @@ class _FloatingChatManagerState extends State<FloatingChatManager>
             tooltip: 'ফুল স্ক্রিনে খুলুন',
             onPressed: () {
               _bubbleService.collapse();
-              Navigator.push(
-                context,
+              navigatorKey.currentState?.push(
                 MaterialPageRoute(
                   builder: (_) => ChatScreen(
                     chatId: bubble.chatId,
@@ -430,6 +455,22 @@ class _FloatingChatMessagesList extends StatelessWidget {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(
             child: CircularProgressIndicator(strokeWidth: 2.5),
+          );
+        }
+
+        if (snapshot.hasError) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Text(
+                'মেসেজ লোড করা যায়নি',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: isDark ? Colors.white60 : Colors.black54,
+                  fontSize: 12,
+                ),
+              ),
+            ),
           );
         }
 

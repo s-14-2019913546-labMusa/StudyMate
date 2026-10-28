@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -15,6 +16,7 @@ import 'chat_profile_screen.dart';
 import 'language_manager.dart';
 import 'chat_theme_manager.dart';
 import 'chat_bubble_service.dart';
+import 'widgets/web_image_view.dart';
 
 class ChatScreen extends StatefulWidget {
   final String chatId;
@@ -258,36 +260,45 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _pickAndUploadFile({bool pickImage = true, ImageSource source = ImageSource.gallery}) async {
     if (_isUploading) return;
 
-    File? fileToUpload;
+    Uint8List? fileBytes;
     String? fileName;
-
-    if (pickImage) {
-      final pickedFile = await ImagePicker().pickImage(
-        source: source,
-        maxWidth: 1280,
-        maxHeight: 1280,
-        imageQuality: 70,
-      );
-      if (pickedFile != null) {
-        fileToUpload = File(pickedFile.path);
-        fileName = pickedFile.name;
-      }
-    } else {
-      final result = await fp.FilePicker.platform.pickFiles(
-        type: fp.FileType.custom,
-        allowedExtensions: ['pdf', 'doc', 'docx', 'txt'],
-      );
-      if (result != null && result.files.single.path != null) {
-        fileToUpload = File(result.files.single.path!);
-        fileName = result.files.single.name;
-      }
-    }
-
-    if (fileToUpload == null) return;
-
-    setState(() => _isUploading = true);
+    int? fileSize;
 
     try {
+      if (pickImage) {
+        final pickedFile = await ImagePicker().pickImage(
+          source: source,
+          maxWidth: 1280,
+          maxHeight: 1280,
+          imageQuality: 70,
+        );
+        if (pickedFile != null) {
+          fileBytes = await pickedFile.readAsBytes();
+          fileName = pickedFile.name;
+          fileSize = fileBytes.length;
+        }
+      } else {
+        final result = await fp.FilePicker.platform.pickFiles(
+          type: fp.FileType.custom,
+          allowedExtensions: ['pdf', 'doc', 'docx', 'txt'],
+          withData: true,
+        );
+        if (result != null && result.files.isNotEmpty) {
+          final picked = result.files.single;
+          if (picked.bytes != null) {
+            fileBytes = picked.bytes;
+          } else if (!kIsWeb && picked.path != null) {
+            fileBytes = await File(picked.path!).readAsBytes();
+          }
+          fileName = picked.name;
+          fileSize = picked.size;
+        }
+      }
+
+      if (fileBytes == null || fileBytes.isEmpty) return;
+
+      setState(() => _isUploading = true);
+
       final fileType = pickImage ? 'image' : 'file';
       final cleanName = (fileName ?? 'media').replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
       final ref = FirebaseStorage.instance
@@ -300,16 +311,15 @@ class _ChatScreenState extends State<ChatScreen> {
         contentType: pickImage ? 'image/jpeg' : null,
       );
 
-      final uploadTask = ref.putFile(fileToUpload, metadata);
+      final uploadTask = ref.putData(fileBytes, metadata);
       final snapshot = await uploadTask;
       final downloadUrl = await snapshot.ref.getDownloadURL();
-      final fileSize = await fileToUpload.length();
 
       await _addMessageToFirestore(
         content: downloadUrl,
         type: fileType,
         fileName: fileName ?? cleanName,
-        fileSize: fileSize,
+        fileSize: fileSize ?? fileBytes.length,
       );
     } catch (e) {
       debugPrint('Failed to upload file: $e');
@@ -1270,17 +1280,14 @@ class _MessageBubble extends StatelessWidget {
 
     switch (type) {
       case 'image':
-        return GestureDetector(
-          onTap: () => _showFullScreenImage(context, content),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: Image.network(
-              content,
-              loadingBuilder: (context, child, progress) {
-                return progress == null ? child : const CircularProgressIndicator();
-              },
-              errorBuilder: (context, error, stack) => const Icon(Icons.broken_image),
-            ),
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: buildPlatformImageView(
+            imageUrl: content,
+            width: 220,
+            height: 180,
+            fit: BoxFit.cover,
+            onTap: () => _showFullScreenImage(context, content),
           ),
         );
       case 'file':
@@ -1338,10 +1345,19 @@ class _MessageBubble extends StatelessWidget {
       MaterialPageRoute(
         builder: (context) => Scaffold(
           backgroundColor: Colors.black,
-          appBar: AppBar(backgroundColor: Colors.black, elevation: 0),
+          appBar: AppBar(
+            backgroundColor: Colors.black,
+            elevation: 0,
+            iconTheme: const IconThemeData(color: Colors.white),
+          ),
           body: Center(
             child: InteractiveViewer(
-              child: Image.network(imageUrl),
+              child: buildPlatformImageView(
+                imageUrl: imageUrl,
+                width: MediaQuery.of(context).size.width,
+                height: MediaQuery.of(context).size.height * 0.8,
+                fit: BoxFit.contain,
+              ),
             ),
           ),
         ),
