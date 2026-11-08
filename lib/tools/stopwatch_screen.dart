@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
@@ -79,6 +79,8 @@ class _StopwatchScreenState extends State<StopwatchScreen> with TickerProviderSt
   // Animation Variables for Neon
   late AnimationController _neonRingController;
   late AnimationController _pulseController;
+  int? _fastestLapMillis;
+  int? _slowestLapMillis;
 
   // Timer (Countdown) Variables
   int _selectedTimerSeconds = 0;
@@ -92,8 +94,8 @@ class _StopwatchScreenState extends State<StopwatchScreen> with TickerProviderSt
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     
-    _neonRingController = AnimationController(vsync: this, duration: const Duration(seconds: 4))..repeat();
-    _pulseController = AnimationController(vsync: this, duration: const Duration(seconds: 1))..repeat(reverse: true);
+    _neonRingController = AnimationController(vsync: this, duration: const Duration(seconds: 4));
+    _pulseController = AnimationController(vsync: this, duration: const Duration(seconds: 1));
   }
 
   @override
@@ -111,9 +113,13 @@ class _StopwatchScreenState extends State<StopwatchScreen> with TickerProviderSt
     if (_stopwatch.isRunning) {
       _stopwatch.stop();
       _stopwatchTimer?.cancel();
+      _neonRingController.stop();
+      _pulseController.stop();
     } else {
       _stopwatch.start();
-      _stopwatchTimer = Timer.periodic(const Duration(milliseconds: 30), (timer) {
+      _neonRingController.repeat();
+      _pulseController.repeat(reverse: true);
+      _stopwatchTimer = Timer.periodic(const Duration(milliseconds: 50), (timer) {
         if (mounted) setState(() {});
       });
     }
@@ -126,6 +132,8 @@ class _StopwatchScreenState extends State<StopwatchScreen> with TickerProviderSt
       final currentTotal = _stopwatch.elapsedMilliseconds;
       final lapDuration = currentTotal - _lastLapMillis;
       _lastLapMillis = currentTotal;
+      if (_fastestLapMillis == null || lapDuration < _fastestLapMillis!) _fastestLapMillis = lapDuration;
+      if (_slowestLapMillis == null || lapDuration > _slowestLapMillis!) _slowestLapMillis = lapDuration;
 
       setState(() {
         _laps.insert(0, _LapRecord(lapDuration, _formatStopwatchTime(lapDuration), _formatStopwatchTime(currentTotal)));
@@ -136,6 +144,8 @@ class _StopwatchScreenState extends State<StopwatchScreen> with TickerProviderSt
         _stopwatch.reset();
         _laps.clear();
         _lastLapMillis = 0;
+        _fastestLapMillis = null;
+        _slowestLapMillis = null;
       });
     }
   }
@@ -151,6 +161,8 @@ class _StopwatchScreenState extends State<StopwatchScreen> with TickerProviderSt
   void _startCountdown() {
     if (_selectedTimerSeconds == 0) return;
     setState(() {
+      _neonRingController.repeat();
+      _pulseController.repeat(reverse: true);
       _isTimerRunning = true;
       if (_remainingTimerSeconds == 0) _remainingTimerSeconds = _selectedTimerSeconds;
     });
@@ -167,6 +179,8 @@ class _StopwatchScreenState extends State<StopwatchScreen> with TickerProviderSt
 
   void _stopCountdown() {
     _countdownTimer?.cancel();
+    _neonRingController.stop();
+    _pulseController.stop();
     setState(() => _isTimerRunning = false);
   }
 
@@ -292,8 +306,8 @@ class _StopwatchScreenState extends State<StopwatchScreen> with TickerProviderSt
     final timeStr = _formatStopwatchTime(_stopwatch.elapsedMilliseconds);
     final timeParts = timeStr.split('.'); // [MM:SS, ms]
 
-    int? fastest = _laps.isNotEmpty ? _laps.map((l) => l.durationMillis).reduce((a, b) => a < b ? a : b) : null;
-    int? slowest = _laps.isNotEmpty ? _laps.map((l) => l.durationMillis).reduce((a, b) => a > b ? a : b) : null;
+    final int? fastest = _laps.length > 1 ? _fastestLapMillis : null;
+    final int? slowest = _laps.length > 1 ? _slowestLapMillis : null;
 
     return Stack(
       children: [
