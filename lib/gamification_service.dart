@@ -90,6 +90,30 @@ class GamificationService {
     },
   ];
 
+  /// Week identifier (week starts on Saturday, Bangladesh style), e.g. "2026-11-08"
+  static String currentWeekKey([DateTime? now]) {
+    final d = now ?? DateTime.now();
+    final today = DateTime(d.year, d.month, d.day);
+    // DateTime.saturday == 6 → days since last Saturday
+    final int diff = (today.weekday - DateTime.saturday + 7) % 7;
+    final weekStart = today.subtract(Duration(days: diff));
+    return DateFormat('yyyy-MM-dd').format(weekStart);
+  }
+
+  /// Save the current streak to the user's profile so Leaderboard can read it
+  static Future<void> saveStreak(int streak) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+        'streak': streak,
+        'streakUpdatedAt': DateFormat('yyyy-MM-dd').format(DateTime.now()),
+      }, SetOptions(merge: true));
+    } catch (e) {
+      debugPrint('Error saving streak: $e');
+    }
+  }
+
   /// Get or create gamification data for the current user
   static Future<Map<String, dynamic>> getUserGamificationData() async {
     final user = FirebaseAuth.instance.currentUser;
@@ -123,9 +147,17 @@ class GamificationService {
     try {
       final docRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
 
+      // Weekly XP: reset automatically when a new week starts
+      final String thisWeek = currentWeekKey();
+      final beforeDoc = await docRef.get();
+      final String? savedWeek = beforeDoc.data()?['weeklyXpWeek'] as String?;
+      final bool sameWeek = savedWeek == thisWeek;
+
       // Increment XP atomically
       await docRef.set({
         'totalXP': FieldValue.increment(xpAmount),
+        'weeklyXp': sameWeek ? FieldValue.increment(xpAmount) : xpAmount,
+        'weeklyXpWeek': thisWeek,
         if (reason == 'task_complete') 'totalTasksDone': FieldValue.increment(1),
       }, SetOptions(merge: true));
 
@@ -165,6 +197,7 @@ class GamificationService {
 
     // Calculate streak
     final streak = await calculateStreak();
+    await saveStreak(streak);
 
     // Check each badge
     for (final badge in allBadges) {

@@ -887,25 +887,8 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
           return const Center(child: Text('No leaderboard data yet.'));
         }
 
-        final now = DateTime.now();
-        final weekStart = now.subtract(Duration(days: now.weekday - 1));
-
         final users = snapshot.data!.docs.map((doc) {
-          final data = doc.data() as Map<String, dynamic>;
-          final int streak = data['streak'] ?? 0;
-          final int xp = data['xp'] ?? 0;
-          // Weighted combo score: streak*10 + xp (normalized)
-          final int score = streak * 10 + (xp ~/ 10);
-          return {
-            'uid': doc.id,
-            'displayName': data['displayName'] ?? 'Study Buddy',
-            'streak': streak,
-            'xp': xp,
-            'score': score,
-            'email': data['email'] ?? '',
-            'weeklyXp': data['weeklyXp'] ?? 0,
-            'weeklyStreak': data['weeklyStreak'] ?? 0,
-          };
+          return _leaderboardEntry(doc);
         }).toList();
 
         if (_leaderboardPeriod == 'weekly') {
@@ -941,20 +924,7 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
             final users = snapshot.data!.docs
                 .where((doc) => friendIds.contains(doc.id))
                 .map((doc) {
-              final data = doc.data() as Map<String, dynamic>;
-              final int streak = data['streak'] ?? 0;
-              final int xp = data['xp'] ?? 0;
-              final int score = streak * 10 + (xp ~/ 10);
-              return {
-                'uid': doc.id,
-                'displayName': data['displayName'] ?? 'Study Buddy',
-                'streak': streak,
-                'xp': xp,
-                'score': score,
-                'email': data['email'] ?? '',
-                'weeklyXp': data['weeklyXp'] ?? 0,
-                'weeklyStreak': data['weeklyStreak'] ?? 0,
-              };
+              return _leaderboardEntry(doc);
             }).toList();
 
             if (_leaderboardPeriod == 'weekly') {
@@ -969,6 +939,35 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
         );
       },
     );
+  }
+
+  /// Leaderboard row from a user document (XP field = totalXP, streak saved by GamificationService)
+  Map<String, dynamic> _leaderboardEntry(QueryDocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    final int xp = ((data['totalXP'] ?? data['xp'] ?? 0) as num).toInt();
+
+    // streak যদি গতকালের আগের হয়, তাহলে সেটা ভেঙে গেছে ধরা হবে
+    int streak = ((data['streak'] ?? 0) as num).toInt();
+    final String? streakDate = data['streakUpdatedAt'] as String?;
+    if (streakDate != null) {
+      final yesterday = DateFormat('yyyy-MM-dd').format(DateTime.now().subtract(const Duration(days: 1)));
+      if (streakDate.compareTo(yesterday) < 0) streak = 0;
+    }
+
+    // weeklyXp শুধু চলতি সপ্তাহের হলে গণনা হবে
+    final bool thisWeek = data['weeklyXpWeek'] == GamificationService.currentWeekKey();
+    final int weeklyXp = thisWeek ? ((data['weeklyXp'] ?? 0) as num).toInt() : 0;
+
+    return {
+      'uid': doc.id,
+      'displayName': data['displayName'] ?? 'Study Buddy',
+      'streak': streak,
+      'xp': xp,
+      'score': streak * 10 + (xp ~/ 10),
+      'email': data['email'] ?? '',
+      'weeklyXp': weeklyXp,
+      'weeklyStreak': streak,
+    };
   }
 
   Widget _buildLeaderboardList(List<Map<String, dynamic>> users) {

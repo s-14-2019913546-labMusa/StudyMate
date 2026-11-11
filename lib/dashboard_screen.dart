@@ -1271,6 +1271,8 @@ class _DashboardScreenState extends State<DashboardScreen>
   Future<void> _loadStreak() async {
     try {
       final streak = await GamificationService.calculateStreak();
+      // Leaderboard-এর জন্য streak প্রোফাইলে সেভ করা
+      GamificationService.saveStreak(streak);
       if (mounted) {
         setState(() {
           _currentStreak = streak;

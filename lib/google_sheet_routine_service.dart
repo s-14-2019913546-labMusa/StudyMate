@@ -10,10 +10,6 @@ import 'daily_routine.dart';
 class GoogleSheetRoutineService {
   static const String _prefKeySheetUrl = 'saved_google_sheet_routine_url';
 
-  // Sample Google Sheet Template link that users can view or copy
-  static const String templateSheetUrl = 
-      'https://docs.google.com/spreadsheets/d/1U9p2sE6kGZ-SampleTemplateForStudyMate/edit?usp=sharing';
-
   /// Save the sheet URL for quick 1-tap re-sync
   static Future<void> saveSheetUrl(String url) async {
     final prefs = await SharedPreferences.getInstance();
@@ -434,20 +430,36 @@ class GoogleSheetRoutineService {
 
       List<Task> finalTaskList = [];
 
-      if (docSnap.exists && !replaceExisting) {
-        // Merge with existing tasks, but automatically clean up any corrupted previous dummy imports
+      if (docSnap.exists) {
         final existingRoutine = DailyRoutine.fromMap(docSnap.data()!, docSnap.id);
         final cleanedExisting = existingRoutine.tasks.where((t) {
+          // আগের ভুল ইমপোর্টের ফাঁকা "Study Session" টাস্ক মুছে ফেলা
           if (t.id.startsWith('gsheet_') && (t.title == 'Study Session' || t.title.isEmpty)) {
+            return false;
+          }
+          // Replace মোডে শুধু আগের শিট-ইমপোর্টেড টাস্ক সরানো হবে, হাতে লেখা টাস্ক থাকবে
+          if (replaceExisting && t.id.startsWith('gsheet_')) {
             return false;
           }
           return true;
         }).toList();
 
         finalTaskList.addAll(cleanedExisting);
-        finalTaskList.addAll(newTasks);
+
+        // একই টাস্ক দ্বিতীয়বার যোগ না করা (একই নাম + একই শুরুর সময়)
+        String key(Task t) =>
+            '${t.title.trim().toLowerCase()}|${(t.topic ?? '').trim().toLowerCase()}|${t.startTime?.hour}:${t.startTime?.minute}';
+        final existingKeys = cleanedExisting.map(key).toSet();
+        for (final t in newTasks) {
+          if (existingKeys.add(key(t))) finalTaskList.add(t);
+        }
       } else {
-        finalTaskList = newTasks;
+        // নতুন দিনেও শিটের ভেতরের ডুপ্লিকেট সারি বাদ দেওয়া
+        final seen = <String>{};
+        for (final t in newTasks) {
+          final k = '${t.title.trim().toLowerCase()}|${(t.topic ?? '').trim().toLowerCase()}|${t.startTime?.hour}:${t.startTime?.minute}';
+          if (seen.add(k)) finalTaskList.add(t);
+        }
       }
 
       final routineDate = DateFormat('yyyy-MM-dd').parse(dateStr);
@@ -459,7 +471,7 @@ class GoogleSheetRoutineService {
       );
 
       await docRef.set(routine.toMap(), SetOptions(merge: true));
-      totalImported += newTasks.length;
+      totalImported += finalTaskList.where((t) => newTasks.contains(t)).length;
     }
 
     return totalImported;

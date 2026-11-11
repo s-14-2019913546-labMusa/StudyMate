@@ -6,36 +6,56 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:http/http.dart' as http;
 
 class AIService {
-  // Helper to query Gemini with 1.5-flash and fallback to gemini-pro
-  static Future<String> _queryGemini(String prompt, String apiKey) async {
-    String? responseText;
-    
-    // 1. Try gemini-1.5-flash
-    try {
-      final model = GenerativeModel(
-        model: 'gemini-1.5-flash',
-        apiKey: apiKey,
-      );
-      final content = [Content.text(prompt)];
-      final response = await model.generateContent(content);
-      responseText = response.text;
-    } catch (e) {
-      debugPrint('AIService: gemini-1.5-flash failed, trying gemini-pro: $e');
-      
-      // 2. Try gemini-pro fallback
-      final model = GenerativeModel(
-        model: 'gemini-pro',
-        apiKey: apiKey,
-      );
-      final content = [Content.text(prompt)];
-      final response = await model.generateContent(content);
-      responseText = response.text;
-    }
+  // Gemini models to try, in order. Old models (gemini-1.5-flash, gemini-pro) were
+  // shut down by Google, so calls to them always failed and the app silently
+  // fell back to offline templates. "gemini-flash-latest" is Google's alias that
+  // always points to the newest Flash model; the others are fallbacks.
+  static const List<String> _geminiModels = [
+    'gemini-flash-latest',
+    'gemini-3.5-flash',
+    'gemini-3.1-flash-lite',
+    'gemini-2.5-flash',
+  ];
 
-    if (responseText == null || responseText.isEmpty) {
-      throw Exception('Empty response from Gemini');
+  /// Last Gemini error (shown to the user when AI falls back to offline mode)
+  static String? lastGeminiError;
+
+  static Future<String> _queryGemini(String prompt, String apiKey) async {
+    Object? lastError;
+    for (final modelName in _geminiModels) {
+      try {
+        final model = GenerativeModel(model: modelName, apiKey: apiKey);
+        final response = await model.generateContent([Content.text(prompt)]);
+        final text = response.text;
+        if (text != null && text.trim().isNotEmpty) {
+          lastGeminiError = null;
+          return text;
+        }
+        lastError = Exception('Empty response from $modelName');
+      } catch (e) {
+        debugPrint('AIService: $modelName failed: $e');
+        lastError = e;
+        final msg = e.toString().toLowerCase();
+        // Wrong/expired key → no point trying other models
+        if (msg.contains('api key') || msg.contains('api_key') || msg.contains('permission')) {
+          break;
+        }
+      }
     }
-    return responseText;
+    lastGeminiError = lastError?.toString();
+    throw Exception('Gemini request failed: $lastError');
+  }
+
+  /// Returns null if the key works, otherwise a short error message
+  static Future<String?> testApiKey(String apiKey) async {
+    if (apiKey.isEmpty) return 'Key খালি';
+    try {
+      await _queryGemini('Reply with the single word: OK', apiKey);
+      return null;
+    } catch (e) {
+      final msg = (lastGeminiError ?? e.toString());
+      return msg.length > 160 ? '${msg.substring(0, 160)}...' : msg;
+    }
   }
 
   // Fetch API Key from user's Firestore document
@@ -49,6 +69,99 @@ class AIService {
       debugPrint('AIService: Error fetching API Key: $e');
     }
     return null;
+  }
+
+  // -------------------------------------------------------------
+  // 0. Quiz from a note (used by "Generate AI Quiz" in Notes)
+  // -------------------------------------------------------------
+  static String cleanNoteText(String raw) {
+    return raw
+        .replaceAll(RegExp(r'!\[.*?\]\(.*?\)'), ' ') // images
+        .replaceAll(RegExp(r'<color=[^>]*>|</color>'), '')
+        .replaceAllMapped(RegExp(r'\[(.*?)\]\(.*?\)'), (m) => m.group(1) ?? '')
+        .replaceAll(RegExp(r'[*_#>`]'), '')
+        .replaceAll(RegExp(r'[ \t]+'), ' ')
+        .trim();
+  }
+
+  /// Returns flashcard-style quiz questions ({front, back}) built from the note.
+  /// Uses Gemini when a key is available, otherwise builds questions offline.
+  static Future<List<Map<String, String>>> generateQuizFromNote(String noteContent, String? apiKey) async {
+    final text = cleanNoteText(noteContent);
+    if (text.isEmpty) return [];
+
+    if (apiKey != null && apiKey.isNotEmpty) {
+      try {
+        final limited = text.length > 6000 ? text.substring(0, 6000) : text;
+        final prompt = """
+You are a study assistant. Read the student's note below and create 6 to 8 quiz questions that test the most important facts in it.
+Use the same language as the note (Bengali note → Bengali questions).
+Return ONLY a raw JSON array like [{"front": "question", "back": "answer"}]. No markdown, no explanations.
+
+NOTE:
+$limited
+""";
+        final response = await _queryGemini(prompt, apiKey);
+        final first = response.indexOf('[');
+        final last = response.lastIndexOf(']');
+        if (first != -1 && last > first) {
+          final List<dynamic> list = jsonDecode(response.substring(first, last + 1));
+          final cards = <Map<String, String>>[];
+          for (final item in list) {
+            if (item is Map && (item['front'] ?? '').toString().trim().isNotEmpty) {
+              cards.add({
+                'front': item['front'].toString().trim(),
+                'back': (item['back'] ?? '').toString().trim(),
+              });
+            }
+          }
+          if (cards.isNotEmpty) return cards;
+        }
+      } catch (e) {
+        debugPrint('AIService: generateQuizFromNote via Gemini failed: $e');
+      }
+    }
+
+    // ---- Offline quiz builder ----
+    final cards = <Map<String, String>>[];
+    final lines = text
+        .split(RegExp(r'\n+'))
+        .map((l) => l.replaceFirst(RegExp(r'^[•\-\d\.\)\s]+'), '').trim())
+        .where((l) => l.length > 3)
+        .toList();
+
+    // 1) "Term: definition" / "Term – definition" lines → "Term কী?"
+    for (final line in lines) {
+      final m = RegExp(r'^(.{2,60}?)\s*[:：–—]\s*(.{3,})$').firstMatch(line);
+      if (m != null) {
+        cards.add({'front': '${m.group(1)!.trim()} — কী/কে?', 'back': m.group(2)!.trim()});
+      }
+      if (cards.length >= 8) break;
+    }
+
+    // 2) Fill in the blank: hide the longest word of a sentence
+    if (cards.length < 8) {
+      final sentences = text
+          .split(RegExp(r'(?<=[।\.\?!])\s+|\n+'))
+          .map((s) => s.trim())
+          .where((s) => s.split(' ').length >= 5 && !s.contains(':'))
+          .toList();
+      for (final sentence in sentences) {
+        final words = sentence.split(' ');
+        String longest = '';
+        for (final w in words) {
+          final clean = w.replaceAll(RegExp(r'[,;।\.\?!()"]'), '');
+          if (clean.length > longest.length) longest = clean;
+        }
+        if (longest.length < 3) continue;
+        cards.add({
+          'front': 'শূন্যস্থান পূরণ করুন:\n${sentence.replaceFirst(longest, '______')}',
+          'back': longest,
+        });
+        if (cards.length >= 8) break;
+      }
+    }
+    return cards;
   }
 
   // -------------------------------------------------------------

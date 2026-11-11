@@ -875,7 +875,9 @@ class _BotChatScreenState extends State<BotChatScreen> {
           final title = t['title'] ?? t['taskName'] ?? '';
           final sub = t['subject'] ?? '';
           return sub.isNotEmpty ? '$title ($sub)' : title.toString();
-        }).where((s) => s.trim().isNotEmpty).toList();
+        }).where((s) => s.trim().isNotEmpty && s.trim() != 'Study Session (General)')
+            .toSet() // একই টাস্ক বারবার না দেখানো
+            .toList();
       }
 
       final tasks1 = getTaskTitles(doc1);
@@ -886,7 +888,7 @@ class _BotChatScreenState extends State<BotChatScreen> {
 
       buffer.writeln('📌 **১ম রিভিশন (গতকাল যা পড়েছিলেন - ${DateFormat('dd MMM').format(day1)}):**');
       if (tasks1.isNotEmpty) {
-        for (var t in tasks1) {
+        for (var t in tasks1.take(15)) {
           buffer.writeln('  • $t');
         }
         buffer.writeln('  ⏱️ _পরামর্শ: ১০ মিনিট চোখ বুলিয়ে রিকল করুন_');
@@ -896,7 +898,7 @@ class _BotChatScreenState extends State<BotChatScreen> {
 
       buffer.writeln('\n📌 **২য় রিভিশন (৪ দিন আগে যা পড়েছিলেন - ${DateFormat('dd MMM').format(day4)}):**');
       if (tasks4.isNotEmpty) {
-        for (var t in tasks4) {
+        for (var t in tasks4.take(15)) {
           buffer.writeln('  • $t');
         }
         buffer.writeln('  ⏱️ _পরামর্শ: ৫ মিনিট কি-পয়েন্টগুলো স্মরণ করুন_');
@@ -906,7 +908,7 @@ class _BotChatScreenState extends State<BotChatScreen> {
 
       buffer.writeln('\n📌 **৩য় রিভিশন (৭ দিন আগে যা পড়েছিলেন - ${DateFormat('dd MMM').format(day7)}):**');
       if (tasks7.isNotEmpty) {
-        for (var t in tasks7) {
+        for (var t in tasks7.take(15)) {
           buffer.writeln('  • $t');
         }
         buffer.writeln('  ⏱️ _পরামর্শ: ৫ মিনিট রিভিশন দিলে এটি স্থায়ী স্মৃতিতে রূপ নেবে_');

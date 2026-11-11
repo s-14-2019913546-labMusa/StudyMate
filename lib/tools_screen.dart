@@ -22,6 +22,7 @@ import 'dashboard_screen.dart';
 import 'calendar_screen.dart';
 import 'focus_music_screen.dart';
 import 'flashcards_screen.dart';
+import 'deck_dashboard_screen.dart';
 import 'dictionary_screen.dart';
 import 'ai_service.dart';
 import 'revision_147_screen.dart';
@@ -2273,10 +2274,6 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
     );
   }
 
-  void _simulateAction(String actionName) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$actionName activated. (Simulation)')));
-  }
-
   Future<void> _summarizeNoteWithAI() async {
     final noteContent = _contentController.text.trim();
     if (noteContent.isEmpty) {
@@ -2962,12 +2959,13 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
     };
 
     if (widget.noteId != null) {
-      await FirebaseFirestore.instance
+      final noteRef = FirebaseFirestore.instance
           .collection('users')
           .doc(currentUser!.uid)
           .collection('notes')
-          .doc(widget.noteId)
-          .set(noteData, SetOptions(merge: true));
+          .doc(widget.noteId);
+      await _saveVersionSnapshot(noteRef, noteData['title'] as String, noteData['content'] as String);
+      await noteRef.set(noteData, SetOptions(merge: true));
     } else {
       await FirebaseFirestore.instance
           .collection('users')
@@ -2995,7 +2993,37 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
     }
   }
 
+  /// সেভ করার আগে আগের লেখাটা versions সাব-কালেকশনে রেখে দেয় (সর্বোচ্চ ১০টা)
+  Future<void> _saveVersionSnapshot(DocumentReference noteRef, String newTitle, String newContent) async {
+    try {
+      final old = await noteRef.get();
+      final data = old.data() as Map<String, dynamic>?;
+      if (data == null) return;
+      final oldTitle = (data['title'] ?? '').toString();
+      final oldContent = (data['content'] ?? '').toString();
+      if (oldTitle == newTitle && oldContent == newContent) return; // কিছু বদলায়নি
+
+      final versions = noteRef.collection('versions');
+      await versions.add({
+        'title': oldTitle,
+        'content': oldContent,
+        'savedAt': FieldValue.serverTimestamp(),
+      });
+
+      // পুরনো ভার্সন ছেঁটে ফেলা (শেষ ১০টা রাখা)
+      final all = await versions.orderBy('savedAt', descending: true).get();
+      if (all.docs.length > 10) {
+        for (final d in all.docs.skip(10)) {
+          await d.reference.delete();
+        }
+      }
+    } catch (e) {
+      debugPrint('Version snapshot error: $e');
+    }
+  }
+
   void _showVersionHistory() {
+    final textColor = _isNoteDarkMode ? Colors.white : Theme.of(context).colorScheme.onSurface;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -3004,27 +3032,64 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
           children: [
             const Icon(Icons.restore_rounded, color: Colors.blue),
             const SizedBox(width: 8),
-            Text('Version History', style: TextStyle(color: _isNoteDarkMode ? Colors.white : Theme.of(context).colorScheme.onSurface)),
+            Text('Version History', style: TextStyle(color: textColor)),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('Restore a previous version of this note if you made a mistake.', style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
-            const SizedBox(height: 16),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              title: Text('Today, 10:30 AM', style: TextStyle(color: _isNoteDarkMode ? Colors.white : Theme.of(context).colorScheme.onSurface)),
-              subtitle: Text('Auto-saved', style: TextStyle(color: Colors.grey.shade500)),
-              trailing: TextButton(onPressed: () { Navigator.pop(ctx); _simulateAction('Restored to 10:30 AM version'); }, child: const Text('Restore')),
-            ),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              title: Text('Yesterday, 5:15 PM', style: TextStyle(color: _isNoteDarkMode ? Colors.white : Theme.of(context).colorScheme.onSurface)),
-              subtitle: Text('Manual save', style: TextStyle(color: Colors.grey.shade500)),
-              trailing: TextButton(onPressed: () { Navigator.pop(ctx); _simulateAction('Restored to Yesterday version'); }, child: const Text('Restore')),
-            ),
-          ],
+        content: SizedBox(
+          width: double.maxFinite,
+          child: (widget.noteId == null || currentUser == null)
+              ? Text('নতুন নোটের এখনো কোনো আগের ভার্সন নেই। নোটটি সেভ করে পরে এডিট করলে আগের লেখাগুলো এখানে জমা হবে।',
+                  style: TextStyle(color: Colors.grey.shade500, fontSize: 13))
+              : FutureBuilder<QuerySnapshot>(
+                  future: FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(currentUser!.uid)
+                      .collection('notes')
+                      .doc(widget.noteId)
+                      .collection('versions')
+                      .orderBy('savedAt', descending: true)
+                      .limit(10)
+                      .get(),
+                  builder: (context, snap) {
+                    if (snap.connectionState == ConnectionState.waiting) {
+                      return const SizedBox(height: 80, child: Center(child: CircularProgressIndicator()));
+                    }
+                    final docs = snap.data?.docs ?? [];
+                    if (docs.isEmpty) {
+                      return Text('এখনো কোনো আগের ভার্সন নেই। নোট এডিট করে সেভ করলে আগের লেখা এখানে আসবে।',
+                          style: TextStyle(color: Colors.grey.shade500, fontSize: 13));
+                    }
+                    return ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: docs.length,
+                      itemBuilder: (context, i) {
+                        final v = docs[i].data() as Map<String, dynamic>;
+                        final ts = v['savedAt'] as Timestamp?;
+                        final when = ts != null ? DateFormat('dd MMM yyyy, h:mm a').format(ts.toDate()) : 'Just now';
+                        final content = (v['content'] ?? '').toString();
+                        final preview = content.length > 60 ? '${content.substring(0, 60)}...' : content;
+                        return ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(when, style: TextStyle(color: textColor, fontSize: 14)),
+                          subtitle: Text(preview, maxLines: 2, overflow: TextOverflow.ellipsis,
+                              style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                          trailing: TextButton(
+                            onPressed: () {
+                              Navigator.pop(ctx);
+                              setState(() {
+                                _titleController.text = (v['title'] ?? '').toString();
+                                _contentController.setMarkdownText(content);
+                              });
+                              ScaffoldMessenger.of(this.context).showSnackBar(SnackBar(
+                                  content: Text('$when-এর ভার্সন ফিরিয়ে আনা হয়েছে। রাখতে চাইলে Save চাপুন।')));
+                            },
+                            child: const Text('Restore'),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
@@ -3633,6 +3698,62 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     }
   }
 
+  bool _isGeneratingQuiz = false;
+
+  // নোট থেকে কুইজ (ফ্ল্যাশকার্ড ডেক) তৈরি করে সাথে সাথে খুলে দেয়
+  Future<void> _generateQuizFromNote() async {
+    if (_isGeneratingQuiz) return;
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    if (widget.content.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('নোটটি খালি, কুইজ বানানো যাবে না।')));
+      return;
+    }
+    setState(() => _isGeneratingQuiz = true);
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('✨ Generating AI Quiz from this note...')));
+    try {
+      final apiKey = await AIService.getSavedApiKey(user.uid);
+      final cards = await AIService.generateQuizFromNote(widget.content, apiKey);
+      if (!mounted) return;
+      if (cards.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('এই নোট থেকে প্রশ্ন বানানো গেল না। নোটে আরও তথ্য লিখুন বা Profile → AI Settings-এ Gemini API Key দিন।')));
+        return;
+      }
+      final now = DateTime.now().millisecondsSinceEpoch;
+      final cardList = <Map<String, dynamic>>[];
+      for (int i = 0; i < cards.length; i++) {
+        cardList.add({'id': '$now$i', 'front': cards[i]['front'], 'back': cards[i]['back'], 'difficulty': 'medium'});
+      }
+      final title = 'Quiz: ${widget.title.isEmpty ? 'Note' : widget.title}';
+      final deckTitle = title.length > 30 ? title.substring(0, 30) : title;
+      final ref = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('flashcard_decks')
+          .add({
+        'title': deckTitle,
+        'description': 'Quiz generated from your note "${widget.title}".',
+        'cards': cardList,
+        'sourceNoteId': widget.noteId,
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => DeckDashboardScreen(deckId: ref.id, deckTitle: deckTitle, allCards: cardList),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('কুইজ বানাতে সমস্যা হয়েছে: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _isGeneratingQuiz = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     Color bgColor = _isNoteDarkMode ? const Color(0xFF1E1E1E) : const Color(0xFFF5F5F5);
@@ -3772,10 +3893,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          // AI Quiz Generator Simulation
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('✨ Generating AI Quiz from this note...')));
-        },
+        onPressed: _generateQuizFromNote,
         icon: const Icon(Icons.quiz_rounded),
         label: const Text('Generate AI Quiz'),
         backgroundColor: Theme.of(context).colorScheme.primary,
@@ -8932,9 +9050,24 @@ class _PomodoroTimerScreenState extends State<PomodoroTimerScreen> with WidgetsB
     } catch (_) {}
   }
 
+  // স্ক্রিন নিজে নিজে বন্ধ হলে অ্যাপ "paused" হয়ে গাছ মরে যেত।
+  // তাই ফোকাস চলার সময় স্ক্রিন জাগিয়ে রাখা হয় (MainActivity.kt-এর 'studymate/screen' চ্যানেল)।
+  static const MethodChannel _screenChannel = MethodChannel('studymate/screen');
+  bool? _screenKeptOn;
+
+  void _syncScreenOn() {
+    final bool want = _isRunning && _currentMode == 'Focus';
+    if (_screenKeptOn == want) return;
+    _screenKeptOn = want;
+    _screenChannel.invokeMethod('keepOn', {'on': want}).catchError((_) {});
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    if (_screenKeptOn == true) {
+      _screenChannel.invokeMethod('keepOn', {'on': false}).catchError((_) {});
+    }
     _timer?.cancel();
     super.dispose();
   }
@@ -9064,6 +9197,7 @@ class _PomodoroTimerScreenState extends State<PomodoroTimerScreen> with WidgetsB
 
   @override
   Widget build(BuildContext context) {
+    _syncScreenOn(); // ফোকাস চলার সময় স্ক্রিন জাগিয়ে রাখা
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     int minutes = _remainingSeconds ~/ 60;
@@ -11650,4 +11784,4 @@ class _MultiTaskImportSheetState extends State<MultiTaskImportSheet> {
       ),
     );
   }
-}
+}

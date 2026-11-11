@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'language_manager.dart';
 import 'theme_manager.dart';
 
@@ -207,12 +208,16 @@ class _AboutUsScreenState extends State<AboutUsScreen> {
                   ),
             ),
             const SizedBox(height: 4),
-            Text(
-              '${'Version'.tr()} 1.0.0',
-              style: TextStyle(
-                color: Colors.grey.shade600,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
+            // আসল ইনস্টল করা ভার্সন দেখানো (আগে "1.0.0" লিখে বসানো ছিল)
+            FutureBuilder<PackageInfo>(
+              future: PackageInfo.fromPlatform(),
+              builder: (context, snap) => Text(
+                '${'Version'.tr()} ${snap.hasData ? '${snap.data!.version} (${snap.data!.buildNumber})' : '...'}',
+                style: TextStyle(
+                  color: Colors.grey.shade600,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
             const SizedBox(height: 28),

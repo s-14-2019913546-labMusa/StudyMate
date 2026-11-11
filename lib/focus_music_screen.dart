@@ -25,7 +25,7 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
       'subtitle': 'Chill beats for deep focus',
       'icon': Icons.headphones_rounded,
       'color': Colors.purpleAccent,
-      'url': 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
+      'asset': 'audio/focus_lofi.ogg', // অ্যাপের ভেতরেই আছে, ইন্টারনেট লাগে না
     },
     {
       'id': 'rain',
@@ -33,7 +33,7 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
       'subtitle': 'Peaceful shower sounds',
       'icon': Icons.water_drop_rounded,
       'color': Colors.blueAccent,
-      'url': 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3',
+      'asset': 'audio/focus_rain.ogg',
     },
     {
       'id': 'forest',
@@ -41,15 +41,15 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
       'subtitle': 'Rustling leaves & birds chirping',
       'icon': Icons.park_rounded,
       'color': Colors.greenAccent,
-      'url': 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3',
+      'asset': 'audio/focus_forest.ogg',
     },
     {
       'id': 'white_noise',
-      'title': 'Deep White Noise',
+      'title': 'Deep Brown Noise',
       'subtitle': 'Steady noise for blocking noise',
       'icon': Icons.air_rounded,
       'color': Colors.tealAccent,
-      'url': 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-16.mp3',
+      'asset': 'audio/focus_noise.ogg',
     },
   ];
 
@@ -129,6 +129,10 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
   Future<void> _checkCachedTracks() async {
     final Set<String> cached = {};
     for (final track in _tracks) {
+      if (track['asset'] != null) {
+        cached.add(track['id']); // বিল্ট-ইন সাউন্ড সবসময় অফলাইনে আছে
+        continue;
+      }
       final path = await _getCachedFilePath(track['id']);
       if (await File(path).exists()) {
         cached.add(track['id']);
@@ -137,6 +141,14 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
     if (mounted) setState(() => _cachedTrackIds = cached);
   }
 
+
+  /// অ্যাপের ভেতরের অ্যাম্বিয়েন্ট সাউন্ড লুপে বাজানো (রেইন, ফরেস্ট, লো-ফাই, নয়েজ)
+  Future<void> _playBuiltInAsset(Map<String, dynamic> track) async {
+    await _audioPlayer.stop();
+    await _audioPlayer.setReleaseMode(ReleaseMode.loop);
+    await _audioPlayer.play(AssetSource(track['asset'] as String));
+    await _audioPlayer.setVolume(_volume);
+  }
 
   /// ইন্টারনেট থেকে ট্র্যাক download করে device এ save করে
   Future<void> _downloadAndCache(Map<String, dynamic> track, String savePath) async {
@@ -240,6 +252,11 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
         _duration = Duration.zero;
       });
 
+      if (track['asset'] != null) {
+        await _playBuiltInAsset(track);
+        return;
+      }
+
       final cachePath = await _getCachedFilePath(trackId);
       final cacheFile = File(cachePath);
 
@@ -264,12 +281,19 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
     } else {
       if (_isCustomPlaying && _customTrackIndex >= 0) {
         // কাস্টম ট্র্যাক resume
+        await _audioPlayer.setReleaseMode(ReleaseMode.release);
         await _audioPlayer.play(DeviceFileSource(_customTracks[_customTrackIndex]['path']!));
       } else {
         final track = _tracks[_selectedTrackIndex];
         final cachePath = await _getCachedFilePath(track['id']);
         final cacheFile = File(cachePath);
-        if (await cacheFile.exists()) {
+        if (track['asset'] != null) {
+          if (_audioPlayer.state == PlayerState.paused) {
+            await _audioPlayer.resume(); // যেখানে থেমেছিল সেখান থেকে
+          } else {
+            await _playBuiltInAsset(track);
+          }
+        } else if (await cacheFile.exists()) {
           await _audioPlayer.play(DeviceFileSource(cachePath));
         } else {
           await _audioPlayer.play(UrlSource(track['url']));
@@ -329,6 +353,7 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
         _duration = Duration.zero;
       });
 
+      await _audioPlayer.setReleaseMode(ReleaseMode.release);
       await _audioPlayer.play(DeviceFileSource(_customTracks[index]['path']!));
       await _audioPlayer.setVolume(_volume);
     } catch (e) {

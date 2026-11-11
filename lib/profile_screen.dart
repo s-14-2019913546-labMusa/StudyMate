@@ -16,6 +16,7 @@ import 'app_lock_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'cloud_backup_screen.dart';
 import 'notifications_hub_screen.dart';
+import 'ai_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -279,6 +280,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         MaterialPageRoute(builder: (_) => const CloudBackupScreen()),
                       );
                     },
+                  ),
+                  _buildListTile(
+                    context,
+                    Icons.auto_awesome_rounded,
+                    'AI Settings (Gemini API Key)',
+                    onTap: () => _showAiKeyDialog(context),
                   ),
                   _buildListTile(context, Icons.dark_mode_outlined, 'Dark Mode', isToggle: true),
 
@@ -723,6 +730,91 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  // Gemini API Key সেট করা ও পরীক্ষা করা (AI Planner, Notes AI, Flashcards, Dictionary সবাই এটা ব্যবহার করে)
+  Future<void> _showAiKeyDialog(BuildContext context) async {
+    if (_user == null) return;
+    final docRef = FirebaseFirestore.instance.collection('users').doc(_user!.uid);
+    String current = '';
+    try {
+      final doc = await docRef.get();
+      current = (doc.data()?['geminiApiKey'] as String?) ?? '';
+    } catch (_) {}
+    if (!context.mounted) return;
+
+    final controller = TextEditingController(text: current);
+    String? status;
+    bool testing = false;
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Row(children: [
+            Icon(Icons.auto_awesome_rounded, color: Colors.purple),
+            SizedBox(width: 8),
+            Expanded(child: Text('Gemini API Key')),
+          ]),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                'Google AI Studio (aistudio.google.com) থেকে ফ্রি API Key নিয়ে এখানে দিন। '
+                'Key না দিলে AI ফিচারগুলো অফলাইন মোডে চলবে।',
+                style: TextStyle(fontSize: 13),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'API Key (AIza...)',
+                  prefixIcon: Icon(Icons.key_rounded),
+                ),
+              ),
+              if (status != null) ...[
+                const SizedBox(height: 10),
+                Text(status!, style: const TextStyle(fontSize: 12)),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: testing
+                  ? null
+                  : () async {
+                      setDialogState(() {
+                        testing = true;
+                        status = 'পরীক্ষা করা হচ্ছে...';
+                      });
+                      final error = await AIService.testApiKey(controller.text.trim());
+                      setDialogState(() {
+                        testing = false;
+                        status = error == null ? '✅ Key কাজ করছে!' : '❌ কাজ করছে না: $error';
+                      });
+                    },
+              child: const Text('Test'),
+            ),
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () async {
+                final key = controller.text.trim();
+                await docRef.set({'geminiApiKey': key}, SetOptions(merge: true));
+                if (ctx.mounted) Navigator.pop(ctx);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(key.isEmpty ? 'API Key মুছে ফেলা হয়েছে' : 'API Key সেভ হয়েছে!')),
+                  );
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

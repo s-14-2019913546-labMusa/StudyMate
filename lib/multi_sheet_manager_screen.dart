@@ -1311,8 +1311,8 @@ class _SheetFolderDetailScreenState
                     style: TextStyle(fontSize: 14)),
                 subtitle: Text(
                     _replace
-                        ? 'Replaces tasks for matching dates'
-                        : 'Merges with existing tasks',
+                        ? 'আগের শিট-টাস্ক বদলাবে, হাতে লেখা টাস্ক থাকবে'
+                        : 'নতুন টাস্ক যোগ হবে, একই টাস্ক দুইবার যোগ হবে না',
                     style: const TextStyle(fontSize: 12)),
                 activeThumbColor: accent,
                 secondary: Icon(

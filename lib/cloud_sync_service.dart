@@ -17,8 +17,23 @@ class CloudSyncService {
     'studyFolders',
     'tasks',
     'sleep_history',
-    'notes'
+    'notes',
+    // আগে এগুলো ব্যাকআপে বাদ পড়ত
+    'flashcard_decks',
+    'favorite_words',
+    'countdownFolders',
+    'bookmarks',
+    'moods',
+    'pdfBookmarks',
+    'custom_news_feeds',
+    'pomodoroForest',
   ];
+
+  // যেসব কালেকশনের ভেতরে আরেকটা সাব-কালেকশন আছে
+  final Map<String, List<String>> _subCollections = {
+    'countdownFolders': ['entries'],
+    'pomodoroForest': ['list'],
+  };
 
   dynamic _encodeData(dynamic data) {
     if (data is Timestamp) {
@@ -85,12 +100,22 @@ class CloudSyncService {
 
       List<Map<String, dynamic>> collectionData = [];
       for (var doc in snapshot.docs) {
-        final data = doc.data();
-        final encodedData = _encodeData(data);
-        collectionData.add({
+        final item = <String, dynamic>{
           'id': doc.id,
-          'data': encodedData,
-        });
+          'data': _encodeData(doc.data()),
+        };
+        final subs = _subCollections[collectionName];
+        if (subs != null) {
+          final subData = <String, dynamic>{};
+          for (final sub in subs) {
+            final subSnap = await doc.reference.collection(sub).get();
+            subData[sub] = subSnap.docs
+                .map((d) => {'id': d.id, 'data': _encodeData(d.data())})
+                .toList();
+          }
+          item['sub'] = subData;
+        }
+        collectionData.add(item);
       }
       backupData[collectionName] = collectionData;
     }
@@ -124,29 +149,46 @@ class CloudSyncService {
         throw Exception("Backup belongs to a different user");
       }
 
-      final batch = _firestore.batch();
-
-      for (String collectionName in _collections) {
-        if (backupData.containsKey(collectionName)) {
-          final List<dynamic> collectionDataList = backupData[collectionName];
-          
-          for (var item in collectionDataList) {
-            final String docId = item['id'];
-            final Map<String, dynamic> docData = _decodeData(item['data']);
-
-            final docRef = _firestore
-                .collection('users')
-                .doc(user.uid)
-                .collection(collectionName)
-                .doc(docId);
-            
-            // Overwrite existing data with backup
-            batch.set(docRef, docData, SetOptions(merge: true));
-          }
+      // Firestore একবারে সর্বোচ্চ ৫০০টা লেখা নেয়, তাই ৪০০ করে ভাগ করে লেখা হয়
+      WriteBatch batch = _firestore.batch();
+      int ops = 0;
+      Future<void> addWrite(DocumentReference ref, Map<String, dynamic> data) async {
+        batch.set(ref, data, SetOptions(merge: true));
+        ops++;
+        if (ops >= 400) {
+          await batch.commit();
+          batch = _firestore.batch();
+          ops = 0;
         }
       }
 
-      await batch.commit();
+      for (String collectionName in _collections) {
+        if (!backupData.containsKey(collectionName)) continue;
+        final List<dynamic> collectionDataList = backupData[collectionName];
+        for (var item in collectionDataList) {
+          final String docId = item['id'];
+          final Map<String, dynamic> docData = Map<String, dynamic>.from(_decodeData(item['data']));
+          final docRef = _firestore
+              .collection('users')
+              .doc(user.uid)
+              .collection(collectionName)
+              .doc(docId);
+          await addWrite(docRef, docData);
+
+          final sub = item['sub'];
+          if (sub is Map) {
+            for (final entry in sub.entries) {
+              for (final subItem in (entry.value as List)) {
+                await addWrite(
+                  docRef.collection(entry.key as String).doc(subItem['id'] as String),
+                  Map<String, dynamic>.from(_decodeData(subItem['data'])),
+                );
+              }
+            }
+          }
+        }
+      }
+      if (ops > 0) await batch.commit();
     } catch (e) {
       debugPrint("Error parsing or restoring from JSON: $e");
       rethrow;
@@ -160,7 +202,7 @@ class CloudSyncService {
     final ref = _storage.ref().child('backups/${user.uid}/backup.json');
     
     try {
-      final data = await ref.getData();
+      final data = await ref.getData(50 * 1024 * 1024);
       if (data == null) throw Exception("No backup data found");
 
       final jsonString = utf8.decode(data);

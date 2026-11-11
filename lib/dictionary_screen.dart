@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import 'ai_service.dart';
 
 class DictionaryScreen extends StatefulWidget {
@@ -17,6 +18,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> with SingleTickerPr
   final TextEditingController _searchCtrl = TextEditingController();
   final User? _currentUser = FirebaseAuth.instance.currentUser;
   final AudioPlayer _audioPlayer = AudioPlayer();
+  final FlutterTts _tts = FlutterTts();
 
   // Search state
   bool _isLoading = false;
@@ -40,15 +42,18 @@ class _DictionaryScreenState extends State<DictionaryScreen> with SingleTickerPr
     _tabController.dispose();
     _searchCtrl.dispose();
     _audioPlayer.dispose();
+    _tts.stop();
     super.dispose();
   }
 
   Future<void> _pronounce(String word) async {
     if (word.trim().isEmpty) return;
     try {
-      final url = 'https://translate.google.com/translate_tts?ie=UTF-8&tl=en&client=tw-ob&q=${Uri.encodeComponent(word.trim())}';
-      await _audioPlayer.stop();
-      await _audioPlayer.play(UrlSource(url));
+      // ফোনের নিজস্ব Text-to-Speech দিয়ে উচ্চারণ (অনানুষ্ঠানিক Google লিংকের বদলে, অফলাইনেও চলে)
+      await _tts.stop();
+      await _tts.setLanguage('en-US');
+      await _tts.setSpeechRate(0.45);
+      await _tts.speak(word.trim());
     } catch (e) {
       debugPrint('Error pronouncing word: $e');
       if (mounted) {
