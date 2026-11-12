@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
@@ -52,6 +52,10 @@ import '../multi_sheet_manager_screen.dart';
 import '../notifications_hub_screen.dart';
 import '../widgets/sound_picker_widget.dart';
 import '../tools_screen.dart';
+
+// ==========================================
+// 2. Breathing Exercise Bottom Sheet
+// ==========================================
 class BreathingExerciseBottomSheet extends StatelessWidget {
   const BreathingExerciseBottomSheet({super.key});
 
@@ -434,5 +438,3 @@ class _GlowingProgressPainter extends CustomPainter {
   }
 }
 
-// ==========================================
-// 3. Routine Planner Bottom Sheet

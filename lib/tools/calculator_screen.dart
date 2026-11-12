@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
@@ -52,6 +52,10 @@ import '../multi_sheet_manager_screen.dart';
 import '../notifications_hub_screen.dart';
 import '../widgets/sound_picker_widget.dart';
 import '../tools_screen.dart';
+
+// ==========================================
+// 5. Calculator Screen (ক্যালকুলেটর স্ক্রিন)
+// ==========================================
 class CalculatorScreen extends StatefulWidget {
   const CalculatorScreen({super.key});
 
@@ -72,7 +76,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
         _equation = "";
         _result = "0";
         _shouldReset = false;
-      } else if (buttonText == "âŒ«") {
+      } else if (buttonText == "⌫") {
         if (_shouldReset) {
           _equation = "";
           _shouldReset = false;
@@ -87,7 +91,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
             _equation = _equation.substring(0, _equation.length - 4);
           } else if (_equation.endsWith("ln(")) {
             _equation = _equation.substring(0, _equation.length - 3);
-          } else if (_equation.endsWith("âˆš(")) {
+          } else if (_equation.endsWith("√(")) {
             _equation = _equation.substring(0, _equation.length - 2);
           } else {
             _equation = _equation.substring(0, _equation.length - 1);
@@ -110,12 +114,12 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
         }
         _equation += "$buttonText(";
         _updateLiveResult();
-      } else if (buttonText == "âˆš") {
+      } else if (buttonText == "√") {
         if (_shouldReset) {
           _equation = "";
           _shouldReset = false;
         }
-        _equation += "âˆš(";
+        _equation += "√(";
         _updateLiveResult();
       } else if (buttonText == "+/-") {
         if (_shouldReset) {
@@ -154,7 +158,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
             if (_isOperator(lastChar)) {
               _equation += "0.";
             } else {
-              List<String> parts = _equation.split(RegExp(r'[+\-Ã—Ã·^]'));
+              List<String> parts = _equation.split(RegExp(r'[+\-×÷^]'));
               if (parts.isNotEmpty && !parts.last.contains('.')) {
                 _equation += ".";
               }
@@ -169,7 +173,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
   }
 
   bool _isOperator(String char) {
-    return char == "+" || char == "-" || char == "Ã—" || char == "Ã·" || char == "^";
+    return char == "+" || char == "-" || char == "×" || char == "÷" || char == "^";
   }
 
   void _toggleSign() {
@@ -235,7 +239,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
       if (openCount > closeCount) {
         sanitized += ')' * (openCount - closeCount);
       }
-      sanitized = sanitized.replaceAll('Ã—', '*').replaceAll('Ã·', '/');
+      sanitized = sanitized.replaceAll('×', '*').replaceAll('÷', '/');
       final parser = MathParser(sanitized, isDegree: _isDegree);
       double total = parser.parse();
       if (total.isInfinite || total.isNaN) return "Error";
@@ -254,7 +258,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
 
   Widget _buildButton(String text, {Color? textColor, Color? bgColor, int flex = 1}) {
     final bool isOp = _isOperator(text) || text == "=";
-    final bool isSpecial = text == "AC" || text == "âŒ«" || text == "%" || text == "+/-";
+    final bool isSpecial = text == "AC" || text == "⌫" || text == "%" || text == "+/-";
     
     Color defaultBg = isOp 
         ? const Color(0xFFFF9F0A)
@@ -375,34 +379,34 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
       builder: (context) {
         final isDark = Theme.of(context).brightness == Brightness.dark;
         final bool isBn = LanguageManager().currentLanguage == 'bn';
-        final title = isBn ? 'à¦¸à¦¾à§Ÿà§‡à¦¨à§à¦Ÿà¦¿à¦«à¦¿à¦• à¦•à§à¦¯à¦¾à¦²à¦•à§à¦²à§‡à¦Ÿà¦° à¦—à¦¾à¦‡à¦¡à¦²à¦¾à¦‡à¦¨' : 'Scientific Calculator Guideline';
+        final title = isBn ? 'সায়েন্টিফিক ক্যালকুলেটর গাইডলাইন' : 'Scientific Calculator Guideline';
         
         final List<Map<String, String>> guideItems = isBn ? [
-          {'title': 'DEG / RAD', 'desc': 'à¦•à§‹à¦£ à¦ªà¦°à¦¿à¦®à¦¾à¦ªà§‡à¦° à¦à¦•à¦• à¦¡à¦¿à¦—à§à¦°à¦¿ (DEG) à¦¬à¦¾ à¦°à§‡à¦¡à¦¿à§Ÿà¦¾à¦¨à§‡ (RAD) à¦ªà¦°à¦¿à¦¬à¦°à§à¦¤à¦¨ à¦•à¦°à¦¤à§‡ à¦¬à§à¦¯à¦¬à¦¹à¦¾à¦° à¦•à¦°à§à¦¨à¥¤ à¦¡à¦¿à¦—à§à¦°à¦¿ à¦®à§‹à¦¡à§‡ sin(30) = 0.5 à¦†à¦¸à¦¬à§‡à¥¤'},
-          {'title': 'sin, cos, tan', 'desc': 'à¦¤à§à¦°à¦¿à¦•à§‹à¦£à¦®à¦¿à¦¤à¦¿à¦• à¦•à§‹à¦£ à¦¨à¦¿à¦°à§à¦£à§Ÿà§‡à¦° à¦œà¦¨à§à¦¯ à¦¬à§à¦¯à¦¬à¦¹à¦¾à¦° à¦•à¦°à§à¦¨à¥¤ à¦¬à¦¾à¦Ÿà¦¨à§‡ à¦šà¦¾à¦ª à¦¦à¦¿à¦²à§‡ à¦¬à§à¦°à§à¦¯à¦¾à¦•à§‡à¦Ÿà¦¸à¦¹ à¦«à¦¾à¦‚à¦¶à¦¨ (à¦¯à§‡à¦®à¦¨: sin() à¦†à¦¸à¦¬à§‡à¥¤'},
-          {'title': '^ (Power)', 'desc': 'à¦•à§‹à¦¨à§‹ à¦¸à¦‚à¦–à§à¦¯à¦¾à¦° à¦ªà¦¾à¦“à§Ÿà¦¾à¦° à¦¬à¦¾ à¦˜à¦¾à¦¤ à¦¦à¦¿à¦¤à§‡ à¦¬à§à¦¯à¦¬à¦¹à¦¾à¦° à¦•à¦°à§à¦¨à¥¤ à¦¯à§‡à¦®à¦¨: 2^3 = 8à¥¤'},
-          {'title': 'ln', 'desc': 'à¦­à¦¿à¦¤à§à¦¤à¦¿ e à¦¬à¦¿à¦¶à¦¿à¦·à§à¦Ÿ à¦¨à§à¦¯à¦¾à¦šà¦¾à¦°à¦¾à¦² à¦²à¦—à¦¾à¦°à¦¿à¦¦à¦® (à¦¯à§‡à¦®à¦¨: ln(e) = 1) à¦¹à¦¿à¦¸à¦¾à¦¬à§‡à¦° à¦œà¦¨à§à¦¯à¥¤'},
-          {'title': 'log', 'desc': 'à¦­à¦¿à¦¤à§à¦¤à¦¿ 10 à¦¬à¦¿à¦¶à¦¿à¦·à§à¦Ÿ à¦¸à¦¾à¦§à¦¾à¦°à¦£ à¦²à¦—à¦¾à¦°à¦¿à¦¦à¦® (à¦¯à§‡à¦®à¦¨: log(100) = 2) à¦¹à¦¿à¦¸à¦¾à¦¬à§‡à¦° à¦œà¦¨à§à¦¯à¥¤'},
-          {'title': 'âˆš (Square Root)', 'desc': 'à¦¯à§‡à¦•à§‹à¦¨à§‹ à¦¸à¦‚à¦–à§à¦¯à¦¾à¦° à¦¬à¦°à§à¦—à¦®à§‚à¦² à¦¬à¦¾ à¦°à§à¦Ÿ à¦¬à§‡à¦° à¦•à¦°à¦¤à§‡ à¦¬à§à¦¯à¦¬à¦¹à¦¾à¦° à¦•à¦°à§à¦¨ (à¦¯à§‡à¦®à¦¨: âˆš(16) = 4)à¥¤'},
-          {'title': '( ) (à¦¬à§à¦°à§à¦¯à¦¾à¦•à§‡à¦Ÿ)', 'desc': 'à¦¹à¦¿à¦¸à¦¾à¦¬à§‡à¦° à¦…à¦—à§à¦°à¦¾à¦§à¦¿à¦•à¦¾à¦° à¦ à¦¿à¦• à¦•à¦°à¦¤à§‡ à¦“ à¦œà¦Ÿà¦¿à¦² à¦¸à¦®à§€à¦•à¦°à¦£ à¦¸à¦¾à¦œà¦¾à¦¤à§‡ à¦¬à¦¨à§à¦§à¦¨à§€ à¦¬à§à¦¯à¦¬à¦¹à¦¾à¦° à¦•à¦°à§à¦¨à¥¤'},
-          {'title': 'Ï€ à¦à¦¬à¦‚ e', 'desc': 'à¦ªà¦¾à¦‡ (â‰ˆ à§©.à§§à§ªà§§à§«à§¯) à¦à¦¬à¦‚ à¦…à§Ÿà¦²à¦¾à¦° à¦§à§à¦°à§à¦¬à¦• (â‰ˆ à§¨.à§­à§§à§®à§¨à§®) à¦¸à¦°à¦¾à¦¸à¦°à¦¿ à¦‡à¦¨à¦ªà§à¦Ÿà§‡à¦° à¦œà¦¨à§à¦¯ à¦¬à§à¦¯à¦¬à¦¹à¦¾à¦° à¦•à¦°à§à¦¨à¥¤'},
-          {'title': '! (Factorial)', 'desc': 'à¦§à¦¾à¦°à¦¾à¦¬à¦¾à¦¹à¦¿à¦• à¦—à§à¦£à¦«à¦² à¦¬à§‡à¦° à¦•à¦°à¦¤à§‡ à¦¬à§à¦¯à¦¬à¦¹à¦¾à¦° à¦•à¦°à§à¦¨ (à¦¯à§‡à¦®à¦¨: 5! = 120)à¥¤'},
-          {'title': '% (Percentage)', 'desc': 'à¦¶à¦¤à¦•à¦°à¦¾ à¦®à¦¾à¦¨ à¦¬à§‡à¦° à¦•à¦°à¦¾à¦° à¦œà¦¨à§à¦¯ (à¦¯à§‡à¦®à¦¨: 50% = 0.5)à¥¤'},
-          {'title': '+/-', 'desc': 'à¦•à§‹à¦¨à§‹ à¦¸à¦‚à¦–à§à¦¯à¦¾à¦° à¦†à¦—à§‡ à¦®à¦¾à¦‡à¦¨à¦¾à¦¸ (-) à¦¬à¦¾ à¦ªà§à¦²à¦¾à¦¸ (+) à¦šà¦¿à¦¹à§à¦¨ à¦ªà¦°à¦¿à¦¬à¦°à§à¦¤à¦¨ à¦•à¦°à¦¤à§‡ à¦¬à§à¦¯à¦¬à¦¹à¦¾à¦° à¦•à¦°à§à¦¨à¥¤'},
-          {'title': 'âŒ« (à¦¬à§à¦¯à¦¾à¦•à¦¸à§à¦ªà§‡à¦¸ à¦¬à¦¾à¦Ÿà¦¨)', 'desc': 'à¦‡à¦¨à¦ªà§à¦Ÿ à¦¸à§à¦•à§à¦°à¦¿à¦¨à§‡à¦° à¦¬à¦¾à¦® à¦ªà¦¾à¦¶à§‡ à¦¥à¦¾à¦•à¦¾ à¦à¦‡ à¦¬à¦¾à¦Ÿà¦¨à¦Ÿà¦¿ à¦¦à¦¿à§Ÿà§‡ à¦¸à¦®à§€à¦•à¦°à¦£à§‡à¦° à¦Ÿà¦¾à¦‡à¦ª à¦•à¦°à¦¾ à¦…à¦•à§à¦·à¦°à¦—à§à¦²à§‹ à¦à¦•à¦Ÿà¦¿ à¦à¦•à¦Ÿà¦¿ à¦•à¦°à§‡ à¦•à§‡à¦Ÿà§‡ à¦«à§‡à¦²à¦¾ à¦¬à¦¾ à¦®à§‹à¦›à¦¾ à¦¯à¦¾à¦¬à§‡à¥¤'},
+          {'title': 'DEG / RAD', 'desc': 'কোণ পরিমাপের একক ডিগ্রি (DEG) বা রেডিয়ানে (RAD) পরিবর্তন করতে ব্যবহার করুন। ডিগ্রি মোডে sin(30) = 0.5 আসবে।'},
+          {'title': 'sin, cos, tan', 'desc': 'ত্রিকোণমিতিক কোণ নির্ণয়ের জন্য ব্যবহার করুন। বাটনে চাপ দিলে ব্র্যাকেটসহ ফাংশন (যেমন: sin() আসবে।'},
+          {'title': '^ (Power)', 'desc': 'কোনো সংখ্যার পাওয়ার বা ঘাত দিতে ব্যবহার করুন। যেমন: 2^3 = 8।'},
+          {'title': 'ln', 'desc': 'ভিত্তি e বিশিষ্ট ন্যাচারাল লগারিদম (যেমন: ln(e) = 1) হিসাবের জন্য।'},
+          {'title': 'log', 'desc': 'ভিত্তি 10 বিশিষ্ট সাধারণ লগারিদম (যেমন: log(100) = 2) হিসাবের জন্য।'},
+          {'title': '√ (Square Root)', 'desc': 'যেকোনো সংখ্যার বর্গমূল বা রুট বের করতে ব্যবহার করুন (যেমন: √(16) = 4)।'},
+          {'title': '( ) (ব্র্যাকেট)', 'desc': 'হিসাবের অগ্রাধিকার ঠিক করতে ও জটিল সমীকরণ সাজাতে বন্ধনী ব্যবহার করুন।'},
+          {'title': 'π এবং e', 'desc': 'পাই (≈ ৩.১৪১৫৯) এবং অয়লার ধ্রুবক (≈ ২.৭১৮২৮) সরাসরি ইনপুটের জন্য ব্যবহার করুন।'},
+          {'title': '! (Factorial)', 'desc': 'ধারাবাহিক গুণফল বের করতে ব্যবহার করুন (যেমন: 5! = 120)।'},
+          {'title': '% (Percentage)', 'desc': 'শতকরা মান বের করার জন্য (যেমন: 50% = 0.5)।'},
+          {'title': '+/-', 'desc': 'কোনো সংখ্যার আগে মাইনাস (-) বা প্লাস (+) চিহ্ন পরিবর্তন করতে ব্যবহার করুন।'},
+          {'title': '⌫ (ব্যাকস্পেস বাটন)', 'desc': 'ইনপুট স্ক্রিনের বাম পাশে থাকা এই বাটনটি দিয়ে সমীকরণের টাইপ করা অক্ষরগুলো একটি একটি করে কেটে ফেলা বা মোছা যাবে।'},
         ] : [
           {'title': 'DEG / RAD', 'desc': 'Toggle angle unit between Degree (DEG) and Radian (RAD). In DEG mode, sin(30) = 0.5.'},
           {'title': 'sin, cos, tan', 'desc': 'Trigonometric functions. Pressing these inserts the function with parenthesis, e.g., sin().'},
           {'title': '^ (Power)', 'desc': 'Raises a number to the power of another. Example: 2^3 = 8.'},
           {'title': 'ln', 'desc': 'Natural logarithm base e (e.g., ln(e) = 1).'},
           {'title': 'log', 'desc': 'Common logarithm base 10 (e.g., log(100) = 2).'},
-          {'title': 'âˆš (Square Root)', 'desc': 'Calculates the square root of a number (e.g., âˆš(16) = 4).'},
+          {'title': '√ (Square Root)', 'desc': 'Calculates the square root of a number (e.g., √(16) = 4).'},
           {'title': '( ) (Parentheses)', 'desc': 'Used to define calculation precedence and group expressions.'},
-          {'title': 'Ï€ and e', 'desc': 'Inserts math constants Pi (â‰ˆ 3.14159) and Euler\'s number (â‰ˆ 2.71828).'},
+          {'title': 'π and e', 'desc': 'Inserts math constants Pi (≈ 3.14159) and Euler\'s number (≈ 2.71828).'},
           {'title': '! (Factorial)', 'desc': 'Calculates product of all positive integers up to that number (e.g., 5! = 120).'},
           {'title': '% (Percentage)', 'desc': 'Converts value to a percentage (e.g., 50% = 0.5).'},
           {'title': '+/-', 'desc': 'Toggles the positive or negative sign of the current number segment.'},
-          {'title': 'âŒ« (Backspace)', 'desc': 'Located on the left side of the input screen. Tap to delete equation characters one by one.'},
+          {'title': '⌫ (Backspace)', 'desc': 'Located on the left side of the input screen. Tap to delete equation characters one by one.'},
         ];
 
         return Container(
@@ -534,7 +538,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
                               if (_equation.isNotEmpty)
                                 IconButton(
                                   icon: const Icon(Icons.backspace_outlined, color: Colors.white54, size: 20),
-                                  onPressed: () => _buttonPressed("âŒ«"),
+                                  onPressed: () => _buttonPressed("⌫"),
                                 )
                               else
                                 const SizedBox.shrink(),
@@ -595,7 +599,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
                   children: [
                     _buildScientificButton('ln'),
                     _buildScientificButton('log'),
-                    _buildScientificButton('âˆš'),
+                    _buildScientificButton('√'),
                     _buildScientificButton('('),
                     _buildScientificButton(')'),
                   ],
@@ -606,7 +610,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
                 child: Row(
                   children: [
-                    _buildScientificButton('Ï€'),
+                    _buildScientificButton('π'),
                     _buildScientificButton('e'),
                     _buildScientificButton('!'),
                     _buildScientificButton('%'),
@@ -625,13 +629,13 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
                     _buildButton('AC'),
                     _buildButton('+/-'),
                     _buildButton('%'),
-                    _buildButton('Ã·'),
+                    _buildButton('÷'),
                   ]),
                   Row(children: [
                     _buildButton('7'),
                     _buildButton('8'),
                     _buildButton('9'),
-                    _buildButton('Ã—'),
+                    _buildButton('×'),
                   ]),
                   Row(children: [
                     _buildButton('4'),
@@ -794,5 +798,3 @@ class MathParser {
   }
 }
 
-// ==========================================
-// 6. Stopwatch & Timer Screen (à¦¸à§à¦Ÿà¦ªà¦“à§Ÿà¦¾à¦š à¦“ à¦Ÿà¦¾à¦‡à¦®à¦¾à¦°)

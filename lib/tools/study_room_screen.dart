@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
@@ -52,6 +52,10 @@ import '../multi_sheet_manager_screen.dart';
 import '../notifications_hub_screen.dart';
 import '../widgets/sound_picker_widget.dart';
 import '../tools_screen.dart';
+
+// ==========================================
+// 7. Study Room Screen (একসাথে পড়া)
+// ==========================================
 class StudyRoomScreen extends StatefulWidget {
   const StudyRoomScreen({super.key});
 
@@ -238,7 +242,7 @@ class _StudyRoomScreenState extends State<StudyRoomScreen> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    final title = isAdmin ? 'Add Member (à¦®à§‡à¦®à§à¦¬à¦¾à¦° à¦¯à§à¦•à§à¦¤ à¦•à¦°à§à¦¨)'.tr() : 'Invite Friend (à¦¬à¦¨à§à¦§à§ à¦†à¦®à¦¨à§à¦¤à§à¦°à¦£)'.tr();
+    final title = isAdmin ? 'Add Member (মেম্বার যুক্ত করুন)'.tr() : 'Invite Friend (বন্ধু আমন্ত্রণ)'.tr();
     final message = isAdmin
         ? 'Do you want to add $friendName directly to this study room?'.tr()
         : 'Do you want to send a request to add $friendName to the Admin for approval?'.tr();
@@ -597,7 +601,7 @@ class _StudyRoomScreenState extends State<StudyRoomScreen> {
           const SizedBox(height: 24),
 
           // Your Rooms Section
-          Text('Your Rooms (à¦¤à§‹à¦®à¦¾à¦° à¦°à§à¦®à¦¸à¦®à§‚à¦¹)'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+          Text('Your Rooms (তোমার রুমসমূহ)'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
           const SizedBox(height: 8),
           StreamBuilder<QuerySnapshot>(
             stream: FirebaseFirestore.instance
@@ -640,7 +644,7 @@ class _StudyRoomScreenState extends State<StudyRoomScreen> {
                         child: Icon(Icons.school_rounded, color: Theme.of(context).colorScheme.primary),
                       ),
                       title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                      subtitle: Text('${'Code:'.tr()} $code â€¢ ${participants.length} ${'members'.tr()}'),
+                      subtitle: Text('${'Code:'.tr()} $code • ${participants.length} ${'members'.tr()}'),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -797,7 +801,7 @@ class _StudyRoomScreenState extends State<StudyRoomScreen> {
                               const Icon(Icons.group_add_rounded, color: Colors.amber),
                               const SizedBox(width: 8),
                               Text(
-                                'New Member Requests (à¦®à§‡à¦®à§à¦¬à¦¾à¦° à¦°à¦¿à¦•à§‹à§Ÿà§‡à¦¸à§à¦Ÿ)'.tr(),
+                                'New Member Requests (মেম্বার রিকোয়েস্ট)'.tr(),
                                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.brown),
                               ),
                             ],
@@ -1218,5 +1222,3 @@ class _ProofRequestBannerState extends State<ProofRequestBanner> {
   }
 }
 
-// ==========================================
-// 8. Partner Tasks Screen (à¦ªà¦¾à¦°à§à¦Ÿà¦¨à¦¾à¦° à¦…à¦ªà¦¶à¦¨)

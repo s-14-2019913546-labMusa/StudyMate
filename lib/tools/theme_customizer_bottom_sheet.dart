@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
@@ -52,6 +52,10 @@ import '../multi_sheet_manager_screen.dart';
 import '../notifications_hub_screen.dart';
 import '../widgets/sound_picker_widget.dart';
 import '../tools_screen.dart';
+
+// ==========================================
+// Premium Theme Customizer Bottom Sheet
+// ==========================================
 class ThemeCustomizerBottomSheet extends StatelessWidget {
   const ThemeCustomizerBottomSheet({super.key});
 
@@ -298,7 +302,7 @@ class ThemeCustomizerBottomSheet extends StatelessWidget {
                         themeManager, 
                         AppFontStyle.modern, 
                         'Modern Dynamic', 
-                        'Aa / à¦…', 
+                        'Aa / অ', 
                         'Poppins & Hind'
                       ),
                     ),
@@ -309,7 +313,7 @@ class ThemeCustomizerBottomSheet extends StatelessWidget {
                         themeManager, 
                         AppFontStyle.clean, 
                         'Clean Minimal', 
-                        'Aa / à¦…', 
+                        'Aa / অ', 
                         'Roboto & Noto'
                       ),
                     ),
@@ -320,7 +324,7 @@ class ThemeCustomizerBottomSheet extends StatelessWidget {
                         themeManager, 
                         AppFontStyle.classic, 
                         'Classic Serif', 
-                        'Aa / à¦…', 
+                        'Aa / অ', 
                         'Lora & Anek'
                       ),
                     ),
@@ -466,5 +470,3 @@ class ThemeCustomizerBottomSheet extends StatelessWidget {
   }
 }
 
-// ==========================================
-// PDF Reader Screen (à¦‡à¦¨-à¦…à§à¦¯à¦¾à¦ª à¦ªà¦¿à¦¡à¦¿à¦à¦« à¦­à¦¿à¦‰à¦¯à¦¼à¦¾à¦°)

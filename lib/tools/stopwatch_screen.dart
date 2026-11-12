@@ -52,6 +52,10 @@ import '../multi_sheet_manager_screen.dart';
 import '../notifications_hub_screen.dart';
 import '../widgets/sound_picker_widget.dart';
 import '../tools_screen.dart';
+
+// ==========================================
+// 6. Stopwatch & Timer Screen (স্টপওয়াচ ও টাইমার)
+// ==========================================
 class _LapRecord {
   final int durationMillis;
   final String formattedLapDuration;
@@ -87,7 +91,7 @@ class _StopwatchScreenState extends State<StopwatchScreen> with TickerProviderSt
   int _remainingTimerSeconds = 0;
   bool _isTimerRunning = false;
   Timer? _countdownTimer;
-  bool _alarmEnabled = true; // à¦à¦²à¦¾à¦°à§à¦® à¦…à¦¨/à¦…à¦«
+  bool _alarmEnabled = true; // এলার্ম অন/অফ
 
   @override
   void initState() {
@@ -160,9 +164,9 @@ class _StopwatchScreenState extends State<StopwatchScreen> with TickerProviderSt
   // --- Countdown Timer Logic ---
   void _startCountdown() {
     if (_selectedTimerSeconds == 0) return;
+    _neonRingController.repeat();
+    _pulseController.repeat(reverse: true);
     setState(() {
-      _neonRingController.repeat();
-      _pulseController.repeat(reverse: true);
       _isTimerRunning = true;
       if (_remainingTimerSeconds == 0) _remainingTimerSeconds = _selectedTimerSeconds;
     });
@@ -190,23 +194,23 @@ class _StopwatchScreenState extends State<StopwatchScreen> with TickerProviderSt
   }
 
   void _triggerAlarm() {
-    if (!_alarmEnabled) return; // à¦à¦²à¦¾à¦°à§à¦® à¦¬à¦¨à§à¦§ à¦¥à¦¾à¦•à¦²à§‡ à¦¬à¦¾à¦œà¦¾à¦¬à§‡ à¦¨à¦¾
+    if (!_alarmEnabled) return; // এলার্ম বন্ধ থাকলে বাজাবে না
     SoundPlayer.playAlarmNotificationSound(looping: true);
     showDialog(
       context: context,
-      barrierDismissible: false, // à¦¬à§à¦¯à¦¾à¦•à¦—à§à¦°à¦¾à¦‰à¦¨à§à¦¡à§‡ à¦Ÿà§à¦¯à¦¾à¦ª à¦•à¦°à¦²à§‡ à¦¬à¦¨à§à¦§ à¦¨à¦¾ à¦¹à¦“à¦¯à¦¼à¦¾à¦° à¦œà¦¨à§à¦¯
+      barrierDismissible: false, // ব্যাকগ্রাউন্ডে ট্যাপ করলে বন্ধ না হওয়ার জন্য
       builder: (_) => AlertDialog(
-        title: const Text('â° Timer Finished!', textAlign: TextAlign.center),
-        content: const Text('à¦†à¦ªà¦¨à¦¾à¦° à¦•à¦¾à¦‰à¦¨à§à¦Ÿà¦¡à¦¾à¦‰à¦¨ à¦Ÿà¦¾à¦‡à¦®à¦¾à¦° à¦¶à§‡à¦· à¦¹à¦¯à¦¼à§‡à¦›à§‡à¥¤', textAlign: TextAlign.center),
+        title: const Text('⏰ Timer Finished!', textAlign: TextAlign.center),
+        content: const Text('আপনার কাউন্টডাউন টাইমার শেষ হয়েছে।', textAlign: TextAlign.center),
         actionsAlignment: MainAxisAlignment.center,
         actions: [
           ElevatedButton(
             onPressed: () {
-              SoundPlayer.stopAlarm(); // à¦†à¦—à§‡ à¦¸à¦¾à¦‰à¦¨à§à¦¡ à¦¬à¦¨à§à¦§ à¦•à¦°à§‹
-              Navigator.pop(context);  // à¦¤à¦¾à¦°à¦ªà¦° à¦¡à¦¾à¦¯à¦¼à¦¾à¦²à¦— à¦¬à¦¨à§à¦§
+              SoundPlayer.stopAlarm(); // আগে সাউন্ড বন্ধ করো
+              Navigator.pop(context);  // তারপর ডায়ালগ বন্ধ
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-            child: const Text('â¹ Stop Alarm', style: TextStyle(color: Colors.white)),
+            child: const Text('⏹ Stop Alarm', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -503,7 +507,7 @@ class _StopwatchScreenState extends State<StopwatchScreen> with TickerProviderSt
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           const SizedBox(height: 20),
-          // â”€â”€â”€ à¦à¦²à¦¾à¦°à§à¦® à¦Ÿà¦—à¦² â”€â”€â”€
+          // ─── এলার্ম টগল ───
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 24),
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -527,7 +531,7 @@ class _StopwatchScreenState extends State<StopwatchScreen> with TickerProviderSt
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'à¦à¦²à¦¾à¦°à§à¦®',
+                          'এলার্ম',
                           style: TextStyle(
                             fontWeight: FontWeight.w600,
                             color: colorScheme.onSurface,
@@ -535,7 +539,7 @@ class _StopwatchScreenState extends State<StopwatchScreen> with TickerProviderSt
                           ),
                         ),
                         Text(
-                          _alarmEnabled ? 'à¦Ÿà¦¾à¦‡à¦®à¦¾à¦° à¦¶à§‡à¦·à§‡ à¦à¦²à¦¾à¦°à§à¦® à¦¬à¦¾à¦œà¦¬à§‡' : 'à¦Ÿà¦¾à¦‡à¦®à¦¾à¦° à¦¶à§‡à¦·à§‡ à¦à¦²à¦¾à¦°à§à¦® à¦¬à¦¾à¦œà¦¬à§‡ à¦¨à¦¾',
+                          _alarmEnabled ? 'টাইমার শেষে এলার্ম বাজবে' : 'টাইমার শেষে এলার্ম বাজবে না',
                           style: TextStyle(
                             fontSize: 12,
                             color: colorScheme.onSurfaceVariant,
@@ -554,7 +558,7 @@ class _StopwatchScreenState extends State<StopwatchScreen> with TickerProviderSt
             ),
           ),
           const SizedBox(height: 24),
-          // â”€â”€â”€ à¦Ÿà¦¾à¦‡à¦®à¦¾à¦° à¦ªà¦¿à¦•à¦¾à¦° / à¦•à¦¾à¦‰à¦¨à§à¦Ÿà¦¡à¦¾à¦‰à¦¨ à¦¡à¦¿à¦¸à¦ªà§à¦²à§‡ â”€â”€â”€
+          // ─── টাইমার পিকার / কাউন্টডাউন ডিসপ্লে ───
           if (!_isTimerRunning && _remainingTimerSeconds == 0)
             SizedBox(
               height: 200,
@@ -616,7 +620,7 @@ class _StopwatchScreenState extends State<StopwatchScreen> with TickerProviderSt
               },
             ),
           const SizedBox(height: 48),
-          // â”€â”€â”€ à¦¬à¦¾à¦Ÿà¦¨à¦—à§à¦²à§‹ â”€â”€â”€
+          // ─── বাটনগুলো ───
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -704,5 +708,3 @@ class _NeonRingPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
 
-// ==========================================
-// 4. Pomodoro Timer Screen (Forest Edition)

@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
@@ -52,6 +52,10 @@ import '../multi_sheet_manager_screen.dart';
 import '../notifications_hub_screen.dart';
 import '../widgets/sound_picker_widget.dart';
 import '../tools_screen.dart';
+
+// ==========================================
+// 3. Routine Planner Bottom Sheet
+// ==========================================
 class RoutinePlannerBottomSheet extends StatefulWidget {
   const RoutinePlannerBottomSheet({super.key});
   @override
@@ -108,7 +112,7 @@ class _RoutinePlannerBottomSheetState extends State<RoutinePlannerBottomSheet> {
                   children: [
                     Text(day, style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary)),
                     if (tasks.isEmpty) const Text('- No tasks set', style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic)),
-                    ...tasks.map((t) => Text('â€¢ $t')),
+                    ...tasks.map((t) => Text('• $t')),
                     const Divider(),
                   ],
                 ),
@@ -253,5 +257,3 @@ class _RoutinePlannerBottomSheetState extends State<RoutinePlannerBottomSheet> {
   }
 }
 
-// ==========================================
-// AI Study Planner Bottom Sheet

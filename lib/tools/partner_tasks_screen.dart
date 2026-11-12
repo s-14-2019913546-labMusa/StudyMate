@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
@@ -52,6 +52,10 @@ import '../multi_sheet_manager_screen.dart';
 import '../notifications_hub_screen.dart';
 import '../widgets/sound_picker_widget.dart';
 import '../tools_screen.dart';
+
+// ==========================================
+// 8. Partner Tasks Screen (পার্টনার অপশন)
+// ==========================================
 class PartnerTasksScreen extends StatefulWidget {
   const PartnerTasksScreen({super.key});
 
@@ -314,7 +318,7 @@ class _PartnerTasksScreenState extends State<PartnerTasksScreen> {
       return;
     }
 
-    final title = isAdmin ? 'Add Partner (à¦ªà¦¾à¦°à§à¦Ÿà¦¨à¦¾à¦° à¦¯à§à¦•à§à¦¤ à¦•à¦°à§à¦¨)'.tr() : 'Request Partner (à¦ªà¦¾à¦°à§à¦Ÿà¦¨à¦¾à¦° à¦°à¦¿à¦•à§‹à§Ÿà§‡à¦¸à§à¦Ÿ)'.tr();
+    final title = isAdmin ? 'Add Partner (পার্টনার যুক্ত করুন)'.tr() : 'Request Partner (পার্টনার রিকোয়েস্ট)'.tr();
     final message = isAdmin
         ? 'Do you want to add $friendName directly as a partner in this space?'.tr()
         : 'Do you want to send a request to add $friendName to the Admin for approval?'.tr();
@@ -564,7 +568,7 @@ class _PartnerTasksScreenState extends State<PartnerTasksScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    "Partners' Tasks (à¦ªà¦¾à¦°à§à¦Ÿà¦¨à¦¾à¦°à¦¦à§‡à¦° à¦Ÿà¦¾à¦¸à§à¦•)".tr(),
+                    "Partners' Tasks (পার্টনারদের টাস্ক)".tr(),
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
                     textAlign: TextAlign.center,
                   ),
@@ -914,7 +918,7 @@ class _PartnerTasksScreenState extends State<PartnerTasksScreen> {
                         child: Icon(Icons.group_work_rounded, color: Theme.of(context).colorScheme.primary),
                       ),
                       title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                      subtitle: Text('${'Code:'.tr()} $code â€¢ ${participants.length} ${'partners'.tr()}'),
+                      subtitle: Text('${'Code:'.tr()} $code • ${participants.length} ${'partners'.tr()}'),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -1082,7 +1086,7 @@ class _PartnerTasksScreenState extends State<PartnerTasksScreen> {
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
-                                    'New Partner Requests (à¦¨à¦¤à§à¦¨ à¦ªà¦¾à¦°à§à¦Ÿà¦¨à¦¾à¦° à¦°à¦¿à¦•à§‹à§Ÿà§‡à¦¸à§à¦Ÿ)'.tr(),
+                                    'New Partner Requests (নতুন পার্টনার রিকোয়েস্ট)'.tr(),
                                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.brown),
                                       overflow: TextOverflow.ellipsis,
                                       maxLines: 1,
@@ -1249,7 +1253,7 @@ class _PartnerTasksScreenState extends State<PartnerTasksScreen> {
                                       final confirm = await showDialog<bool>(
                                         context: context,
                                         builder: (ctx) => AlertDialog(
-                                          title: Text('Remove Partner (à¦ªà¦¾à¦°à§à¦Ÿà¦¨à¦¾à¦° à¦°à¦¿à¦®à§à¦­ à¦•à¦°à§à¦¨)'.tr()),
+                                          title: Text('Remove Partner (পার্টনার রিমুভ করুন)'.tr()),
                                           content: Text('Are you sure you want to remove $mName from this space?'.tr()),
                                           actions: [
                                             TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text('No'.tr())),
@@ -1563,5 +1567,3 @@ class _PartnerTasksScreenState extends State<PartnerTasksScreen> {
   }
 }
 
-// ==========================================
-// 5. Calculator Screen (à¦•à§à¦¯à¦¾à¦²à¦•à§à¦²à§‡à¦Ÿà¦° à¦¸à§à¦•à§à¦°à¦¿à¦¨)

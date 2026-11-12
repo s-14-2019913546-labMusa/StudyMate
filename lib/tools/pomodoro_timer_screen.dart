@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
@@ -52,6 +52,10 @@ import '../multi_sheet_manager_screen.dart';
 import '../notifications_hub_screen.dart';
 import '../widgets/sound_picker_widget.dart';
 import '../tools_screen.dart';
+
+// ==========================================
+// 4. Pomodoro Timer Screen (Forest Edition)
+// ==========================================
 class PomodoroTimerScreen extends StatefulWidget {
   const PomodoroTimerScreen({super.key});
 
@@ -82,11 +86,11 @@ class _PomodoroTimerScreenState extends State<PomodoroTimerScreen> with WidgetsB
 
   // Tree emojis representing growth stages based on progress
   String _getTreeStage(double progress) {
-    if (progress <= 0.0) return 'ðŸŒ±'; // seed
-    if (progress < 0.3) return 'ðŸŒ¿';  // sprout
-    if (progress < 0.6) return 'ðŸŒ³';  // small tree
-    if (progress < 0.9) return 'ðŸŒ²';  // growing tree
-    return 'ðŸŒ²';                        // full tree
+    if (progress <= 0.0) return '🌱'; // seed
+    if (progress < 0.3) return '🌿';  // sprout
+    if (progress < 0.6) return '🌳';  // small tree
+    if (progress < 0.9) return '🌲';  // growing tree
+    return '🌲';                        // full tree
   }
 
   @override
@@ -100,7 +104,7 @@ class _PomodoroTimerScreenState extends State<PomodoroTimerScreen> with WidgetsB
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (_currentMode == 'Focus' && _isRunning) {
       if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
-        // User left the app mid-focus â†’ kill the tree
+        // User left the app mid-focus → kill the tree
         _appWentBackground = true;
         _timer?.cancel();
         setState(() {
@@ -167,7 +171,7 @@ class _PomodoroTimerScreenState extends State<PomodoroTimerScreen> with WidgetsB
 
   void _resetTimer() {
     if (_isRunning && _currentMode == 'Focus') {
-      // User abandoned a running focus session â†’ tree dies
+      // User abandoned a running focus session → tree dies
       setState(() => _treeKilled = true);
     }
     _timer?.cancel();
@@ -189,14 +193,14 @@ class _PomodoroTimerScreenState extends State<PomodoroTimerScreen> with WidgetsB
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text(
-          _currentMode == 'Focus' ? 'ðŸŒ² à¦—à¦¾à¦› à¦²à¦¾à¦—à¦¾à¦¨à§‹ à¦¹à¦¯à¦¼à§‡à¦›à§‡!' : 'â° à¦¬à¦¿à¦°à¦¤à¦¿ à¦¶à§‡à¦·!',
+          _currentMode == 'Focus' ? '🌲 গাছ লাগানো হয়েছে!' : '⏰ বিরতি শেষ!',
           textAlign: TextAlign.center,
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         content: Text(
           _currentMode == 'Focus'
-              ? 'à¦…à¦¸à¦¾à¦§à¦¾à¦°à¦£! à¦¤à§à¦®à¦¿ à§¨à§« à¦®à¦¿à¦¨à¦¿à¦Ÿ à¦®à¦¨à§‹à¦¯à§‹à¦— à¦§à¦°à§‡ à¦°à§‡à¦–à§‡à¦›à¥¤ à¦¤à§‹à¦®à¦¾à¦° à¦¬à¦¾à¦—à¦¾à¦¨à§‡ à¦à¦•à¦Ÿà¦¿ à¦¨à¦¤à§à¦¨ à¦—à¦¾à¦› à¦¯à§‹à¦— à¦¹à¦¯à¦¼à§‡à¦›à§‡! ðŸŒ³'
-              : 'à¦¬à¦¿à¦°à¦¤à¦¿ à¦¶à§‡à¦·à¥¤ à¦†à¦¬à¦¾à¦° à¦«à§‹à¦•à¦¾à¦¸ à¦•à¦°à¦¤à§‡ à¦ªà§à¦°à¦¸à§à¦¤à§à¦¤?',
+              ? 'অসাধারণ! তুমি ২৫ মিনিট মনোযোগ ধরে রেখেছ। তোমার বাগানে একটি নতুন গাছ যোগ হয়েছে! 🌳'
+              : 'বিরতি শেষ। আবার ফোকাস করতে প্রস্তুত?',
           textAlign: TextAlign.center,
         ),
         actionsAlignment: MainAxisAlignment.center,
@@ -211,7 +215,7 @@ class _PomodoroTimerScreenState extends State<PomodoroTimerScreen> with WidgetsB
                 _setMode('Focus', focusMinutes);
               }
             },
-            child: Text(_currentMode == 'Focus' ? 'à¦¬à¦¿à¦°à¦¤à¦¿ à¦¨à¦¾à¦“' : 'à¦†à¦¬à¦¾à¦° à¦¶à§à¦°à§ à¦•à¦°à§‹'),
+            child: Text(_currentMode == 'Focus' ? 'বিরতি নাও' : 'আবার শুরু করো'),
           )
         ],
       ),
@@ -224,7 +228,7 @@ class _PomodoroTimerScreenState extends State<PomodoroTimerScreen> with WidgetsB
       // Save tree to Firestore
       final treeData = {
         'plantedAt': FieldValue.serverTimestamp(),
-        'type': 'ðŸŒ²',
+        'type': '🌲',
         'sessionMinutes': focusMinutes,
       };
       await _firestore.collection('users').doc(_user!.uid).collection('pomodoroForest').doc('trees').collection('list').add(treeData);
@@ -241,8 +245,8 @@ class _PomodoroTimerScreenState extends State<PomodoroTimerScreen> with WidgetsB
       if (mounted && res.isNotEmpty) {
         final int xpAwarded = res['xpAwarded'] ?? 0;
         final List<String> newBadges = List<String>.from(res['newBadges'] ?? []);
-        String msg = 'ðŸŒ² à¦—à¦¾à¦› à¦²à¦¾à¦—à¦¾à¦¨à§‹ à¦¹à¦¯à¦¼à§‡à¦›à§‡! +$xpAwarded XP';
-        if (newBadges.isNotEmpty) msg += '\nðŸ† Unlocked: ${newBadges.join(", ")}!';
+        String msg = '🌲 গাছ লাগানো হয়েছে! +$xpAwarded XP';
+        if (newBadges.isNotEmpty) msg += '\n🏆 Unlocked: ${newBadges.join(", ")}!';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(msg, style: const TextStyle(fontWeight: FontWeight.bold)), backgroundColor: Colors.green.shade700),
         );
@@ -275,7 +279,7 @@ class _PomodoroTimerScreenState extends State<PomodoroTimerScreen> with WidgetsB
         actions: [
           IconButton(
             icon: const Icon(Icons.forest_rounded),
-            tooltip: 'à¦†à¦®à¦¾à¦° à¦¬à¦¾à¦—à¦¾à¦¨',
+            tooltip: 'আমার বাগান',
             onPressed: () => _showForestGarden(context),
           ),
         ],
@@ -301,10 +305,10 @@ class _PomodoroTimerScreenState extends State<PomodoroTimerScreen> with WidgetsB
                 ? Column(
                     key: const ValueKey('dead'),
                     children: [
-                      const Text('ðŸ¥€', style: TextStyle(fontSize: 80)),
+                      const Text('🥀', style: TextStyle(fontSize: 80)),
                       const SizedBox(height: 8),
                       Text(
-                        'à¦“à¦¹ à¦¨à¦¾! à¦—à¦¾à¦›à¦Ÿà¦¿ à¦®à¦°à§‡ à¦—à§‡à¦›à§‡ ðŸ˜¢\nà¦®à¦¨à§‹à¦¯à§‹à¦— à¦­à¦¾à¦™à¦¬à§‡à¦¨ à¦¨à¦¾!',
+                        'ওহ না! গাছটি মরে গেছে 😢\nমনোযোগ ভাঙবেন না!',
                         textAlign: TextAlign.center,
                         style: TextStyle(color: Colors.red.shade400, fontWeight: FontWeight.w600),
                       ),
@@ -314,14 +318,14 @@ class _PomodoroTimerScreenState extends State<PomodoroTimerScreen> with WidgetsB
                     key: ValueKey('tree_$progress'),
                     children: [
                       Text(
-                        _currentMode == 'Focus' ? _getTreeStage(progress) : 'â˜ï¸',
+                        _currentMode == 'Focus' ? _getTreeStage(progress) : '☁️',
                         style: const TextStyle(fontSize: 90),
                       ),
                       const SizedBox(height: 8),
                       Text(
                         _currentMode == 'Focus'
-                            ? (progress < 0.01 ? 'à¦¬à§€à¦œ à¦°à§‹à¦ªà¦£à§‡à¦° à¦œà¦¨à§à¦¯ à¦ªà§à¦°à¦¸à§à¦¤à§à¦¤...' : 'à¦—à¦¾à¦› à¦¬à¦¡à¦¼ à¦¹à¦šà§à¦›à§‡...')
-                            : 'à¦¬à¦¿à¦¶à§à¦°à¦¾à¦® à¦¨à¦¾à¦“ ðŸŒ¤ï¸',
+                            ? (progress < 0.01 ? 'বীজ রোপণের জন্য প্রস্তুত...' : 'গাছ বড় হচ্ছে...')
+                            : 'বিশ্রাম নাও 🌤️',
                         style: TextStyle(
                           color: isDark ? Colors.green.shade300 : Colors.green.shade700,
                           fontWeight: FontWeight.w600,
@@ -373,7 +377,7 @@ class _PomodoroTimerScreenState extends State<PomodoroTimerScreen> with WidgetsB
               IconButton(
                 onPressed: _resetTimer,
                 icon: Icon(Icons.refresh_rounded, size: 36, color: Colors.grey.shade500),
-                tooltip: 'à¦°à¦¿à¦¸à§‡à¦Ÿ (à¦—à¦¾à¦› à¦®à¦°à§‡ à¦¯à¦¾à¦¬à§‡!)',
+                tooltip: 'রিসেট (গাছ মরে যাবে!)',
               ),
               const SizedBox(width: 20),
               FloatingActionButton.large(
@@ -392,7 +396,7 @@ class _PomodoroTimerScreenState extends State<PomodoroTimerScreen> with WidgetsB
                 ),
                 child: Column(
                   children: [
-                    const Text('ðŸŒ²', style: TextStyle(fontSize: 18)),
+                    const Text('🌲', style: TextStyle(fontSize: 18)),
                     Text('$_sessionCount', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                   ],
                 ),
@@ -404,7 +408,7 @@ class _PomodoroTimerScreenState extends State<PomodoroTimerScreen> with WidgetsB
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 32),
               child: Text(
-                'âš ï¸ à¦…à§à¦¯à¦¾à¦ª à¦¥à§‡à¦•à§‡ à¦¬à§‡à¦° à¦¹à¦²à§‡ à¦—à¦¾à¦›à¦Ÿà¦¿ à¦®à¦°à§‡ à¦¯à¦¾à¦¬à§‡!',
+                '⚠️ অ্যাপ থেকে বের হলে গাছটি মরে যাবে!',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.orange.shade600, fontSize: 12, fontWeight: FontWeight.w600),
               ),
@@ -436,9 +440,9 @@ class _PomodoroTimerScreenState extends State<PomodoroTimerScreen> with WidgetsB
                 decoration: BoxDecoration(color: Colors.grey.shade400, borderRadius: BorderRadius.circular(2)),
               ),
               const SizedBox(height: 16),
-              Text('ðŸŒ³ à¦†à¦®à¦¾à¦° à¦¬à¦¾à¦—à¦¾à¦¨', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: isDark ? Colors.green.shade300 : Colors.green.shade800)),
+              Text('🌳 আমার বাগান', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: isDark ? Colors.green.shade300 : Colors.green.shade800)),
               const SizedBox(height: 4),
-              Text('à¦ªà§à¦°à¦¤à¦¿à¦Ÿà¦¿ à¦—à¦¾à¦› = à§§à¦Ÿà¦¿ à¦¸à¦«à¦² à§¨à§« à¦®à¦¿à¦¨à¦¿à¦Ÿ à¦«à§‹à¦•à¦¾à¦¸ à¦¸à§‡à¦¶à¦¨', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+              Text('প্রতিটি গাছ = ১টি সফল ২৫ মিনিট ফোকাস সেশন', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
               const Divider(height: 24),
               Expanded(
                 child: StreamBuilder<QuerySnapshot>(
@@ -460,9 +464,9 @@ class _PomodoroTimerScreenState extends State<PomodoroTimerScreen> with WidgetsB
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Text('ðŸŒ±', style: TextStyle(fontSize: 60)),
+                            const Text('🌱', style: TextStyle(fontSize: 60)),
                             const SizedBox(height: 12),
-                            Text('à¦à¦–à¦¨à§‹ à¦•à§‹à¦¨à§‹ à¦—à¦¾à¦› à¦¨à§‡à¦‡!\nà¦ªà§à¦°à¦¥à¦® à¦«à§‹à¦•à¦¾à¦¸ à¦¸à§‡à¦¶à¦¨ à¦¶à§à¦°à§ à¦•à¦°à§‹à¥¤', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade600)),
+                            Text('এখনো কোনো গাছ নেই!\nপ্রথম ফোকাস সেশন শুরু করো।', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade600)),
                           ],
                         ),
                       );
@@ -483,7 +487,7 @@ class _PomodoroTimerScreenState extends State<PomodoroTimerScreen> with WidgetsB
                             : '';
                         return Tooltip(
                           message: dateStr,
-                          child: const Text('ðŸŒ²', style: TextStyle(fontSize: 28), textAlign: TextAlign.center),
+                          child: const Text('🌲', style: TextStyle(fontSize: 28), textAlign: TextAlign.center),
                         );
                       },
                     );
@@ -516,5 +520,3 @@ class _PomodoroTimerScreenState extends State<PomodoroTimerScreen> with WidgetsB
   }
 }
 
-// ==========================================
-// 1. Mood Tracker Bottom Sheet

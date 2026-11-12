@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
@@ -52,6 +52,10 @@ import '../multi_sheet_manager_screen.dart';
 import '../notifications_hub_screen.dart';
 import '../widgets/sound_picker_widget.dart';
 import '../tools_screen.dart';
+
+// ==========================================
+// AI Study Planner Bottom Sheet
+// ==========================================
 class SubjectItem {
   TextEditingController nameCtrl = TextEditingController();
   TextEditingController topicCtrl = TextEditingController();
@@ -395,7 +399,7 @@ class _AIStudyPlannerBottomSheetState extends State<AIStudyPlannerBottomSheet> {
         const SizedBox(height: 40),
         const CircularProgressIndicator(),
         const SizedBox(height: 24),
-        Text('ðŸª„ AI is analyzing your subjects...', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+        Text('🪄 AI is analyzing your subjects...', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         Text('Structuring topics, adding smart breaks...', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey)),
         const SizedBox(height: 40),
@@ -408,7 +412,7 @@ class _AIStudyPlannerBottomSheetState extends State<AIStudyPlannerBottomSheet> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('ðŸŽ¯ Your Smart Routine is Ready!', textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: Colors.green.shade600)),
+        Text('🎯 Your Smart Routine is Ready!', textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: Colors.green.shade600)),
         const SizedBox(height: 8),
         Center(
           child: Container(
@@ -431,7 +435,7 @@ class _AIStudyPlannerBottomSheetState extends State<AIStudyPlannerBottomSheet> {
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  _isOfflineGeneration ? 'Offline Smart Mode (à¦…à¦«à¦²à¦¾à¦‡à¦¨ à¦¸à§à¦®à¦¾à¦°à§à¦Ÿ à¦®à§‹à¦¡)' : 'Online AI Mode (à¦…à¦¨à¦²à¦¾à¦‡à¦¨ à¦à¦†à¦‡ à¦®à§‹à¦¡)',
+                  _isOfflineGeneration ? 'Offline Smart Mode (অফলাইন স্মার্ট মোড)' : 'Online AI Mode (অনলাইন এআই মোড)',
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
@@ -491,5 +495,3 @@ class _AIStudyPlannerBottomSheetState extends State<AIStudyPlannerBottomSheet> {
   }
 }
 
-// ==========================================
-// Premium Theme Customizer Bottom Sheet

@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
@@ -52,6 +52,7 @@ import '../multi_sheet_manager_screen.dart';
 import '../notifications_hub_screen.dart';
 import '../widgets/sound_picker_widget.dart';
 import '../tools_screen.dart';
+
 class AddWeeklyRoutineTaskBottomSheet extends StatefulWidget {
   final Task? taskToEdit;
   final String? initialDay;
@@ -317,7 +318,7 @@ class _AddWeeklyRoutineTaskBottomSheetState extends State<AddWeeklyRoutineTaskBo
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'à¦‰à¦‡à¦•à¦²à¦¿ à¦°à§à¦Ÿà¦¿à¦¨à§‡ à¦Ÿà¦¾à¦¸à§à¦• à¦¯à§à¦•à§à¦¤ à¦•à¦°à§à¦¨',
+                    'উইকলি রুটিনে টাস্ক যুক্ত করুন',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -334,7 +335,7 @@ class _AddWeeklyRoutineTaskBottomSheetState extends State<AddWeeklyRoutineTaskBo
 
               // Day selector
               Text(
-                'à¦¦à¦¿à¦¨ à¦¬à¦¾à¦›à§à¦¨ (Select Day)',
+                'দিন বাছুন (Select Day)',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
@@ -368,7 +369,7 @@ class _AddWeeklyRoutineTaskBottomSheetState extends State<AddWeeklyRoutineTaskBo
 
               // Subject
               Text(
-                'Subject Name (à¦¬à¦¿à¦·à¦¯à¦¼)',
+                'Subject Name (বিষয়)',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
@@ -391,13 +392,13 @@ class _AddWeeklyRoutineTaskBottomSheetState extends State<AddWeeklyRoutineTaskBo
                     borderSide: BorderSide(color: colorScheme.primary),
                   ),
                 ),
-                validator: (val) => val == null || val.isEmpty ? 'à¦¬à¦¿à¦·à¦¯à¦¼à§‡à¦° à¦¨à¦¾à¦® à¦¦à¦¿à¦¨' : null,
+                validator: (val) => val == null || val.isEmpty ? 'বিষয়ের নাম দিন' : null,
               ),
               const SizedBox(height: 16),
 
               // Topic
               Text(
-                'Topic Name (à¦¬à¦¿à¦·à¦¯à¦¼à¦¬à¦¸à§à¦¤à§)',
+                'Topic Name (বিষয়বস্তু)',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
@@ -425,7 +426,7 @@ class _AddWeeklyRoutineTaskBottomSheetState extends State<AddWeeklyRoutineTaskBo
 
               // Challenges
               Text(
-                'Possible Challenges (à¦¸à¦®à§à¦­à¦¾à¦¬à§à¦¯ à¦¸à¦®à¦¸à§à¦¯à¦¾)',
+                'Possible Challenges (সম্ভাব্য সমস্যা)',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
@@ -453,7 +454,7 @@ class _AddWeeklyRoutineTaskBottomSheetState extends State<AddWeeklyRoutineTaskBo
 
               // Notes
               Text(
-                'Task Goal / Notes (à¦²à¦•à§à¦·à§à¦¯ à¦“ à¦¨à§‹à¦Ÿ)',
+                'Task Goal / Notes (লক্ষ্য ও নোট)',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
@@ -611,5 +612,3 @@ class _AddWeeklyRoutineTaskBottomSheetState extends State<AddWeeklyRoutineTaskBo
 
 
 
-// ==========================================
-// 10. Sleep Tracker Screen (à¦¸à§à¦²à¦¿à¦ª à¦Ÿà§à¦°à§à¦¯à¦¾à¦•à¦¾à¦° à¦“ à¦…à§à¦¯à¦¾à¦²à¦¾à¦°à§à¦®)

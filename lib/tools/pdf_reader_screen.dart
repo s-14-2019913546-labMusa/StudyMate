@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
@@ -52,6 +52,10 @@ import '../multi_sheet_manager_screen.dart';
 import '../notifications_hub_screen.dart';
 import '../widgets/sound_picker_widget.dart';
 import '../tools_screen.dart';
+
+// ==========================================
+// PDF Reader Screen (ইন-অ্যাপ পিডিএফ ভিউয়ার)
+// ==========================================
 class PdfReaderScreen extends StatefulWidget {
   const PdfReaderScreen({super.key});
 
@@ -424,7 +428,7 @@ class _InAppPdfViewerScreenState extends State<InAppPdfViewerScreen> {
                 ),
                 Expanded(
                   child: Text(
-                    'à¦ªà§‡à¦œ ${_currentPage + 1} / $_totalPages${isBookmarked ? ' ðŸ”–' : ''}',
+                    'পেজ ${_currentPage + 1} / $_totalPages${isBookmarked ? ' 🔖' : ''}',
                     textAlign: TextAlign.center,
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
@@ -458,7 +462,7 @@ class _InAppPdfViewerScreenState extends State<InAppPdfViewerScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('ðŸ”– à¦¬à§à¦•à¦®à¦¾à¦°à§à¦• à¦•à¦°à¦¾ à¦ªà§‡à¦œ', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text('🔖 বুকমার্ক করা পেজ', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
             Flexible(
               child: ListView.builder(
@@ -468,7 +472,7 @@ class _InAppPdfViewerScreenState extends State<InAppPdfViewerScreen> {
                   final page = sortedBookmarks[i];
                   return ListTile(
                     leading: const Icon(Icons.bookmark_rounded, color: Colors.amber),
-                    title: Text('à¦ªà§‡à¦œ ${page + 1}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                    title: Text('পেজ ${page + 1}', style: const TextStyle(fontWeight: FontWeight.w600)),
                     trailing: IconButton(
                       icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
                       onPressed: () {
@@ -491,4 +495,5 @@ class _InAppPdfViewerScreenState extends State<InAppPdfViewerScreen> {
     );
   }
 }
+
 

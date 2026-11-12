@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
@@ -52,6 +52,10 @@ import '../multi_sheet_manager_screen.dart';
 import '../notifications_hub_screen.dart';
 import '../widgets/sound_picker_widget.dart';
 import '../tools_screen.dart';
+
+// ==========================================
+// 10. Sleep Tracker Screen (স্লিপ ট্র্যাকার ও অ্যালার্ম)
+// ==========================================
 class SleepTrackerScreen extends StatefulWidget {
   const SleepTrackerScreen({super.key});
 
@@ -75,13 +79,13 @@ class _SleepTrackerScreenState extends State<SleepTrackerScreen> with SingleTick
   bool _bedTimeTriggered = false;
 
   String _selectedSleepAlarmSound = 'rooster';
-  String _selectedSleepAlarmSoundName = 'à¦®à§à¦°à¦—à¦¿à¦° à¦¡à¦¾à¦• (Rooster)';
+  String _selectedSleepAlarmSoundName = 'মুরগির ডাক (Rooster)';
   String _sleepAlarmRepeatCount = 'loop';
   
   final Map<String, String> _builtInSounds = {
-    'rooster': 'à¦®à§à¦°à¦—à¦¿à¦° à¦¡à¦¾à¦• (Rooster)',
-    'clock': 'à¦˜à§œà¦¿à¦° à¦¶à¦¬à§à¦¦ (Clock)',
-    'emergency': 'à¦‡à¦®à¦¾à¦°à§à¦œà§‡à¦¨à§à¦¸à¦¿ (Emergency)',
+    'rooster': 'মুরগির ডাক (Rooster)',
+    'clock': 'ঘড়ির শব্দ (Clock)',
+    'emergency': 'ইমার্জেন্সি (Emergency)',
   };
 
   final Map<String, String> _systemAlarmSounds = {
@@ -140,7 +144,7 @@ class _SleepTrackerScreenState extends State<SleepTrackerScreen> with SingleTick
                 'wakeTime': Timestamp.fromDate(dayStart.add(const Duration(hours: 0))),
                 'durationMinutes': 0,
                 'timestamp': FieldValue.serverTimestamp(),
-                'note': 'à¦¸à§à¦²à¦¿à¦ª à¦Ÿà§à¦°à¦¾à¦•à¦¾à¦° à¦¬à§à¦¯à¦¬à¦¹à¦¾à¦° à¦¹à§Ÿà¦¨à¦¿',
+                'note': 'স্লিপ ট্রাকার ব্যবহার হয়নি',
               });
             }
           }
@@ -377,7 +381,7 @@ class _SleepTrackerScreenState extends State<SleepTrackerScreen> with SingleTick
     }
     
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('à¦¸à§à¦²à¦¿à¦ª à¦Ÿà¦¾à¦‡à¦® à¦¸à§‡à¦­ à¦•à¦°à¦¾ à¦¹à§Ÿà§‡à¦›à§‡!')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('স্লিপ টাইম সেভ করা হয়েছে!')));
     }
   }
 
@@ -464,7 +468,7 @@ class _SleepTrackerScreenState extends State<SleepTrackerScreen> with SingleTick
 
   Widget _buildTrackerTab() {
     if (_isSleeping) {
-      // à¦˜à§à¦®à¦¾à¦¨à§‹à¦° à¦¸à¦®à§Ÿà§‡à¦° à¦²à¦¾à¦‡à¦­ à¦Ÿà¦¾à¦‡à¦®à¦¾à¦° à¦¸à§à¦•à§à¦°à¦¿à¦¨
+      // ঘুমানোর সময়ের লাইভ টাইমার স্ক্রিন
       final duration = DateTime.now().difference(_sleepStartTime!);
       return Container(
         color: const Color(0xFF0F172A), // Dark night background
@@ -613,7 +617,7 @@ class _SleepTrackerScreenState extends State<SleepTrackerScreen> with SingleTick
                               ),
                               SizedBox(height: 2),
                               Text(
-                                'à¦…à§à¦¯à¦¾à¦²à¦¾à¦°à§à¦® à¦ªà§à¦¨à¦°à¦¾à¦¬à§ƒà¦¤à§à¦¤à¦¿',
+                                'অ্যালার্ম পুনরাবৃত্তি',
                                 style: TextStyle(color: Colors.grey, fontSize: 12),
                               ),
                             ],
@@ -701,7 +705,7 @@ class _SleepTrackerScreenState extends State<SleepTrackerScreen> with SingleTick
           const SizedBox(height: 16),
           const Divider(),
           const SizedBox(height: 8),
-          const Text('à¦¸à§à¦²à¦¿à¦ª à¦¸à¦¾à¦‡à¦•à§‡à¦² à¦ªà§‚à¦°à§à¦£ à¦•à¦°à¦¤à§‡ à¦“à¦ à¦¾à¦° à¦¸à¦®à§Ÿ à¦ªà¦°à¦¿à¦¬à¦°à§à¦¤à¦¨ à¦•à¦°à§à¦¨:', textAlign: TextAlign.center, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey)),
+          const Text('স্লিপ সাইকেল পূর্ণ করতে ওঠার সময় পরিবর্তন করুন:', textAlign: TextAlign.center, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey)),
           const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -892,7 +896,7 @@ class _SleepTrackerScreenState extends State<SleepTrackerScreen> with SingleTick
                         decoration: BoxDecoration(color: Colors.indigo.withValues(alpha: 0.1), shape: BoxShape.circle),
                         child: const Icon(Icons.nights_stay_rounded, color: Colors.indigo),
                       ),
-                      title: Text('Bed: $bedStr  â€¢  Wake: $wakeStr'),
+                      title: Text('Bed: $bedStr  •  Wake: $wakeStr'),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -929,5 +933,3 @@ class _SleepTrackerScreenState extends State<SleepTrackerScreen> with SingleTick
 
 }
 
-// ==========================================
-// 9. Quick Notes Screen (à¦‡à¦¨à§à¦Ÿà¦¾à¦°à¦¨à§à¦¯à¦¾à¦¶à¦¨à¦¾à¦² à¦®à¦¾à¦¨à§‡à¦° à¦¨à§‹à¦Ÿà¦¸)

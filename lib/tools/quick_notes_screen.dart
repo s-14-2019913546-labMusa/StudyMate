@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
@@ -52,6 +52,10 @@ import '../multi_sheet_manager_screen.dart';
 import '../notifications_hub_screen.dart';
 import '../widgets/sound_picker_widget.dart';
 import '../tools_screen.dart';
+
+// ==========================================
+// 9. Quick Notes Screen (ইন্টারন্যাশনাল মানের নোটস)
+// ==========================================
 class QuickNotesScreen extends StatefulWidget {
   final String? noteId;
   final String? initialTitle;
@@ -245,7 +249,7 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
   void _insertBullet() {
     final text = _contentController.text;
     final selection = _lastSelection;
-    final prefix = '\nâ€¢ ';
+    final prefix = '\n• ';
     _contentFocusNode.requestFocus();
     if (selection.isValid && selection.start >= 0 && selection.end <= text.length) {
       final newText = text.replaceRange(selection.start, selection.end, prefix);
@@ -445,10 +449,10 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
     );
   }
 
-  // à¦…à¦¡à¦¿à¦“ à¦°à§‡à¦•à¦°à§à¦¡à¦¿à¦‚ à¦Ÿà¦—à¦² à¦•à¦°à¦¾à¦° à¦®à§‚à¦² à¦²à¦œà¦¿à¦•
+  // অডিও রেকর্ডিং টগল করার মূল লজিক
   Future<void> _toggleAudioRecording() async {
     if (_isRecording) {
-      // à¦°à§‡à¦•à¦°à§à¦¡à¦¿à¦‚ à¦¬à¦¨à§à¦§ à¦•à¦°à¦¾
+      // রেকর্ডিং বন্ধ করা
       final path = await _audioRecorder.stop();
       setState(() {
         _isRecording = false;
@@ -456,7 +460,7 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
       });
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Audio recorded! Will be saved with the note.')));
     } else {
-      // à¦ªà¦¾à¦°à¦®à¦¿à¦¶à¦¨ à¦šà§‡à¦• à¦•à¦°à§‡ à¦°à§‡à¦•à¦°à§à¦¡à¦¿à¦‚ à¦¶à§à¦°à§ à¦•à¦°à¦¾
+      // পারমিশন চেক করে রেকর্ডিং শুরু করা
       if (await _audioRecorder.hasPermission()) {
         final dir = await getTemporaryDirectory();
         final path = '${dir.path}/note_audio_${DateTime.now().millisecondsSinceEpoch}.m4a';
@@ -472,7 +476,7 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
     }
   }
 
-  // à¦—à§à¦¯à¦¾à¦²à¦¾à¦°à¦¿ à¦¥à§‡à¦•à§‡ à¦›à¦¬à¦¿ à¦¸à¦¿à¦²à§‡à¦•à§à¦Ÿ à¦•à¦°à¦¾à¦° à¦²à¦œà¦¿à¦•
+  // গ্যালারি থেকে ছবি সিলেক্ট করার লজিক
   Future<void> _pickImage() async {
     try {
       final XFile? pickedFile = await _imagePicker.pickImage(source: ImageSource.gallery, imageQuality: 80);
@@ -600,7 +604,7 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
                   Text('Image Settings', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _isNoteDarkMode ? Colors.white : Colors.black87), textAlign: TextAlign.center),
                   const SizedBox(height: 12),
                   
-                  // Preview box â€” clean, no box shadow
+                  // Preview box — clean, no box shadow
                   Center(
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(8),
@@ -612,8 +616,8 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
                   // Rotate option
                   ListTile(
                     leading: const Icon(Icons.rotate_right_rounded, color: Colors.blueAccent),
-                    title: Text('Rotate 90Â°', style: TextStyle(color: _isNoteDarkMode ? Colors.white : Colors.black87)),
-                    trailing: Text('${rotation.toInt()}Â°', style: TextStyle(color: _isNoteDarkMode ? Colors.white70 : Colors.black54)),
+                    title: Text('Rotate 90°', style: TextStyle(color: _isNoteDarkMode ? Colors.white : Colors.black87)),
+                    trailing: Text('${rotation.toInt()}°', style: TextStyle(color: _isNoteDarkMode ? Colors.white70 : Colors.black54)),
                     onTap: () {
                       rotation = (rotation + 90) % 360;
                       setModalState(() {});
@@ -621,7 +625,7 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
                     },
                   ),
                   
-                  // Shadow option â€” vignette on the image
+                  // Shadow option — vignette on the image
                   ListTile(
                     leading: const Icon(Icons.brightness_3_rounded, color: Colors.blueGrey),
                     title: Text('Vignette Shadow', style: TextStyle(color: _isNoteDarkMode ? Colors.white : Colors.black87)),
@@ -888,7 +892,7 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
                       style: TextStyle(fontWeight: FontWeight.w600, color: textColor, fontSize: 13),
                       maxLines: 1, overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 2),
-                  Text('Image ${idx + 1}  â€¢  Hold to reorder',
+                  Text('Image ${idx + 1}  •  Hold to reorder',
                       style: TextStyle(fontSize: 11,
                           color: _isNoteDarkMode ? Colors.grey.shade500 : Colors.grey.shade500)),
                 ],
@@ -941,7 +945,7 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
     if (_audioFilePath != null) {
       try {
         final File audioFile = File(_audioFilePath!);
-        // à¦«à¦¾à§Ÿà¦¾à¦°à¦¬à§‡à¦¸ à¦•à§à¦²à¦¾à¦‰à¦¡ à¦¸à§à¦Ÿà§‹à¦°à§‡à¦œà§‡ à¦†à¦ªà¦²à§‹à¦¡
+        // ফায়ারবেস ক্লাউড স্টোরেজে আপলোড
         final storageRef = FirebaseStorage.instance.ref().child('notes_audio/${currentUser!.uid}_${DateTime.now().millisecondsSinceEpoch}.m4a');
         final uploadTask = kIsWeb
             ? await storageRef.putData(await audioFile.readAsBytes())
@@ -952,7 +956,7 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
       }
     }
 
-    // à¦›à¦¬à¦¿ à¦«à¦¾à§Ÿà¦¾à¦°à¦¬à§‡à¦¸ à¦•à§à¦²à¦¾à¦‰à¦¡ à¦¸à§à¦Ÿà§‹à¦°à§‡à¦œà§‡ à¦†à¦ªà¦²à§‹à¦¡ (à¦²à§‡à¦—à¦¾à¦¸à¦¿ à¦…à§à¦¯à¦¾à¦Ÿà¦¾à¦šà¦®à§‡à¦¨à§à¦Ÿ à¦¥à¦¾à¦•à¦²à§‡)
+    // ছবি ফায়ারবেস ক্লাউড স্টোরেজে আপলোড (লেগাসি অ্যাটাচমেন্ট থাকলে)
     if (_imageFilePath != null && !_contentController.text.contains(_imageFilePath!)) {
       try {
         final File imageFile = File(_imageFilePath!);
@@ -966,7 +970,7 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
       }
     }
 
-    // à¦†à¦ªà¦²à§‹à¦¡ à¦à¦®à§à¦¬à§‡à¦¡à§‡à¦¡ à¦²à§‹à¦•à¦¾à¦² à¦‡à¦®à§‡à¦œ à¦«à¦¾à¦‡à¦² à¦¬à¦¾ à¦¬à§à¦°à¦¾à¦‰à¦œà¦¾à¦° à¦¬à§à¦²à¦¬ à¦«à¦¾à¦‡à¦²
+    // আপলোড এম্বেডেড লোকাল ইমেজ ফাইল বা ব্রাউজার ব্লব ফাইল
     String noteContent = _contentController.toMarkdown();
     final imageRegex = RegExp(r'!\[(.*?)\]\((.*?)\)');
     final matches = imageRegex.allMatches(noteContent).toList();
@@ -982,11 +986,11 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
         try {
           Uint8List bytes;
           if (kIsWeb || basePath.startsWith('blob:')) {
-            // à¦¬à§à¦°à¦¾à¦‰à¦œà¦¾à¦° à¦¬à§à¦²à¦¬ URL à¦¥à§‡à¦•à§‡ à¦°à¦¿à¦¡ à¦•à¦°à¦¾
+            // ব্রাউজার ব্লব URL থেকে রিড করা
             final response = await http.get(Uri.parse(basePath));
             bytes = response.bodyBytes;
           } else {
-            // à¦²à§‹à¦•à¦¾à¦² à¦¸à§à¦Ÿà§‹à¦°à§‡à¦œ à¦¥à§‡à¦•à§‡ à¦°à¦¿à¦¡ à¦•à¦°à¦¾
+            // লোকাল স্টোরেজ থেকে রিড করা
             bytes = await File(basePath).readAsBytes();
           }
 
@@ -1032,7 +1036,7 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
     _titleController.clear();
     _contentController.clear();
     if (mounted) {
-      FocusScope.of(context).unfocus(); // à¦•à¦¿à¦¬à§‹à¦°à§à¦¡ à¦¨à¦¾à¦®à¦¿à§Ÿà§‡ à¦¦à§‡à¦“à§Ÿà¦¾à¦° à¦œà¦¨à§à¦¯
+      FocusScope.of(context).unfocus(); // কিবোর্ড নামিয়ে দেওয়ার জন্য
     }
     
     setState(() {
@@ -1264,7 +1268,7 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
     Color cardColor = _isNoteDarkMode ? const Color(0xFF2D2D2D) : Colors.white;
 
     return Scaffold(
-      resizeToAvoidBottomInset: true, // à¦•à¦¿à¦¬à§‹à¦°à§à¦¡ à¦‰à¦ à¦²à§‡ à¦­à¦¿à¦‰ à¦‰à¦ªà¦°à§‡ à¦‰à¦ à§‡ à¦¯à¦¾à¦¬à§‡
+      resizeToAvoidBottomInset: true, // কিবোর্ড উঠলে ভিউ উপরে উঠে যাবে
       backgroundColor: bgColor,
       appBar: AppBar(
         backgroundColor: bgColor,
@@ -1297,7 +1301,7 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.only(bottom: 100), // FAB à¦à¦° à¦œà¦¨à§à¦¯ à¦œà¦¾à§Ÿà¦—à¦¾
+        padding: const EdgeInsets.only(bottom: 100), // FAB এর জন্য জায়গা
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -1354,7 +1358,7 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
                       borderRadius: BorderRadius.circular(16),
                       child: Stack(
                         children: [
-                          // à¦¡à¦¾à§Ÿà§‡à¦°à¦¿à¦° à¦®à¦¤à§‹ à¦¦à¦¾à¦— à¦¦à§‡à¦“à§Ÿà¦¾à¦° à¦œà¦¨à§à¦¯
+                          // ডায়েরির মতো দাগ দেওয়ার জন্য
                           Positioned.fill(
                             child: CustomPaint(
                               painter: _LinedPaperPainter(lineHeight: _fontSize * 1.5, isDarkMode: _isNoteDarkMode),
@@ -1565,7 +1569,7 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
 }
 
 // ==========================================
-// Note Detail Screen (à¦¨à§‹à¦Ÿ à¦ªà§œà¦¾à¦° à¦¸à§à¦•à§à¦°à¦¿à¦¨)
+// Note Detail Screen (নোট পড়ার স্ক্রিন)
 // ==========================================
 class NoteDetailScreen extends StatefulWidget {
   final String noteId;
@@ -1674,7 +1678,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
             children: [
               const Icon(Icons.volume_up_rounded, color: Colors.white),
               const SizedBox(width: 8),
-              Text(hasBengali ? 'à¦¨à§‹à¦Ÿà¦Ÿà¦¿ à¦ªà§œà§‡ à¦¶à§‹à¦¨à¦¾à¦¨à§‹ à¦¹à¦šà§à¦›à§‡...' : 'Reading note aloud...'),
+              Text(hasBengali ? 'নোটটি পড়ে শোনানো হচ্ছে...' : 'Reading note aloud...'),
             ],
           ),
           backgroundColor: Colors.deepPurple,
@@ -1720,7 +1724,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
             const SizedBox(height: 8),
             Text(widget.date, style: const TextStyle(color: Colors.grey, fontStyle: FontStyle.italic)),
             Divider(height: 40, color: _isNoteDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
-            // Markdown à¦°à§‡à¦¨à§à¦¡à¦¾à¦° à¦•à¦°à¦¾à¦° à¦œà¦¨à§à¦¯ Text à¦à¦° à¦¬à¦¦à¦²à§‡ MarkdownBody à¦¬à§à¦¯à¦¬à¦¹à¦¾à¦° à¦•à¦°à¦¾ à¦¹à¦²à§‹
+            // Markdown রেন্ডার করার জন্য Text এর বদলে MarkdownBody ব্যবহার করা হলো
             SelectionArea(
               child: MarkdownBody(
                 selectable: true,
@@ -1820,14 +1824,14 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
               ),
             ),
 
-            const SizedBox(height: 80), // Fab à¦à¦° à¦œà¦¨à§à¦¯ à¦œà¦¾à§Ÿà¦—à¦¾
+            const SizedBox(height: 80), // Fab এর জন্য জায়গা
           ],
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
           // AI Quiz Generator Simulation
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('âœ¨ Generating AI Quiz from this note...')));
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('✨ Generating AI Quiz from this note...')));
         },
         icon: const Icon(Icons.quiz_rounded),
         label: const Text('Generate AI Quiz'),
@@ -2331,7 +2335,7 @@ class RichTextEditingController extends TextEditingController {
     final int len = text.length;
     final List<TextStyle> charStyles = List.generate(len, (_) => style ?? const TextStyle());
 
-    // Apply bold, italic, color spans â€” with bounds guard
+    // Apply bold, italic, color spans — with bounds guard
     for (final span in spans) {
       final int s = span.start.clamp(0, len);
       final int e = span.end.clamp(0, len);
@@ -2360,9 +2364,9 @@ class RichTextEditingController extends TextEditingController {
       for (int i = pathStart; i < pathEnd   && i < len; i++) charStyles[i] = const TextStyle(fontSize: 0, color: Colors.transparent);
     }
 
-    // Quote/bullet paragraph formatting â€” with bounds guard
+    // Quote/bullet paragraph formatting — with bounds guard
     final quoteRegex  = RegExp(r'(^|\n)>\s*(.*)');
-    final bulletRegex = RegExp(r'(^|\n)[â€¢\*\-]\s+(.*)');
+    final bulletRegex = RegExp(r'(^|\n)[•\*\-]\s+(.*)');
 
     void applyParagraphStyle(RegExp regex, TextStyle paraStyle) {
       for (final match in regex.allMatches(text)) {
@@ -2570,8 +2574,8 @@ class _InlineImageWidgetState extends State<InlineImageWidget> {
                   // Rotate option
                   ListTile(
                     leading: const Icon(Icons.rotate_right_rounded, color: Colors.blueAccent),
-                    title: const Text('Rotate 90Â°', style: TextStyle(color: Colors.black87)),
-                    trailing: Text('${_rotation.toInt()}Â°', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black54)),
+                    title: const Text('Rotate 90°', style: TextStyle(color: Colors.black87)),
+                    trailing: Text('${_rotation.toInt()}°', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black54)),
                     onTap: () {
                       setState(() {
                         _rotation = (_rotation + 90) % 360;
@@ -2581,7 +2585,7 @@ class _InlineImageWidgetState extends State<InlineImageWidget> {
                     },
                   ),
                   
-                  // Shadow option â€” vignette overlay on image
+                  // Shadow option — vignette overlay on image
                   ListTile(
                     leading: const Icon(Icons.brightness_3_rounded, color: Colors.blueGrey),
                     title: const Text('Vignette Shadow', style: TextStyle(color: Colors.black87)),
@@ -2818,7 +2822,7 @@ class _NoteDetailImageWidget extends StatelessWidget {
   }
 }
 
-// à¦¡à¦¾à§Ÿà§‡à¦°à¦¿à¦° à¦®à¦¤à§‹ à¦¦à¦¾à¦— à¦†à¦à¦•à¦¾à¦° à¦œà¦¨à§à¦¯ à¦•à¦¾à¦¸à§à¦Ÿà¦® à¦ªà§‡à¦‡à¦¨à§à¦Ÿà¦¾à¦°
+// ডায়েরির মতো দাগ আঁকার জন্য কাস্টম পেইন্টার
 class _LinedPaperPainter extends CustomPainter {
   final double lineHeight;
   final bool isDarkMode;
@@ -2841,5 +2845,3 @@ class _LinedPaperPainter extends CustomPainter {
   }
 }
 
-// ==========================================
-// 7. Study Room Screen (à¦à¦•à¦¸à¦¾à¦¥à§‡ à¦ªà§œà¦¾)

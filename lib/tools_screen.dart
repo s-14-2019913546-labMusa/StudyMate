@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
@@ -26,10 +26,10 @@ import 'google_sheet_sync_screen.dart';
 import 'multi_sheet_manager_screen.dart';
 import 'notifications_hub_screen.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+
 // ==========================================
 // IMPORT TOOLS MODULES
 // ==========================================
-import 'tools/weekly_routine_task_bottom_sheet.dart';
 import 'tools/sleep_tracker_screen.dart';
 import 'tools/quick_notes_screen.dart';
 import 'tools/study_room_screen.dart';
@@ -43,7 +43,6 @@ import 'tools/routine_planner_bottom_sheet.dart';
 import 'tools/ai_study_planner_bottom_sheet.dart';
 import 'tools/theme_customizer_bottom_sheet.dart';
 import 'tools/pdf_reader_screen.dart';
-import 'tools/multi_task_import_sheet.dart';
 
 // ==========================================
 // EXPORT TOOLS MODULES
@@ -63,6 +62,7 @@ export 'tools/ai_study_planner_bottom_sheet.dart';
 export 'tools/theme_customizer_bottom_sheet.dart';
 export 'tools/pdf_reader_screen.dart';
 export 'tools/multi_task_import_sheet.dart';
+
 class ToolsScreen extends StatefulWidget {
   final Function(List<Task>) onTasksGenerated;
   const ToolsScreen({super.key, required this.onTasksGenerated});
@@ -207,10 +207,10 @@ class _ToolsScreenState extends State<ToolsScreen> {
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 3, // à¦à¦• à¦²à¦¾à¦‡à¦¨à§‡ à§©à¦Ÿà¦¿ à¦•à¦°à§‡ à¦¬à¦•à§à¦¸ à¦¥à¦¾à¦•à¦¬à§‡
+                        crossAxisCount: 3, // এক লাইনে ৩টি করে বক্স থাকবে
                         crossAxisSpacing: 10,
                         mainAxisSpacing: 10,
-                        childAspectRatio: 0.95, // à§© à¦•à¦²à¦¾à¦®à§‡à¦° à¦®à¦¾à¦¨à¦¾à¦¨à¦¸à¦‡ à¦…à¦¨à§à¦ªà¦¾à¦¤
+                        childAspectRatio: 0.95, // ৩ কলামের মানানসই অনুপাত
                       ),
                       itemCount: catTools.length,
                       itemBuilder: (context, index) {
@@ -503,7 +503,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Next-day Routine (à¦¨à§‡à¦•à§à¦¸à¦Ÿ à¦¡à§‡ à¦°à§à¦Ÿà¦¿à¦¨)'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+                  Text('Next-day Routine (নেক্সট ডে রুটিন)'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
                   const SizedBox(height: 2),
                   Text('Create your study routine for tomorrow.'.tr(), style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.8))),
                 ],
@@ -555,7 +555,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Weekly Routine (à¦‰à¦‡à¦•à¦²à¦¿ à¦°à§à¦Ÿà¦¿à¦¨)'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+                  Text('Weekly Routine (উইকলি রুটিন)'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
                   const SizedBox(height: 2),
                   Text('Customize and update your weekly routine.'.tr(), style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.8))),
                 ],

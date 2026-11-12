@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
@@ -52,6 +52,10 @@ import '../multi_sheet_manager_screen.dart';
 import '../notifications_hub_screen.dart';
 import '../widgets/sound_picker_widget.dart';
 import '../tools_screen.dart';
+
+// ==========================================
+// 1. Mood Tracker Bottom Sheet
+// ==========================================
 class MoodTrackerBottomSheet extends StatefulWidget {
   const MoodTrackerBottomSheet({super.key});
   @override
@@ -60,11 +64,11 @@ class MoodTrackerBottomSheet extends StatefulWidget {
 
 class _MoodTrackerBottomSheetState extends State<MoodTrackerBottomSheet> {
   final List<Map<String, String>> moods = [
-    {'emoji': 'ðŸ˜', 'label': 'Great'},
-    {'emoji': 'ðŸ˜Š', 'label': 'Good'},
-    {'emoji': 'ðŸ˜', 'label': 'Okay'},
-    {'emoji': 'ðŸ˜”', 'label': 'Sad'},
-    {'emoji': 'ðŸ˜«', 'label': 'Stressed'},
+    {'emoji': '😁', 'label': 'Great'},
+    {'emoji': '😊', 'label': 'Good'},
+    {'emoji': '😐', 'label': 'Okay'},
+    {'emoji': '😔', 'label': 'Sad'},
+    {'emoji': '😫', 'label': 'Stressed'},
   ];
   int _selectedMoodIndex = -1;
   final TextEditingController _noteController = TextEditingController();
@@ -115,7 +119,7 @@ class _MoodTrackerBottomSheetState extends State<MoodTrackerBottomSheet> {
           const SizedBox(height: 24),
           OutlinedButton.icon(
             onPressed: () {
-              Navigator.pop(context); // à¦¬à¦°à§à¦¤à¦®à¦¾à¦¨ à¦¶à¦¿à¦Ÿ à¦¬à¦¨à§à¦§ à¦•à¦°à§‡ à¦¹à¦¿à¦¸à§à¦Ÿà§à¦°à¦¿ à¦¶à¦¿à¦Ÿ à¦“à¦ªà§‡à¦¨ à¦•à¦°à¦¬à§‡
+              Navigator.pop(context); // বর্তমান শিট বন্ধ করে হিস্ট্রি শিট ওপেন করবে
               showModalBottomSheet(context: context, isScrollControlled: true, useSafeArea: true, backgroundColor: Colors.transparent, builder: (_) => const MoodHistoryBottomSheet());
             },
             icon: const Icon(Icons.history_rounded),
@@ -202,7 +206,7 @@ class MoodHistoryBottomSheet extends StatelessWidget {
                         return const Center(child: Text("No mood history yet.", style: TextStyle(color: Colors.grey)));
                       }
 
-                      // à¦¡à¦¾à¦Ÿà¦¾ à¦—à§à¦°à§à¦ªà¦¿à¦‚ à¦²à¦œà¦¿à¦• (Today, Yesterday, à¦¬à¦¾ Month à¦…à¦¨à§à¦¯à¦¾à§Ÿà§€)
+                      // ডাটা গ্রুপিং লজিক (Today, Yesterday, বা Month অনুযায়ী)
                       Map<String, List<Map<String, dynamic>>> historyData = {};
                       final now = DateTime.now();
                       final today = DateTime(now.year, now.month, now.day);
@@ -269,5 +273,3 @@ class MoodHistoryBottomSheet extends StatelessWidget {
   }
 }
 
-// ==========================================
-// 2. Breathing Exercise Bottom Sheet
