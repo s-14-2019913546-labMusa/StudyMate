@@ -54,6 +54,7 @@ import '../notifications_hub_screen.dart';
 import '../widgets/sound_picker_widget.dart';
 import '../tools_screen.dart';
 import '../widgets/undo_snackbar.dart';
+import '../widgets/skeleton.dart';
 
 // ==========================================
 // 9. Quick Notes Screen (ইন্টারন্যাশনাল মানের নোটস)
@@ -1227,12 +1228,12 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
               Divider(color: isDark ? Colors.grey.shade800 : Colors.grey.shade300),
               Expanded(
                 child: currentUser == null 
-                  ? Center(child: Text('Please log in to view notes.', style: TextStyle(color: isDark ? Colors.white70 : Colors.black54)))
+                  ? Center(child: Text(trx('Please log in to view notes.', 'নোট দেখতে লগইন করুন।'), style: TextStyle(color: isDark ? Colors.white70 : Colors.black54)))
                   : StreamBuilder<QuerySnapshot>(
                       stream: _notesAllStream,
                       builder: (context, snapshot) {
-                        if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-                        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) return Center(child: Text('No notes found. Create your first note above!', style: TextStyle(color: isDark ? Colors.white70 : Colors.grey)));
+                        if (snapshot.connectionState == ConnectionState.waiting) return const SkeletonCardList(count: 3, shrinkWrap: true, padding: EdgeInsets.symmetric(vertical: 8));
+                        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) return Center(child: Text(trx('No notes yet. Write your first note above!', 'এখনো কোনো নোট নেই। উপরে প্রথম নোটটা লিখুন!'), style: TextStyle(color: isDark ? Colors.white70 : Colors.grey)));
 
                         return ListView.builder(
                           padding: const EdgeInsets.only(bottom: 20),
@@ -1532,8 +1533,8 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
               : StreamBuilder<QuerySnapshot>(
                   stream: _notesLimitStream,
                   builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-                    if (!snapshot.hasData || snapshot.data!.docs.isEmpty) return Center(child: Text('No notes found. Create your first note above!', style: TextStyle(color: Colors.grey)));
+                    if (snapshot.connectionState == ConnectionState.waiting) return const SkeletonCardList(count: 3, shrinkWrap: true, padding: EdgeInsets.symmetric(vertical: 8));
+                    if (!snapshot.hasData || snapshot.data!.docs.isEmpty) return Center(child: Text(trx('No notes yet. Write your first note above!', 'এখনো কোনো নোট নেই। উপরে প্রথম নোটটা লিখুন!'), style: TextStyle(color: Colors.grey)));
 
                     return ListView.builder(
                       shrinkWrap: true,

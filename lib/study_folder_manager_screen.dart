@@ -3,6 +3,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'language_manager.dart';
 import 'study_folder_details_screen.dart';
+import 'onboarding_screen.dart';
+import 'widgets/empty_state.dart';
+import 'widgets/skeleton.dart';
 
 class StudyFolderManagerScreen extends StatefulWidget {
   const StudyFolderManagerScreen({super.key});
@@ -238,29 +241,30 @@ class _StudyFolderManagerScreenState extends State<StudyFolderManagerScreen> {
             .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const SkeletonCardList();
           }
 
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(32.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.folder_open_rounded, size: 64, color: Colors.grey.shade400),
-                    const SizedBox(height: 16),
-                    Text(
-                      'No folders created yet'.tr(),
-                      style: TextStyle(color: Colors.grey.shade500, fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Tap the + button to create a folder'.tr(),
-                      style: TextStyle(color: Colors.grey.shade400, fontSize: 13),
-                    ),
-                  ],
-                ),
+            return EmptyStateGuide(
+              icon: Icons.folder_copy_rounded,
+              color: Colors.teal,
+              title: trx('Your Study Map is empty', 'স্টাডি ম্যাপ এখনো ফাঁকা'),
+              message: trx(
+                'Make a folder for your exam, add subjects, then chapters. Tick chapters as you finish them.',
+                'পরীক্ষার জন্য একটা ফোল্ডার বানান, তাতে বিষয় আর অধ্যায় যোগ করুন। পড়া শেষ হলে টিক দিন।',
+              ),
+              exampleTitle: trx('Example: "BCS Preliminary"', 'উদাহরণ: "বিসিএস প্রিলিমিনারি"'),
+              exampleLines: [
+                trx('Bangla → Grammar, Literature', 'বাংলা → ব্যাকরণ, সাহিত্য'),
+                trx('English → Grammar, Vocabulary', 'ইংরেজি → গ্রামার, ভোকাবুলারি'),
+                trx('Math → Arithmetic, Algebra, Geometry', 'গণিত → পাটিগণিত, বীজগণিত, জ্যামিতি'),
+              ],
+              actionLabel: trx('Create your first folder', 'প্রথম ফোল্ডারটা বানান'),
+              onAction: _createFolder,
+              secondaryLabel: trx('Or add a ready-made exam syllabus', 'অথবা তৈরি পরীক্ষার সিলেবাস বসান'),
+              onSecondary: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const OnboardingScreen(fromSettings: true)),
               ),
             );
           }

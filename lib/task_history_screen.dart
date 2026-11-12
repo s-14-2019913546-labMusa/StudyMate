@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'daily_routine.dart';
 import 'language_manager.dart';
+import 'widgets/skeleton.dart';
 import 'task_details_screen.dart';
 
 class TaskHistoryScreen extends StatefulWidget {
@@ -425,7 +426,7 @@ class _TaskHistoryScreenState extends State<TaskHistoryScreen> with SingleTicker
                 );
               }
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
+                return const SkeletonCardList(count: 5);
               }
               if (!snapshot.hasData || !snapshot.data!.exists || snapshot.data!.data() == null) {
                 return _buildEmptyState();

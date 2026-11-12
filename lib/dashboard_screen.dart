@@ -26,6 +26,7 @@ import 'quick_add_task.dart';
 import 'nightly_summary_service.dart';
 import 'task_notification_actions.dart';
 import 'home_widget_service.dart';
+import 'widgets/skeleton.dart';
 
 class DashboardRoutineData {
   final DailyRoutine? localRoutine;
@@ -2314,7 +2315,7 @@ class _DashboardScreenState extends State<DashboardScreen>
             const SizedBox(height: 30),
 
             if (_isLoadingRoutine)
-              const Center(child: CircularProgressIndicator())
+              const SkeletonCardList(count: 3, padding: EdgeInsets.zero, shrinkWrap: true, cardHeight: 120)
             else
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -4240,10 +4241,11 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
 
     final double btnFontSize = isPartnerTask ? 11.0 : 13.0;
     final double btnIconSize = isPartnerTask ? 14.0 : 18.0;
-    final double btnHeight = isPartnerTask ? 32.0 : 38.0;
+    // আঙুলে চাপার জন্য বাটন একটু উঁচু (৪৪-৪৬dp), প্রস্থ আগের মতোই
+    final double btnHeight = isPartnerTask ? 40.0 : 46.0;
     final EdgeInsetsGeometry btnPadding = isPartnerTask
         ? const EdgeInsets.symmetric(horizontal: 8, vertical: 0)
-        : const EdgeInsets.symmetric(horizontal: 14, vertical: 0);
+        : const EdgeInsets.symmetric(horizontal: 12, vertical: 0);
 
     int totalTargetSeconds = widget.task.totalDurationMinutes * 60;
     int remainingSeconds = totalTargetSeconds - _elapsedSeconds;
@@ -4317,9 +4319,10 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 2),
                 // Bell icon (Notification)
                 GestureDetector(
+                  behavior: HitTestBehavior.opaque,
                   onTap: () {
                     // Toggle alarmEnabled
                     widget.onUpdate(
@@ -4328,19 +4331,22 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                       ),
                     );
                   },
-                  child: Icon(
-                    widget.task.alarmEnabled
-                        ? Icons.notifications_active_rounded
-                        : Icons.notifications_off_rounded,
-                    size: 18,
-                    color: widget.task.alarmEnabled
-                        ? Theme.of(context).colorScheme.primary
-                        : Colors.grey,
+                  child: Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: Icon(
+                      widget.task.alarmEnabled
+                          ? Icons.notifications_active_rounded
+                          : Icons.notifications_off_rounded,
+                      size: 20,
+                      color: widget.task.alarmEnabled
+                          ? Theme.of(context).colorScheme.primary
+                          : Colors.grey,
+                    ),
                   ),
                 ),
-                const SizedBox(width: 12),
                 // Open in full view icon
                 GestureDetector(
+                  behavior: HitTestBehavior.opaque,
                   onTap: () {
                     Navigator.push(
                       context,
@@ -4352,14 +4358,17 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                       ),
                     );
                   },
-                  child: Icon(
-                    Icons.open_in_new_rounded,
-                    size: 18,
-                    color: Theme.of(context).colorScheme.secondary,
+                  child: Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: Icon(
+                      Icons.open_in_new_rounded,
+                      size: 20,
+                      color: Theme.of(context).colorScheme.secondary,
+                    ),
                   ),
                 ),
-                const SizedBox(width: 12),
                 GestureDetector(
+                  behavior: HitTestBehavior.opaque,
                   onTap: () async {
                     final isPartner = widget.task.id.startsWith('partner_');
                     final confirm = await showDialog<bool>(
@@ -4480,10 +4489,13 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                       }
                     }
                   },
-                  child: const Icon(
-                    Icons.delete_outline_rounded,
-                    size: 18,
-                    color: Colors.redAccent,
+                  child: const Padding(
+                    padding: EdgeInsets.all(8),
+                    child: Icon(
+                      Icons.delete_outline_rounded,
+                      size: 20,
+                      color: Colors.redAccent,
+                    ),
                   ),
                 ),
               ],

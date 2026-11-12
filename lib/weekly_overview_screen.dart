@@ -6,6 +6,7 @@ import 'daily_routine.dart';
 import 'tools_screen.dart'; // To use AddWeeklyRoutineTaskBottomSheet
 import 'language_manager.dart';
 import 'widgets/undo_snackbar.dart';
+import 'widgets/skeleton.dart';
 
 class WeeklyOverviewScreen extends StatefulWidget {
   const WeeklyOverviewScreen({super.key});
@@ -213,7 +214,7 @@ class _WeeklyOverviewScreenState extends State<WeeklyOverviewScreen> with Single
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return const SkeletonCardList(count: 4);
         }
 
         if (snapshot.hasError) {

@@ -7,6 +7,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'flashcard_study_screen.dart';
 import 'deck_dashboard_screen.dart';
 import 'widgets/undo_snackbar.dart';
+import 'widgets/empty_state.dart';
+import 'widgets/skeleton.dart';
 import 'language_manager.dart';
 import 'ai_service.dart';
 
@@ -448,7 +450,7 @@ class _FlashcardDecksScreenState extends State<FlashcardDecksScreen> {
                   .snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
+                  return const SkeletonCardList(padding: EdgeInsets.all(20));
                 }
 
                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
@@ -581,64 +583,45 @@ class _FlashcardDecksScreenState extends State<FlashcardDecksScreen> {
     );
   }
 
-  Widget _buildEmptyState() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(Icons.style_rounded, size: 70, color: Theme.of(context).colorScheme.primary),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'No Decks Yet',
-              style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Create a manual deck or generate cards with StudyMate AI instantly!',
-              style: TextStyle(color: Colors.grey.shade600),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 32),
-            ElevatedButton.icon(
-              onPressed: () {
-                showModalBottomSheet(
-                  context: context,
-                  backgroundColor: Colors.transparent,
-                  isScrollControlled: true,
-                  useSafeArea: true,
-                  builder: (context) {
-                    return CreateDeckBottomSheet(
-                      onManualCreate: (title, desc, cards) {
-                        _createManualDeck(title, desc, cards);
-                      },
-                      onAiGenerate: (topic) {
-                        _generateAIDeck(topic);
-                      },
-                      onBulkImport: (title, desc, rawData) {
-                        _processBulkImport(title, desc, rawData);
-                      },
-                    );
-                  },
-                );
-              },
-              icon: const Icon(Icons.add_rounded),
-              label: const Text('Create Study Deck'),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-              ),
-            )
-          ],
-        ),
+Widget _buildEmptyState() {
+    void openCreate() {
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        isScrollControlled: true,
+        useSafeArea: true,
+        builder: (context) {
+          return CreateDeckBottomSheet(
+            onManualCreate: (title, desc, cards) {
+              _createManualDeck(title, desc, cards);
+            },
+            onAiGenerate: (topic) {
+              _generateAIDeck(topic);
+            },
+            onBulkImport: (title, desc, rawData) {
+              _processBulkImport(title, desc, rawData);
+            },
+          );
+        },
+      );
+    }
+
+    return EmptyStateGuide(
+      icon: Icons.style_rounded,
+      color: Colors.purpleAccent,
+      title: trx('No decks yet', 'এখনো কোনো ডেক নেই'),
+      message: trx(
+        'A flashcard has a question on the front and the answer on the back. Flip, check yourself, repeat.',
+        'ফ্ল্যাশকার্ডের সামনে প্রশ্ন, পেছনে উত্তর। উল্টে দেখুন, নিজেকে যাচাই করুন, বারবার পড়ুন।',
       ),
+      exampleTitle: trx('Example deck: "Bangladesh basics"', 'উদাহরণ ডেক: "বাংলাদেশ বিষয়াবলি"'),
+      exampleLines: [
+        trx('Front: Year of the Language Movement? → Back: 1952', 'সামনে: ভাষা আন্দোলন কোন সালে? → পেছনে: ১৯৫২'),
+        trx('Front: Largest mangrove forest? → Back: Sundarbans', 'সামনে: বিশ্বের বৃহত্তম ম্যানগ্রোভ বন? → পেছনে: সুন্দরবন'),
+        trx('Or let AI make cards from any topic', 'অথবা যেকোনো বিষয় লিখে AI দিয়ে কার্ড বানান'),
+      ],
+      actionLabel: trx('Create your first deck', 'প্রথম ডেকটা বানান'),
+      onAction: openCreate,
     );
   }
 

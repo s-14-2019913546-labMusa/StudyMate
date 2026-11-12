@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
+import 'language_manager.dart';
+import 'widgets/empty_state.dart';
+import 'widgets/skeleton.dart';
 
 // =============================================
 // DATA MODELS
@@ -532,7 +535,7 @@ class _SpecialDayCountdownScreenState extends State<SpecialDayCountdownScreen> {
       stream: _foldersRef.orderBy('createdAt', descending: false).snapshots(),
       builder: (ctx, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return const SkeletonCardList();
         }
         if (!snap.hasData || snap.data!.docs.isEmpty) {
           return _buildEmptyState();
@@ -730,30 +733,23 @@ class _SpecialDayCountdownScreenState extends State<SpecialDayCountdownScreen> {
     );
   }
 
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 100,
-            height: 100,
-            decoration: BoxDecoration(
-              color: const Color(0xFF6366F1).withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.create_new_folder_rounded, size: 48, color: Color(0xFF6366F1)),
-          ),
-          const SizedBox(height: 20),
-          const Text('কোনো ফোল্ডার নেই', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          Text(
-            'নিচের বাটনে ক্লিক করে\nনতুন ফোল্ডার তৈরি করুন',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
-          ),
-        ],
+Widget _buildEmptyState() {
+    return EmptyStateGuide(
+      icon: Icons.event_note_rounded,
+      color: const Color(0xFF6366F1),
+      title: trx('No countdowns yet', 'এখনো কোনো কাউন্টডাউন নেই'),
+      message: trx(
+        'Make a folder, then add the days you are waiting for. You will see how many days are left.',
+        'একটা ফোল্ডার বানান, তারপর অপেক্ষার দিনগুলো যোগ করুন। প্রতিটার আর কত দিন বাকি তা দেখা যাবে।',
       ),
+      exampleTitle: trx('Example folder: "Exams"', 'উদাহরণ ফোল্ডার: "পরীক্ষা"'),
+      exampleLines: [
+        trx('BCS Preliminary – 87 days left', 'বিসিএস প্রিলিমিনারি – আর ৮৭ দিন'),
+        trx('Bank written exam – 42 days left', 'ব্যাংক লিখিত পরীক্ষা – আর ৪২ দিন'),
+        trx('Birthday, Eid or any special day', 'জন্মদিন, ঈদ বা যেকোনো বিশেষ দিন'),
+      ],
+      actionLabel: trx('Create your first folder', 'প্রথম ফোল্ডারটা বানান'),
+      onAction: () => _showAddFolderDialog(),
     );
   }
 }
