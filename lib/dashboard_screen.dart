@@ -27,6 +27,7 @@ import 'nightly_summary_service.dart';
 import 'task_notification_actions.dart';
 import 'home_widget_service.dart';
 import 'widgets/skeleton.dart';
+import 'weekly_overview_screen.dart';
 
 class DashboardRoutineData {
   final DailyRoutine? localRoutine;
@@ -3176,8 +3177,8 @@ class _EditTaskBottomSheetState extends State<EditTaskBottomSheet> {
     if (_formKey.currentState!.validate()) {
       if (_startTime == null || _endTime == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please select both Start and End Time.'),
+           SnackBar(
+            content: Text('Please select both Start and End Time.'.tr()),
           ),
         );
         return;
@@ -3787,16 +3788,33 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
     widget.onUpdate(widget.task.copyWith(status: 'running', elapsedSeconds: _elapsedSeconds));
   }
 
+  // সব টাস্ক কার্ড একই ফোল্ডার তালিকা ব্যবহার করে, তাই একবার এনে কিছুক্ষণ মেমোরিতে রাখা হয়
+  // (আগে প্রতিটা কার্ড আলাদা করে Firestore থেকে আনত, এতে হোম স্ক্রিন ধীর হতো)
+  static List<Map<String, dynamic>>? _foldersCache;
+  static DateTime? _foldersCacheAt;
+  static Future<List<Map<String, dynamic>>>? _foldersInFlight;
+
+  static Future<List<Map<String, dynamic>>> _fetchFoldersCached(String uid) {
+    final fresh = _foldersCacheAt != null &&
+        DateTime.now().difference(_foldersCacheAt!) < const Duration(minutes: 5);
+    if (_foldersCache != null && fresh) return Future.value(_foldersCache!);
+    return _foldersInFlight ??= FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .collection('studyFolders')
+        .get()
+        .then((snapshot) {
+      _foldersCache = snapshot.docs.map((doc) => doc.data()).toList();
+      _foldersCacheAt = DateTime.now();
+      return _foldersCache!;
+    }).whenComplete(() => _foldersInFlight = null);
+  }
+
   Future<void> _loadFolders() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
     try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .collection('studyFolders')
-          .get();
-      final list = snapshot.docs.map((doc) => doc.data()).toList();
+      final list = await _fetchFoldersCached(user.uid);
       if (mounted) {
         setState(() {
           _folders.addAll(list);
@@ -3865,13 +3883,13 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text(
-          '⏰ Task Finished!',
-          style: TextStyle(fontWeight: FontWeight.bold),
+        title: Text(
+          trx('⏰ Task Finished!', '⏰ টাস্কের সময় শেষ!'),
+          style: const TextStyle(fontWeight: FontWeight.bold),
           textAlign: TextAlign.center,
         ),
         content: Text(
-          'আপনার টাস্ক "${widget.task.title}" এর সময় শেষ হয়েছে।',
+          trx('Time is up for "${widget.task.title}".', 'আপনার টাস্ক "${widget.task.title}" এর সময় শেষ হয়েছে।'),
           textAlign: TextAlign.center,
         ),
         actionsAlignment: MainAxisAlignment.center,
@@ -3883,9 +3901,9 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
               _showDoneDialog(); // Show completion notes dialog
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-            child: const Text(
-              '⏹ Stop Alarm & Complete',
-              style: TextStyle(color: Colors.white),
+            child: Text(
+              trx('⏹ Stop Alarm & Complete', '⏹ অ্যালার্ম বন্ধ করে শেষ করুন'),
+              style: const TextStyle(color: Colors.white),
             ),
           ),
         ],

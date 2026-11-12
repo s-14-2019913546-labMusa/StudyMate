@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'language_manager.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -464,7 +465,7 @@ class _QuranReaderScreenState extends State<QuranReaderScreen>
     if (_appDir == null) return;
     final file = File('${_appDir!.path}/quran_surah_$surahNumber.json');
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text('সুরা $surahNumber ডাউনলোড শুরু হয়েছে...'),
+      content: Text(trx('Surah $surahNumber download started...', 'সুরা $surahNumber ডাউনলোড শুরু হয়েছে...')),
       backgroundColor: Colors.teal.shade800,
       duration: const Duration(seconds: 1),
     ));
@@ -491,8 +492,8 @@ class _QuranReaderScreenState extends State<QuranReaderScreen>
         await file.writeAsString(json.encode(ayahs));
         await _checkCachedSurahs();
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('সুরা ডাউনলোড সম্পূর্ণ হয়েছে!'),
+          ScaffoldMessenger.of(context).showSnackBar( SnackBar(
+            content: Text('সুরা ডাউনলোড সম্পূর্ণ হয়েছে!'.tr()),
             backgroundColor: Color(0xFF0F3625),
           ));
         }
@@ -502,7 +503,7 @@ class _QuranReaderScreenState extends State<QuranReaderScreen>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('ডাউনলোড ব্যর্থ: $e'),
+          content: Text(trx('Download failed: $e', 'ডাউনলোড ব্যর্থ: $e')),
           backgroundColor: Colors.redAccent,
         ));
       }

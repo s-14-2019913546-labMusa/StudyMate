@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'language_manager.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:audioplayers/audioplayers.dart';
@@ -192,8 +193,8 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
       if (mounted) {
         setState(() => _downloadingTrackId = null);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('ডাউনলোড ব্যর্থ। ইন্টারনেট থেকে সরাসরি বাজানো হচ্ছে...'),
+           SnackBar(
+            content: Text('ডাউনলোড ব্যর্থ। ইন্টারনেট থেকে সরাসরি বাজানো হচ্ছে...'.tr()),
             backgroundColor: Colors.orange,
           ),
         );
@@ -218,7 +219,7 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
         _isPlaying = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('সব cache মুছে ফেলা হয়েছে।'), backgroundColor: Colors.blueGrey),
+         SnackBar(content: Text('সব cache মুছে ফেলা হয়েছে।'.tr()), backgroundColor: Colors.blueGrey),
       );
     }
   }
@@ -269,7 +270,7 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('সাউন্ড চালাতে সমস্যা: $e'), backgroundColor: Colors.redAccent),
+          SnackBar(content: Text(trx('Could not play the sound: $e', 'সাউন্ড চালাতে সমস্যা: $e')), backgroundColor: Colors.redAccent),
         );
       }
     }
@@ -330,7 +331,7 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('ফাইল খুলতে সমস্যা: $e'), backgroundColor: Colors.redAccent),
+          SnackBar(content: Text(trx('Could not open the file: $e', 'ফাইল খুলতে সমস্যা: $e')), backgroundColor: Colors.redAccent),
         );
       }
     }
@@ -359,7 +360,7 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('গান বাজাতে সমস্যা: $e'), backgroundColor: Colors.redAccent),
+          SnackBar(content: Text(trx('Could not play the sound: $e', 'গান বাজাতে সমস্যা: $e')), backgroundColor: Colors.redAccent),
         );
       }
     }
@@ -401,8 +402,8 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
             _audioPlayer.pause();
             timer.cancel();
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Focus timer completed! Music paused.'),
+               SnackBar(
+                content: Text('Focus timer completed! Music paused.'.tr()),
                 backgroundColor: Colors.indigo,
               ),
             );

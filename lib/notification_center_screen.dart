@@ -64,7 +64,7 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
             onPressed: () {
               NotificationService.clearAll(currentUser!.uid);
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Notifications cleared!')),
+                 SnackBar(content: Text('Notifications cleared!'.tr())),
               );
             },
           ),
@@ -206,7 +206,7 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
                                 onPressed: () {
                                   NotificationService.snoozeNotification(currentUser!.uid, id, 1);
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Snoozed for 1 hour!')),
+                                     SnackBar(content: Text('Snoozed for 1 hour!'.tr())),
                                   );
                                 },
                                 icon: const Icon(Icons.snooze_rounded, size: 16),

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'language_manager.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
@@ -362,7 +363,7 @@ class _SurahViewerScreenState extends State<SurahViewerScreen> {
                                   Clipboard.setData(ClipboardData(text: copyText));
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
-                                      content: Text('আয়াত $number কপি করা হয়েছে!'),
+                                      content: Text(trx('Ayah $number copied!', 'আয়াত $number কপি করা হয়েছে!')),
                                       backgroundColor: const Color(0xFF0F3625),
                                       duration: const Duration(seconds: 1),
                                     ),

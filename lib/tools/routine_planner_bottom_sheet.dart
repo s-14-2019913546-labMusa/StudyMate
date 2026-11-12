@@ -228,7 +228,7 @@ class _RoutinePlannerBottomSheetState extends State<RoutinePlannerBottomSheet> {
                                     _weeklyRoutine[_selectedDay]!.add(_weeklyTaskCtrl.text);
                                     _weeklyTaskCtrl.clear();
                                   });
-                                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Added to weekly routine!')));
+                                  ScaffoldMessenger.of(context).showSnackBar( SnackBar(content: Text('Added to weekly routine!'.tr())));
                                 }
                               },
                               icon: const Icon(Icons.add),

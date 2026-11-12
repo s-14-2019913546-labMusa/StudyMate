@@ -201,7 +201,7 @@ class _NotificationSettingsScreenState
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error updating settings: $e'),
+            content: Text(trx('Error updating settings: $e', 'সেটিংস বদলানো যায়নি: $e')),
             backgroundColor: Colors.redAccent,
           ),
         );

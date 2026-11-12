@@ -258,7 +258,7 @@ class _SleepTrackerScreenState extends State<SleepTrackerScreen> with SingleTick
     _startUIUpdateTimer();
     
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sleep tracked & Alarms set for background!')));
+      ScaffoldMessenger.of(context).showSnackBar( SnackBar(content: Text('Sleep tracked & Alarms set for background!'.tr())));
     }
   }
 
@@ -337,7 +337,7 @@ class _SleepTrackerScreenState extends State<SleepTrackerScreen> with SingleTick
     await LocalNotificationService.cancelAllNotifications();
     await _saveSleepHistoryToFirebase();
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sleep session saved to history!')));
+      ScaffoldMessenger.of(context).showSnackBar( SnackBar(content: Text('Sleep session saved to history!'.tr())));
     }
   }
 
@@ -381,7 +381,7 @@ class _SleepTrackerScreenState extends State<SleepTrackerScreen> with SingleTick
     }
     
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('স্লিপ টাইম সেভ করা হয়েছে!')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(trx('Sleep time saved!', 'স্লিপ টাইম সেভ করা হয়েছে!'))));
     }
   }
 

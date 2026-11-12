@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'language_manager.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -266,12 +267,12 @@ class _NewsReaderScreenState extends State<NewsReaderScreen> with SingleTickerPr
                     'timestamp': FieldValue.serverTimestamp(),
                   });
                   if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Feed added successfully!')));
+                    ScaffoldMessenger.of(context).showSnackBar( SnackBar(content: Text('Feed added successfully!'.tr())));
                     Navigator.pop(context);
                   }
                 } catch (e) {
                   if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to add feed. Check Firebase rules.')));
+                    ScaffoldMessenger.of(context).showSnackBar( SnackBar(content: Text('Failed to add feed. Check Firebase rules.'.tr())));
                   }
                 }
               }

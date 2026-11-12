@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'language_manager.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
@@ -129,7 +130,7 @@ class _Revision147ScreenState extends State<Revision147Screen> with SingleTicker
       debugPrint('Error toggling task completion in 1-4-7: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to update task: $e'), backgroundColor: Colors.redAccent),
+          SnackBar(content: Text(trx('Failed to update task: $e', 'টাস্ক আপডেট করা যায়নি: $e')), backgroundColor: Colors.redAccent),
         );
       }
     }
@@ -476,7 +477,7 @@ class _Revision147ScreenState extends State<Revision147Screen> with SingleTicker
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text('"${task.title}" এর জন্য ১-৪-৭ রিভিশন নোটিফিকেশন সেট হয়েছে!'),
+                              content: Text(trx('1-4-7 revision reminders set for "${task.title}"!', '"${task.title}" এর জন্য ১-৪-৭ রিভিশন নোটিফিকেশন সেট হয়েছে!')),
                               backgroundColor: Colors.indigo,
                               duration: const Duration(seconds: 3),
                             ),

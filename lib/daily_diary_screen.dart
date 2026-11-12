@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'language_manager.dart';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
@@ -12,7 +13,6 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:open_filex/open_filex.dart';
-import 'package:easy_localization/easy_localization.dart' as el;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
@@ -208,14 +208,14 @@ class _DailyDiaryScreenState extends State<DailyDiaryScreen> with SingleTickerPr
       }, SetOptions(merge: true));
       
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Diary saved successfully!')));
+        ScaffoldMessenger.of(context).showSnackBar( SnackBar(content: Text('Diary saved successfully!'.tr())));
       }
       
       _loadTodayEntry();
       
     } catch (e) {
       debugPrint('Error saving diary: $e');
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to save diary.')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar( SnackBar(content: Text('Failed to save diary.'.tr())));
     } finally {
       setState(() => _isSaving = false);
     }
@@ -889,13 +889,13 @@ class _DailyDiaryScreenState extends State<DailyDiaryScreen> with SingleTickerPr
             
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Diary entry deleted successfully.')),
+             SnackBar(content: Text('Diary entry deleted successfully.'.tr())),
           );
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to delete entry: $e')),
+            SnackBar(content: Text(trx('Failed to delete entry: $e', 'লেখা মোছা যায়নি: $e'))),
           );
         }
       }
@@ -966,7 +966,7 @@ class _DailyDiaryScreenState extends State<DailyDiaryScreen> with SingleTickerPr
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Failed to generate PDF pages (Empty images list).')),
+             SnackBar(content: Text('Failed to generate PDF pages (Empty images list).'.tr())),
           );
         }
       }
@@ -974,7 +974,7 @@ class _DailyDiaryScreenState extends State<DailyDiaryScreen> with SingleTickerPr
       if (mounted) Navigator.pop(context); // dismiss loader
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error generating PDF: $e')),
+          SnackBar(content: Text(trx('Error generating PDF: $e', 'পিডিএফ তৈরি করা যায়নি: $e'))),
         );
       }
     }
@@ -1128,7 +1128,7 @@ class _DailyDiaryScreenState extends State<DailyDiaryScreen> with SingleTickerPr
       } catch (e, stacktrace) {
         debugPrint('Screenshot error page $i: $e\n$stacktrace');
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Page $i Render Error: $e')));
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(trx('Page $i render error: $e', '$i নম্বর পেজ তৈরিতে সমস্যা: $e'))));
         }
       }
     }
@@ -1139,7 +1139,7 @@ class _DailyDiaryScreenState extends State<DailyDiaryScreen> with SingleTickerPr
   Future<void> _downloadPDF(int days) async {
     if (_uid == null) return;
     
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Generating Paginated PDF... This may take a moment.')));
+    ScaffoldMessenger.of(context).showSnackBar( SnackBar(content: Text('Generating Paginated PDF... This may take a moment.'.tr())));
     
     final endDate = DateTime.now();
     final startDate = endDate.subtract(Duration(days: days));
@@ -1155,7 +1155,7 @@ class _DailyDiaryScreenState extends State<DailyDiaryScreen> with SingleTickerPr
           .get();
           
       if (snapshot.docs.isEmpty) {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No entries found in this range.')));
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar( SnackBar(content: Text('No entries found in this range.'.tr())));
         return;
       }
       
@@ -1189,7 +1189,7 @@ class _DailyDiaryScreenState extends State<DailyDiaryScreen> with SingleTickerPr
       
     } catch (e) {
       debugPrint('Error generating PDF: $e');
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to generate PDF: $e')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(trx('Failed to generate PDF: $e', 'পিডিএফ তৈরি করা যায়নি: $e'))));
     }
   }
 

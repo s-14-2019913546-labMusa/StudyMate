@@ -107,7 +107,7 @@ class _StudyRoomScreenState extends State<StudyRoomScreen> {
   Future<void> _createRoom() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please log in first!')));
+      ScaffoldMessenger.of(context).showSnackBar( SnackBar(content: Text('Please log in first!'.tr())));
       return;
     }
 
@@ -134,11 +134,11 @@ class _StudyRoomScreenState extends State<StudyRoomScreen> {
       _enterRoom(code);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Room $code created successfully!')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(trx('Room $code created successfully!', '$code রুম তৈরি হয়েছে!'))));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error creating room: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(trx('Error creating room: $e', 'রুম তৈরি করা যায়নি: $e'))));
       }
     }
   }
@@ -146,13 +146,13 @@ class _StudyRoomScreenState extends State<StudyRoomScreen> {
   Future<void> _joinRoom() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please log in first!')));
+      ScaffoldMessenger.of(context).showSnackBar( SnackBar(content: Text('Please log in first!'.tr())));
       return;
     }
 
     final code = _joinCodeCtrl.text.trim().toUpperCase();
     if (code.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter a room code!')));
+      ScaffoldMessenger.of(context).showSnackBar( SnackBar(content: Text('Please enter a room code!'.tr())));
       return;
     }
 
@@ -160,7 +160,7 @@ class _StudyRoomScreenState extends State<StudyRoomScreen> {
       final doc = await FirebaseFirestore.instance.collection('study_rooms').doc(code).get();
       if (!doc.exists) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Room not found! Please check the code.')));
+          ScaffoldMessenger.of(context).showSnackBar( SnackBar(content: Text('Room not found! Please check the code.'.tr())));
         }
         return;
       }
@@ -174,11 +174,11 @@ class _StudyRoomScreenState extends State<StudyRoomScreen> {
       _enterRoom(code);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Joined Room $code!')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(trx('Joined Room $code!', '$code রুমে যোগ দিয়েছেন!'))));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error joining room: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(trx('Error joining room: $e', 'রুমে যোগ দেওয়া যায়নি: $e'))));
       }
     }
   }
@@ -196,7 +196,7 @@ class _StudyRoomScreenState extends State<StudyRoomScreen> {
         _roomCode = '';
       });
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Left the room.')));
+        ScaffoldMessenger.of(context).showSnackBar( SnackBar(content: Text('Left the room.'.tr())));
       }
     } catch (e) {
       setState(() {
@@ -228,12 +228,12 @@ class _StudyRoomScreenState extends State<StudyRoomScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Study proof requested from $targetName. Waiting for upload...')),
+          SnackBar(content: Text(trx('Study proof requested from $targetName. Waiting for upload...', '$targetName-এর কাছে পড়ার প্রমাণ চাওয়া হয়েছে। আপলোডের অপেক্ষা...'))),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error requesting proof: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(trx('Error requesting proof: $e', 'প্রমাণ চাওয়া যায়নি: $e'))));
       }
     }
   }
@@ -469,7 +469,7 @@ class _StudyRoomScreenState extends State<StudyRoomScreen> {
 
       setState(() => _isUploadingProof = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Study proof uploaded successfully!')));
+        ScaffoldMessenger.of(context).showSnackBar( SnackBar(content: Text('Study proof uploaded successfully!'.tr())));
       }
     } catch (e) {
       setState(() => _isUploadingProof = false);

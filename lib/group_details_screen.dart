@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'language_manager.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -60,13 +61,13 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Group photo updated successfully!')),
+           SnackBar(content: Text('Group photo updated successfully!'.tr())),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error updating photo: $e')),
+          SnackBar(content: Text(trx('Error updating photo: $e', 'ছবি বদলানো যায়নি: $e'))),
         );
       }
     } finally {
@@ -126,13 +127,13 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Group renamed successfully!')),
+             SnackBar(content: Text('Group renamed successfully!'.tr())),
           );
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error renaming group: $e')),
+            SnackBar(content: Text(trx('Error renaming group: $e', 'গ্রুপের নাম বদলানো যায়নি: $e'))),
           );
         }
       }
@@ -256,13 +257,13 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Added $friendName successfully!')),
+          SnackBar(content: Text(trx('Added $friendName successfully!', '$friendName-কে যোগ করা হয়েছে!'))),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error adding member: $e')),
+          SnackBar(content: Text(trx('Error adding member: $e', 'সদস্য যোগ করা যায়নি: $e'))),
         );
       }
     }
@@ -285,13 +286,13 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$memberName is now an Admin!')),
+          SnackBar(content: Text(trx('$memberName is now an Admin!', '$memberName এখন অ্যাডমিন!'))),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error making admin: $e')),
+          SnackBar(content: Text(trx('Error making admin: $e', 'অ্যাডমিন করা যায়নি: $e'))),
         );
       }
     }
@@ -336,13 +337,13 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Removed $memberName from the group.')),
+            SnackBar(content: Text(trx('Removed $memberName from the group.', '$memberName-কে গ্রুপ থেকে সরানো হয়েছে।'))),
           );
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error removing member: $e')),
+            SnackBar(content: Text(trx('Error removing member: $e', 'সদস্য সরানো যায়নি: $e'))),
           );
         }
       }
@@ -380,7 +381,7 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
           if (mounted) {
             Navigator.popUntil(context, (route) => route.isFirst);
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('You left and the group was deleted.')),
+               SnackBar(content: Text('You left and the group was deleted.'.tr())),
             );
           }
           return;
@@ -424,13 +425,13 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
         if (mounted) {
           Navigator.popUntil(context, (route) => route.isFirst);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('You left the group.')),
+             SnackBar(content: Text('You left the group.'.tr())),
           );
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error leaving group: $e')),
+            SnackBar(content: Text(trx('Error leaving group: $e', 'গ্রুপ থেকে বের হওয়া যায়নি: $e'))),
           );
         }
       }
@@ -445,7 +446,7 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Group theme updated!')),
+           SnackBar(content: Text('Group theme updated!'.tr())),
         );
       }
     } catch (e) {

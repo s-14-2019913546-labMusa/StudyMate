@@ -159,7 +159,7 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
       });
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No more undo steps available (Max 5 steps)')),
+         SnackBar(content: Text('No more undo steps available (Max 5 steps)'.tr())),
       );
     }
   }
@@ -337,14 +337,14 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
     final noteContent = _contentController.text.trim();
     if (noteContent.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cannot summarize an empty note.')),
+         SnackBar(content: Text('Cannot summarize an empty note.'.tr())),
       );
       return;
     }
 
     setState(() => _isProcessingAI = true);
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('AI is summarizing your note...')),
+       SnackBar(content: Text('AI is summarizing your note...'.tr())),
     );
 
     try {
@@ -355,13 +355,13 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
           _contentController.setMarkdownText('${_contentController.toMarkdown()}\n\n$summary');
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Summary added to note!'), backgroundColor: Colors.purple),
+           SnackBar(content: Text('Summary added to note!'.tr()), backgroundColor: Colors.purple),
         );
       }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to summarize: $e'), backgroundColor: Colors.redAccent),
+        SnackBar(content: Text(trx('Failed to summarize: $e', 'সারাংশ করা যায়নি: $e')), backgroundColor: Colors.redAccent),
       );
     } finally {
       if (mounted) {
@@ -413,7 +413,7 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
               
               setState(() => _isProcessingAI = true);
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('AI is researching and writing...')),
+                 SnackBar(content: Text('AI is researching and writing...'.tr())),
               );
 
               try {
@@ -427,13 +427,13 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
                     }
                   });
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('AI study note generated successfully!'), backgroundColor: Colors.indigo),
+                     SnackBar(content: Text('AI study note generated successfully!'.tr()), backgroundColor: Colors.indigo),
                   );
                 }
               } catch (e) {
                 if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Generation failed: $e'), backgroundColor: Colors.redAccent),
+                  SnackBar(content: Text(trx('Generation failed: $e', 'তৈরি করা যায়নি: $e')), backgroundColor: Colors.redAccent),
                 );
               } finally {
                 if (mounted) {
@@ -457,7 +457,7 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
         _isRecording = false;
         _audioFilePath = path;
       });
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Audio recorded! Will be saved with the note.')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar( SnackBar(content: Text('Audio recorded! Will be saved with the note.'.tr())));
     } else {
       // পারমিশন চেক করে রেকর্ডিং শুরু করা
       if (await _audioRecorder.hasPermission()) {
@@ -468,9 +468,9 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
           _isRecording = true;
           _audioFilePath = null;
         });
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Recording audio...')));
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar( SnackBar(content: Text('Recording audio...'.tr())));
       } else {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Microphone permission required.')));
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar( SnackBar(content: Text('Microphone permission required.'.tr())));
       }
     }
   }
@@ -483,7 +483,7 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
         _contentController.insertImage(pickedFile.path);
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to pick image: $e')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(trx('Failed to pick image: $e', 'ছবি বাছাই করা যায়নি: $e'))));
     }
   }
 
@@ -1045,7 +1045,7 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
       _imageFilePath = null;
     });
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Note saved securely!')));
+      ScaffoldMessenger.of(context).showSnackBar( SnackBar(content: Text('Note saved securely!'.tr())));
       if (widget.noteId != null) {
         Navigator.pop(context); // Return after editing existing note
       }
@@ -1140,7 +1140,7 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
                                 _contentController.setMarkdownText(content);
                               });
                               ScaffoldMessenger.of(this.context).showSnackBar(SnackBar(
-                                  content: Text('$when-এর ভার্সন ফিরিয়ে আনা হয়েছে। রাখতে চাইলে Save চাপুন।')));
+                                  content: Text(trx('Restored the version from $when. Tap Save to keep it.', '$when-এর ভার্সন ফিরিয়ে আনা হয়েছে। রাখতে চাইলে Save চাপুন।'))));
                             },
                             child: const Text('Restore'),
                           ),
@@ -1711,8 +1711,8 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
         _isPlayingAudio = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Audio paused.'),
+         SnackBar(
+          content: Text('Audio paused.'.tr()),
           backgroundColor: Colors.deepPurple,
           duration: Duration(seconds: 1),
         ),
@@ -1721,7 +1721,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
       final textToRead = _stripMarkdownForTTS(widget.content);
       if (textToRead.trim().isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Note is empty or has no readable text.')),
+           SnackBar(content: Text('Note is empty or has no readable text.'.tr())),
         );
         return;
       }
@@ -1763,18 +1763,18 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
     if (widget.content.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('নোটটি খালি, কুইজ বানানো যাবে না।')));
+      ScaffoldMessenger.of(context).showSnackBar( SnackBar(content: Text('নোটটি খালি, কুইজ বানানো যাবে না।'.tr())));
       return;
     }
     setState(() => _isGeneratingQuiz = true);
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('✨ Generating AI Quiz from this note...')));
+    ScaffoldMessenger.of(context).showSnackBar( SnackBar(content: Text('✨ Generating AI Quiz from this note...'.tr())));
     try {
       final apiKey = await AIService.getSavedApiKey(user.uid);
       final cards = await AIService.generateQuizFromNote(widget.content, apiKey);
       if (!mounted) return;
       if (cards.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('এই নোট থেকে প্রশ্ন বানানো গেল না। নোটে আরও তথ্য লিখুন বা Profile → AI Settings-এ Gemini API Key দিন।')));
+        ScaffoldMessenger.of(context).showSnackBar( SnackBar(
+            content: Text('এই নোট থেকে প্রশ্ন বানানো গেল না। নোটে আরও তথ্য লিখুন বা Profile → AI Settings-এ Gemini API Key দিন।'.tr())));
         return;
       }
       final now = DateTime.now().millisecondsSinceEpoch;
@@ -1804,7 +1804,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('কুইজ বানাতে সমস্যা হয়েছে: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(trx('Could not make the quiz: $e', 'কুইজ বানাতে সমস্যা হয়েছে: $e'))));
       }
     } finally {
       if (mounted) setState(() => _isGeneratingQuiz = false);

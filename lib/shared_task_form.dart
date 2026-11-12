@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'language_manager.dart';
 import 'daily_routine.dart';
-import 'package:easy_localization/easy_localization.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'google_sheet_syllabus_service.dart';
@@ -131,13 +131,13 @@ class _SharedTaskFormState extends State<SharedTaskForm> {
           _selectedSheetTopics.clear();
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Syllabus updated successfully from Google Sheet!')),
+           SnackBar(content: Text('Syllabus updated successfully from Google Sheet!'.tr())),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load sheet: ${e.toString().replaceAll("Exception: ", "")}')),
+          SnackBar(content: Text(trx('Failed to load sheet: ${e.toString().replaceAll("Exception: ", "")}', 'শিট লোড করা যায়নি: ${e.toString().replaceAll("Exception: ", "")}'))),
         );
       }
     } finally {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'language_manager.dart';
 import 'package:flutter/services.dart';
 import 'google_sheet_routine_service.dart';
 
@@ -62,7 +63,7 @@ class _GoogleSheetSyncScreenState extends State<GoogleSheetSyncScreen> {
     final url = _urlController.text.trim();
     if (url.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please paste a Google Sheet link or click "Load Sample"')),
+         SnackBar(content: Text('Please paste a Google Sheet link or click "Load Sample"'.tr())),
       );
       return;
     }

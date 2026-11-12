@@ -1,7 +1,7 @@
 import 'dart:async';
+import 'language_manager.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/services.dart';
 import 'main.dart'; // for navigatorKey
 import 'local_notification_service.dart';
@@ -204,7 +204,7 @@ class SleepTimerService {
 
     await _clearSleepState(prefs);
     if (context.mounted) {
-       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sleep history saved!')));
+       ScaffoldMessenger.of(context).showSnackBar( SnackBar(content: Text('Sleep history saved!'.tr())));
     }
   }
 

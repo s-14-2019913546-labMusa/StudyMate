@@ -55,7 +55,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error adding bookmark: $e')),
+          SnackBar(content: Text(trx('Error adding bookmark: $e', 'বুকমার্ক যোগ করা যায়নি: $e'))),
         );
       }
     }

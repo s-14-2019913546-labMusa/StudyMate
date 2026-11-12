@@ -129,7 +129,7 @@ class _MoodTrackerBottomSheetState extends State<MoodTrackerBottomSheet> {
           ElevatedButton(
             onPressed: () async {
               if (_selectedMoodIndex == -1) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a mood!')));
+                ScaffoldMessenger.of(context).showSnackBar( SnackBar(content: Text('Please select a mood!'.tr())));
                 return;
               }
               
@@ -143,16 +143,16 @@ class _MoodTrackerBottomSheetState extends State<MoodTrackerBottomSheet> {
                     'timestamp': FieldValue.serverTimestamp(),
                   });
                   if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Mood saved successfully!')));
+                    ScaffoldMessenger.of(context).showSnackBar( SnackBar(content: Text('Mood saved successfully!'.tr())));
                     Navigator.pop(context);
                   }
                 } catch (e) {
                   if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Error saving mood. Please check Firebase rules!')));
+                    ScaffoldMessenger.of(context).showSnackBar( SnackBar(content: Text('Error saving mood. Please check Firebase rules!'.tr())));
                   }
                 }
               } else {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please log in first.')));
+                ScaffoldMessenger.of(context).showSnackBar( SnackBar(content: Text('Please log in first.'.tr())));
               }
             },
             child: const Text('Save Mood'),

@@ -13,8 +13,10 @@
 4. Bengali text: keep files UTF-8. A build installed in Nov 2026 showed garbled Bengali (mojibake) on the Tools page ("Next-day Routine (...)") even though GitHub's source is clean — his local copy may have had encoding damage. Never re-save files in another encoding.
 
 ## App map (where things live)
-- Entry: `lib/main.dart` → `splash_screen.dart` (monthly password check, app lock) → `auth_screen.dart` → `focus_mode_screen.dart` → `dashboard_screen.dart`.
-- Bottom tabs: Home (`dashboard_screen.dart`), Tools (`tools_screen.dart`, ~11,800 lines, holds many tool screens), Profile (`profile_screen.dart`).
+- Entry: `lib/main.dart` → `splash_screen.dart` (monthly password check, app lock) → login → `app_entry.dart` decides: onboarding (new accounts only) → `focus_mode_screen.dart` (auto/manual/off) → `dashboard_screen.dart`.
+- Bottom tabs: Home (`dashboard_screen.dart`), Tools (`tools_screen.dart`, ~600 lines; tool screens live in `lib/tools/*.dart`), Profile (`profile_screen.dart`).
+- Strings: use `'Key'.tr()` with entries in `language_manager.dart`, or `trx('English', 'বাংলা')` for new text. Don't import `easy_localization` in a file that also imports `language_manager.dart` (both define `.tr()` → compile error).
+- Checking errors: `flutter analyze` prints `error - ...` (not `error •`). Don't run two flutter commands at once (engine.realm lock crash).
 - Tools: AI Study Planner, Next-day/Weekly routine, Calculator, Pomodoro (forest), Stopwatch, Notes (QuickNotes + NoteDetail), PDF Reader, Daily Diary, 1-4-7 Revision, Flashcards, Task History, Daily News, Dictionary, Study Map, Countdown, Calendar, My Study Sheets (Google Sheets → routine), Islamic Life, Breathing, Focus Music, Social Hub (chat, leaderboard, friends, groups), Study Room, Partner Tasks, Web Study, Study Analytics, Notifications, Mood, Sleep, Theme.
 - StudyMate Bot (offline, slash commands): `bot_chat_screen.dart`.
 - AI: `ai_service.dart` (Gemini via `google_generative_ai`; key stored in `users/{uid}.geminiApiKey`).
@@ -32,7 +34,22 @@
 - Backup missed many collections and broke above 500 docs → more collections + sub-collections, chunked batches.
 - About Us showed hard-coded 1.0.0 → reads `package_info_plus`. Version bumped to `1.0.6+7`.
 - Dictionary pronunciation now uses `flutter_tts`. Release signing uses `android/key.properties` if present, else debug key.
-- NOT yet compiled — first job is `flutter pub get` + `flutter run`, then fix any build errors.
+- Compiled and run on the MEIZU on 12 Nov 2026. Merged `main` (tools split + UTF-8 fixes) into this branch; the audit fixes were re-applied to `lib/tools/quick_notes_screen.dart` and `pomodoro_timer_screen.dart`.
+
+## UX batch (12 Nov 2026, version 1.0.7+8)
+- Tools page: search, "Recently used" row, long-press a tool to pin ⭐ (SharedPreferences `tools_pinned_v1`/`tools_recent_v1`). Calendar and Notifications removed from Tools (Home has them).
+- Focus Mode: auto-continues after 3 s; Profile → "Focus screen at startup" (auto/manual/off).
+- Undo snackbar after deleting today's task, weekly task, note, flashcard deck (`widgets/undo_snackbar.dart`).
+- Quick add: long-press "New Task" → one line, parsed by `quick_add_task.dart` (tests in `test/quick_task_parser_test.dart`). Home empty state has Quick add / Weekly routine buttons.
+- Notifications: task start has ▶ Start, end warning has ✓ Complete (`task_notification_actions.dart`, needs `ActionBroadcastReceiver` in the manifest). Completing from a notification does not award XP yet.
+- Nightly summary (`nightly_summary_service.dart`, default 21:30, Profile → Nightly summary). Rescheduled with current numbers whenever today's tasks change; "Plan tomorrow" opens the next-day routine form.
+- Home-screen widget (`home_widget` package): `StudyWidgetProvider.kt`, `res/layout/study_widget.xml`, data from `home_widget_service.dart` (next task, streak, progress, next prayer from the prayer cache file).
+- Onboarding (`onboarding_screen.dart`, `exam_presets.dart`): shown after sign-up only; Profile → "App intro & exam syllabus" for existing users. BCS/Bank/Primary presets add a Study Map folder + optional Sat–Thu routine.
+- Profile → "Text size & font": in-app text scale, Hind Siliguri / Noto Sans Bengali, Bengali font as main font in Bengali.
+- Guided empty states (`widgets/empty_state.dart`) for Flashcards, Study Map, Countdown; skeleton loaders (`widgets/skeleton.dart`) on Home, Notes, Weekly, Task History, Flashcards, Study Map, Countdown.
+- Task card buttons 46dp tall, header icons have bigger tap areas.
+- ~170 snackbar/error messages now follow the chosen language.
+- Firestore offline persistence was already on (`main.dart`); task cards now share one cached folder list instead of one read per card.
 
 ## Open questions / still to do
 - Firestore rules: confirm writes are allowed for `users/{uid}` fields `streak`, `weeklyXp`, `weeklyXpWeek` and `users/{uid}/notes/{id}/versions`.
@@ -40,9 +57,7 @@
 - Profile photo is stored only on the device (friends can't see it).
 - Release keystore: he has none yet; changing the signing key forces users to reinstall once.
 
-## UX improvement ideas he asked for (not started — ask which to do first)
-Quick wins: search + pinned/recent tools on the Tools page; auto-skip or optional Focus Mode screen; one-tap "add today's weekly routine" in the Home empty state; consistent single language (no mixed English/Bangla labels); Undo after delete.
-Daily use: one-line quick add ("বাংলা ব্যাকরণ ৮টা–১০টা"); Start/Complete buttons inside notifications; Android home-screen widget (next task, streak, next prayer); nightly summary notification; remove duplicate entry points (Calendar, Notifications, chat) and consider a 4th bottom tab.
-New users: short onboarding with exam choice (BCS/Bank/Primary) to preload syllabus; helpful empty states; clear "add Gemini key for better AI" prompt; monthly password check off by default.
-Look & feel: in-app text size, Bengali-friendly font (Hind Siliguri / Noto Sans Bengali), bigger tap targets, skeleton loaders.
-Code health: split `tools_screen.dart` into separate files; cache Firestore data for faster screens.
+## Still open from the UX list
+- 4th bottom tab (Chat or Focus) — not added; screens there have their own Scaffold/back button, needs care.
+- Language: many plain labels (not snackbars) are still English-only or Bengali-only; continue with `trx()` screen by screen.
+- Nightly summary is computed when the app last updated it; if the app is not opened for a day the numbers can be stale.

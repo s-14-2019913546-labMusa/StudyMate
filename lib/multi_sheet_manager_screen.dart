@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'language_manager.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -622,7 +623,7 @@ class _AddFolderSheetState extends State<_AddFolderSheet> {
   Future<void> _save() async {
     if (_nameCtrl.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Enter a folder name')));
+           SnackBar(content: Text('Enter a folder name'.tr())));
       return;
     }
     setState(() => _saving = true);
@@ -956,7 +957,7 @@ class _SheetFolderDetailScreenState
     final url = _urlCtrl.text.trim();
     if (url.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Paste your Google Sheet link first')));
+           SnackBar(content: Text('Paste your Google Sheet link first'.tr())));
       return;
     }
     setState(() {

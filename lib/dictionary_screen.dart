@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'language_manager.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
@@ -59,7 +60,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> with SingleTickerPr
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Could not play pronunciation: $e'),
+            content: Text(trx('Could not play pronunciation: $e', 'উচ্চারণ শোনানো যায়নি: $e')),
             backgroundColor: Colors.redAccent,
           ),
         );
@@ -152,7 +153,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> with SingleTickerPr
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load word: $e'), backgroundColor: Colors.redAccent),
+          SnackBar(content: Text(trx('Failed to load word: $e', 'শব্দ লোড করা যায়নি: $e')), backgroundColor: Colors.redAccent),
         );
       }
     } finally {
@@ -167,7 +168,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> with SingleTickerPr
   Future<void> _toggleFavorite(Map<String, dynamic> wordData) async {
     if (_currentUser == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please log in to add favorites.')),
+         SnackBar(content: Text('Please log in to add favorites.'.tr())),
       );
       return;
     }
@@ -215,7 +216,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> with SingleTickerPr
       debugPrint('Error toggling favorite: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.redAccent),
+          SnackBar(content: Text(trx('Error: $e', 'সমস্যা: $e')), backgroundColor: Colors.redAccent),
         );
       }
     }
@@ -1155,7 +1156,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> with SingleTickerPr
                                   } else {
                                     Navigator.pop(context);
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Session Completed! Excellent work!'), backgroundColor: Colors.green),
+                                       SnackBar(content: Text('Session Completed! Excellent work!'.tr()), backgroundColor: Colors.green),
                                     );
                                   }
                                 },
@@ -1180,7 +1181,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> with SingleTickerPr
                                   } else {
                                     Navigator.pop(context);
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Session Completed! Revise hard words regularly.'), backgroundColor: Colors.redAccent),
+                                       SnackBar(content: Text('Session Completed! Revise hard words regularly.'.tr()), backgroundColor: Colors.redAccent),
                                     );
                                   }
                                 },

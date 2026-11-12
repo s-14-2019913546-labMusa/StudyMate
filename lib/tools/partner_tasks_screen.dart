@@ -242,11 +242,11 @@ class _PartnerTasksScreenState extends State<PartnerTasksScreen> {
       });
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Space $code created!')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(trx('Space $code created!', '$code স্পেস তৈরি হয়েছে!'))));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(trx('Error: $e', 'সমস্যা: $e'))));
       }
     }
   }
@@ -262,7 +262,7 @@ class _PartnerTasksScreenState extends State<PartnerTasksScreen> {
       final doc = await FirebaseFirestore.instance.collection('partner_rooms').doc(code).get();
       if (!doc.exists) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Partner Space not found!')));
+          ScaffoldMessenger.of(context).showSnackBar( SnackBar(content: Text('Partner Space not found!'.tr())));
         }
         return;
       }
@@ -279,7 +279,7 @@ class _PartnerTasksScreenState extends State<PartnerTasksScreen> {
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(trx('Error: $e', 'সমস্যা: $e'))));
       }
     }
   }
@@ -384,11 +384,11 @@ class _PartnerTasksScreenState extends State<PartnerTasksScreen> {
         'participantNames.$friendId': friendName,
       });
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Added $friendName as partner!')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(trx('Added $friendName as partner!', '$friendName-কে পার্টনার হিসেবে যোগ করা হয়েছে!'))));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(trx('Error: $e', 'সমস্যা: $e'))));
       }
     }
   }

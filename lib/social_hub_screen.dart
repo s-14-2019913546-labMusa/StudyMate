@@ -92,7 +92,7 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
       'timestamp': FieldValue.serverTimestamp(),
     });
 
-    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Friend request sent!')));
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar( SnackBar(content: Text('Friend request sent!'.tr())));
   }
 
   // রিকুয়েস্ট একসেপ্ট করার লজিক
@@ -107,7 +107,7 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
       'status': 'accepted',
     });
 
-    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Friend request accepted!')));
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar( SnackBar(content: Text('Friend request accepted!'.tr())));
   }
 
   // রিকুয়েস্ট ডিক্লাইন বা ক্যান্সেল করার লজিক
@@ -117,7 +117,7 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
     await FirebaseFirestore.instance.collection('users').doc(currentUser!.uid).collection('friends').doc(requesterId).delete();
     await FirebaseFirestore.instance.collection('users').doc(requesterId).collection('friends').doc(currentUser!.uid).delete();
 
-    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Friend request cancelled.')));
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar( SnackBar(content: Text('Friend request cancelled.'.tr())));
   }
 
   Future<void> _cancelFriendRequest(String targetUserId) async {
@@ -741,13 +741,13 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
                           final gName = groupNameController.text.trim();
                           if (gName.isEmpty) {
                             ScaffoldMessenger.of(ctx).showSnackBar(
-                              const SnackBar(content: Text('Please enter a group name')),
+                               SnackBar(content: Text('Please enter a group name'.tr())),
                             );
                             return;
                           }
                           if (selectedFriendIds.isEmpty) {
                             ScaffoldMessenger.of(ctx).showSnackBar(
-                              const SnackBar(content: Text('Please select at least one friend to add')),
+                               SnackBar(content: Text('Please select at least one friend to add'.tr())),
                             );
                             return;
                           }
@@ -807,7 +807,7 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Group "$name" created successfully!')),
+          SnackBar(content: Text(trx('Group "$name" created successfully!', '"$name" গ্রুপ তৈরি হয়েছে!'))),
         );
 
         // Open chat window for the group
@@ -825,7 +825,7 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error creating group: $e')),
+          SnackBar(content: Text(trx('Error creating group: $e', 'গ্রুপ তৈরি করা যায়নি: $e'))),
         );
       }
     }
@@ -1570,7 +1570,7 @@ class _FriendDetailsScreenState extends State<FriendDetailsScreen> {
           Navigator.of(context).pop(); // Pops FriendDetailsScreen
           Navigator.of(context).pop(); // Pops FriendProfileScreen (if open)
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Removed ${widget.friendName} from friends.')),
+            SnackBar(content: Text(trx('Removed ${widget.friendName} from friends.', '${widget.friendName}-কে বন্ধু তালিকা থেকে সরানো হয়েছে।'))),
           );
         }
       } catch (e) {

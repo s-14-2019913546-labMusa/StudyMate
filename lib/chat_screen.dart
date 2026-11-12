@@ -314,7 +314,7 @@ class _ChatScreenState extends State<ChatScreen> {
       debugPrint('Failed to upload file: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to upload file: $e')),
+          SnackBar(content: Text(trx('Failed to upload file: $e', 'ফাইল আপলোড করা যায়নি: $e'))),
         );
       }
     } finally {
@@ -1451,7 +1451,7 @@ class _FileMessageState extends State<_FileMessage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Could not open file: $e'),
+            content: Text(trx('Could not open file: $e', 'ফাইল খোলা যায়নি: $e')),
             backgroundColor: Colors.redAccent,
           ),
         );

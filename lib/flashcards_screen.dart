@@ -59,7 +59,7 @@ class _FlashcardDecksScreenState extends State<FlashcardDecksScreen> {
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Gemini API Key saved successfully!')),
+         SnackBar(content: Text('Gemini API Key saved successfully!'.tr())),
       );
     }
   }
@@ -258,7 +258,7 @@ class _FlashcardDecksScreenState extends State<FlashcardDecksScreen> {
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Generated study deck for "$capitalizedTopic" successfully!'),
+          content: Text(trx('Generated study deck for "$capitalizedTopic" successfully!', '"$capitalizedTopic" বিষয়ে স্টাডি ডেক তৈরি হয়েছে!')),
           backgroundColor: Colors.purple,
         ),
       );
@@ -319,7 +319,7 @@ class _FlashcardDecksScreenState extends State<FlashcardDecksScreen> {
     
     if (parsedCards.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No valid flashcards found. Use {Question} and {Answer} tags.')),
+         SnackBar(content: Text('No valid flashcards found. Use {Question} and {Answer} tags.'.tr())),
       );
       return;
     }
@@ -336,7 +336,7 @@ class _FlashcardDecksScreenState extends State<FlashcardDecksScreen> {
     });
     
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Successfully imported ${parsedCards.length} flashcards!')),
+      SnackBar(content: Text(trx('Successfully imported ${parsedCards.length} flashcards!', '${parsedCards.length}টি ফ্ল্যাশকার্ড ইমপোর্ট হয়েছে!'))),
     );
   }
 
@@ -532,7 +532,7 @@ class _FlashcardDecksScreenState extends State<FlashcardDecksScreen> {
                           onTap: () {
                             if (cards.isEmpty) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('This deck has no cards.')),
+                                 SnackBar(content: Text('This deck has no cards.'.tr())),
                               );
                               return;
                             }
@@ -929,7 +929,7 @@ Format the output EXACTLY like this without any markdown formatting or extra tex
                 child: TextButton.icon(
                   onPressed: () {
                     Clipboard.setData(const ClipboardData(text: promptText));
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('English prompt copied!')));
+                    ScaffoldMessenger.of(context).showSnackBar( SnackBar(content: Text('English prompt copied!'.tr())));
                     Navigator.pop(ctx);
                   },
                   icon: const Icon(Icons.copy, size: 16),
@@ -952,7 +952,7 @@ Format the output EXACTLY like this without any markdown formatting or extra tex
                 child: TextButton.icon(
                   onPressed: () {
                     Clipboard.setData(const ClipboardData(text: promptTextBn));
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Bangla prompt copied!')));
+                    ScaffoldMessenger.of(context).showSnackBar( SnackBar(content: Text('Bangla prompt copied!'.tr())));
                     Navigator.pop(ctx);
                   },
                   icon: const Icon(Icons.copy, size: 16),
@@ -1026,11 +1026,11 @@ Format the output EXACTLY like this without any markdown formatting or extra tex
               final title = _titleController.text;
               final rawText = _bulkTextController.text;
               if (title.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter a deck title.')));
+                ScaffoldMessenger.of(context).showSnackBar( SnackBar(content: Text('Please enter a deck title.'.tr())));
                 return;
               }
               if (rawText.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please paste some text.')));
+                ScaffoldMessenger.of(context).showSnackBar( SnackBar(content: Text('Please paste some text.'.tr())));
                 return;
               }
               Navigator.pop(context);
@@ -1154,7 +1154,7 @@ Format the output EXACTLY like this without any markdown formatting or extra tex
 
               if (manualCards.isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Please add at least one complete card.')),
+                   SnackBar(content: Text('Please add at least one complete card.'.tr())),
                 );
                 return;
               }

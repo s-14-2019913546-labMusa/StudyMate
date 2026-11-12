@@ -124,7 +124,7 @@ class _AIStudyPlannerBottomSheetState extends State<AIStudyPlannerBottomSheet> {
 
   void _generateRoutine() async {
     if (_subjects.any((s) => s.nameCtrl.text.trim().isEmpty)) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter subject names for all fields.')));
+      ScaffoldMessenger.of(context).showSnackBar( SnackBar(content: Text('Please enter subject names for all fields.'.tr())));
       return;
     }
 

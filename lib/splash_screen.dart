@@ -45,8 +45,8 @@ class _SplashScreenState extends State<SplashScreen> {
             // Show alert message
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('আপনার মাসিক পাসওয়ার্ড রি-ভেরিফিকেশন প্রয়োজন।'),
+                SnackBar(
+                  content: Text(trx('Please re-enter your password (monthly check).', 'আপনার মাসিক পাসওয়ার্ড রি-ভেরিফিকেশন প্রয়োজন।')),
                   behavior: SnackBarBehavior.floating,
                 ),
               );

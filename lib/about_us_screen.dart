@@ -26,7 +26,7 @@ class _AboutUsScreenState extends State<AboutUsScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error launching link: $e')),
+          SnackBar(content: Text(trx('Error launching link: $e', 'লিংক খোলা যায়নি: $e'))),
         );
       }
     }

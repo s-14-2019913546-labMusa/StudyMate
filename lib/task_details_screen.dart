@@ -64,7 +64,7 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
       widget.onUpdate!(_task);
     }
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Comment added: $comment')),
+      SnackBar(content: Text(trx('Comment added: $comment', 'মন্তব্য যোগ হয়েছে: $comment'))),
     );
   }
 
