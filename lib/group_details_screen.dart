@@ -1,3 +1,4 @@
+import 'group_challenge_card.dart';
 import 'dart:io';
 import 'language_manager.dart';
 import 'package:flutter/material.dart';
@@ -557,6 +558,14 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
                 ),
 
                 const SizedBox(height: 8),
+
+                // সাপ্তাহিক চ্যালেঞ্জ ও লিডারবোর্ড
+                GroupChallengeCard(
+                  groupId: widget.groupId,
+                  participants: participants,
+                  weeklyGoalMinutes: (data['weeklyGoalMinutes'] as num?)?.toInt(),
+                  isAdmin: isAdmin,
+                ),
 
                 // Group Settings
                 Padding(

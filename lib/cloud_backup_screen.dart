@@ -3,6 +3,12 @@ import 'package:intl/intl.dart';
 import 'language_manager.dart';
 import 'cloud_sync_service.dart';
 import 'google_drive_service.dart';
+import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
+import 'package:file_picker/file_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 class CloudBackupScreen extends StatefulWidget {
   const CloudBackupScreen({super.key});
@@ -163,6 +169,159 @@ class _CloudBackupScreenState extends State<CloudBackupScreen> {
     }
   }
 
+  // ---------- ফোনে ফাইল হিসেবে ব্যাকআপ (বিনা খরচে, ইন্টারনেট ছাড়াই রিস্টোর) ----------
+
+  String get _fileName => 'StudyMate-backup-${DateFormat('yyyy-MM-dd').format(DateTime.now())}.json';
+
+  Future<void> _saveToPhone() async {
+    setState(() => _isLoading = true);
+    try {
+      final json = await _syncService.generateBackupJsonString();
+      final bytes = utf8.encode(json);
+      final path = await FilePicker.platform.saveFile(
+        dialogTitle: trx('Save backup file', 'ব্যাকআপ ফাইল সেভ করুন'),
+        fileName: _fileName,
+        type: FileType.custom,
+        allowedExtensions: ['json'],
+        bytes: Uint8List.fromList(bytes),
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(path == null
+            ? trx('Not saved.', 'সেভ করা হয়নি।')
+            : trx('Backup saved on your phone ✓', 'ব্যাকআপ ফোনে সেভ হয়েছে ✓')),
+      ));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(trx('Backup failed: $e', 'ব্যাকআপ হয়নি: $e'))));
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _shareBackup() async {
+    setState(() => _isLoading = true);
+    try {
+      final json = await _syncService.generateBackupJsonString();
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/$_fileName');
+      await file.writeAsString(json);
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      await SharePlus.instance.share(ShareParams(
+        files: [XFile(file.path, mimeType: 'application/json')],
+        text: trx('StudyMate backup', 'StudyMate ব্যাকআপ'),
+      ));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(trx('Backup failed: $e', 'ব্যাকআপ হয়নি: $e'))));
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _restoreFromFile() async {
+    final picked = await FilePicker.platform.pickFiles(type: FileType.any, withData: true);
+    if (picked == null || picked.files.isEmpty) return;
+    if (!mounted) return;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(trx('Restore from file?', 'ফাইল থেকে রিস্টোর করবেন?')),
+        content: Text(trx('The backup will be merged with your current data. Nothing is deleted.',
+            'ব্যাকআপের ডেটা এখনকার ডেটার সাথে মিলিয়ে দেওয়া হবে। কিছু মুছবে না।')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text('Cancel'.tr())),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text('Restore'.tr())),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    setState(() => _isLoading = true);
+    try {
+      final f = picked.files.first;
+      final bytes = f.bytes ?? (f.path != null ? await File(f.path!).readAsBytes() : null);
+      if (bytes == null) throw Exception(trx('Could not read the file', 'ফাইল পড়া যায়নি'));
+      await _syncService.restoreFromJsonString(utf8.decode(bytes));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(trx('Restored ✓', 'রিস্টোর হয়েছে ✓'))));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(trx('Restore failed: $e', 'রিস্টোর হয়নি: $e'))));
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Widget _buildFileBackupCard() {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.phone_android_rounded, size: 32, color: Theme.of(context).colorScheme.primary),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(trx('Backup file on your phone', 'ফোনে ব্যাকআপ ফাইল'),
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(color: Colors.green.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+                  child: Text(trx('Free', 'ফ্রি'), style: const TextStyle(fontSize: 10, color: Colors.green, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              trx('Saves all your notes, tasks, routines, flashcards, mistakes and more into one file. Keep it on your phone, or use Share to put it in Google Drive, email or WhatsApp. No paid plan needed.',
+                  'আপনার নোট, টাস্ক, রুটিন, ফ্ল্যাশকার্ড, ভুলের খাতা সহ সব ডেটা একটা ফাইলে রাখে। ফোনে রাখুন, অথবা "শেয়ার" দিয়ে Google Drive, ইমেইল বা WhatsApp-এ রাখুন। কোনো টাকার প্ল্যান লাগে না।'),
+              style: const TextStyle(fontSize: 14, color: Colors.grey),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: _isLoading ? null : _saveToPhone,
+                    icon: const Icon(Icons.save_alt_rounded, size: 18),
+                    label: Text(trx('Save', 'সেভ')),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _isLoading ? null : _shareBackup,
+                    icon: const Icon(Icons.share_rounded, size: 18),
+                    label: Text(trx('Share', 'শেয়ার')),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: TextButton.icon(
+                onPressed: _isLoading ? null : _restoreFromFile,
+                icon: const Icon(Icons.restore_rounded, size: 18),
+                label: Text(trx('Restore from a backup file', 'ব্যাকআপ ফাইল থেকে রিস্টোর')),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildBackupCard({
     required String title,
     required String description,
@@ -291,9 +450,8 @@ class _CloudBackupScreenState extends State<CloudBackupScreen> {
                   style: const TextStyle(color: Colors.grey, fontSize: 14),
                 ),
                 const SizedBox(height: 32),
-                
-
-                
+                _buildFileBackupCard(),
+                const SizedBox(height: 16),
                 _buildBackupCard(
                   title: 'Google Drive',
                   description: 'Export a copy of your data directly to your personal Google Drive account. You have full control over your backup file.',

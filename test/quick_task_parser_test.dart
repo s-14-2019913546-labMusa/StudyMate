@@ -55,6 +55,35 @@ void main() {
     expect(p.timeFound, false);
   });
 
+  test('Spoken Bengali with tomorrow and number words', () {
+    final p = QuickTaskParser.parse('কাল সকাল আটটায় গণিত দুই ঘণ্টা', now: DateTime(2026, 11, 12, 15, 0));
+    expect(p.dayOffset, 1);
+    expect(p.subject, 'গণিত');
+    expect(p.start, DateTime(2026, 11, 13, 8, 0));
+    expect(p.end, DateTime(2026, 11, 13, 10, 0));
+  });
+
+  test('সাড়ে and আধা ঘণ্টা', () {
+    final p = QuickTaskParser.parse('আগামীকাল রাত সাড়ে নয়টায় ইংরেজি আধা ঘণ্টা', now: morning);
+    expect(p.dayOffset, 1);
+    expect(p.subject, 'ইংরেজি');
+    expect(p.start, DateTime(2026, 11, 13, 21, 30));
+    expect(p.minutes, 30);
+  });
+
+  test('English speech: tomorrow seven pm physics one hour', () {
+    final p = QuickTaskParser.parse('tomorrow seven pm physics one hour', now: morning);
+    expect(p.dayOffset, 1);
+    expect(p.subject.toLowerCase(), 'physics');
+    expect(p.start, DateTime(2026, 11, 13, 19, 0));
+    expect(p.minutes, 60);
+  });
+
+  test('Subject words ending in টা are kept', () {
+    final p = QuickTaskParser.parse('কোটা আন্দোলন ৮টা-৯টা', now: morning);
+    expect(p.subject, 'কোটা আন্দোলন');
+  });
+
   test('No time at all', () {
     final p = QuickTaskParser.parse('সাধারণ জ্ঞান', now: morning);
     expect(p.subject, 'সাধারণ জ্ঞান');

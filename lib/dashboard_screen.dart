@@ -1840,10 +1840,43 @@ class _DashboardScreenState extends State<DashboardScreen>
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) => QuickAddTaskSheet(
-        onTaskAdded: _addTaskToFirestore,
+        onTaskAdded: _addQuickTask,
         onOpenFullForm: _openFullTaskForm,
       ),
     );
+  }
+
+  /// আজকের টাস্ক আজকের রুটিনে; "কাল/পরশু" বললে সেই দিনের রুটিনে
+  Future<void> _addQuickTask(Task task) async {
+    final start = task.startTime ?? DateTime.now();
+    final now = DateTime.now();
+    final isToday = start.year == now.year && start.month == now.month && start.day == now.day;
+    if (isToday || user == null) {
+      await _addTaskToFirestore(task);
+      return;
+    }
+    final docId = DateFormat('yyyy-MM-dd').format(start);
+    final docRef = FirebaseFirestore.instance
+        .collection('users')
+        .doc(user!.uid)
+        .collection('dailyRoutines')
+        .doc(docId);
+    final snap = await docRef.get();
+    if (snap.exists) {
+      await docRef.update({
+        'tasks': FieldValue.arrayUnion([task.toMap()]),
+      });
+    } else {
+      await docRef.set(DailyRoutine(id: docId, userId: user!.uid, date: start, tasks: [task]).toMap());
+    }
+    if (task.alarmEnabled) {
+      await LocalNotificationService.scheduleTaskNotifications(task);
+    }
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(trx('Added to ${DateFormat('d MMM').format(start)}\'s routine ✓', '${DateFormat('d MMM').format(start)} তারিখের রুটিনে যোগ হয়েছে ✓')),
+      ));
+    }
   }
 
   Future<void> _addTasksToFirestore(List<Task> newTasks) async {

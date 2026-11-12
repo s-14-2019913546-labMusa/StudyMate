@@ -84,7 +84,10 @@ dependencies:
   xml: ^7.0.1
   package_info_plus: ^9.0.1
   home_widget: ^0.10.0
-  flutter_tesseract_ocr: ^0.4.31
+  # ছবি থেকে লেখা (ফ্রি, ফোনেই চলে)। প্রজেক্টের ভেতরের কপি, কারণ আসল প্যাকেজের Gradle ফাইল নতুন Gradle-এ চলে না
+  flutter_tesseract_ocr:
+    path: packages/flutter_tesseract_ocr
+  speech_to_text: ^7.5.0
 dev_dependencies:
   flutter_test:
     sdk: flutter

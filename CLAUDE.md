@@ -65,6 +65,16 @@
 - Study Map pacing: folder field `examDate`; header shows days left, topics/day (keeps ~10% days for revision) and the 3 subjects furthest behind.
 - Tests: `test/mcq_test.dart` (bank validity, paste parser).
 
+## Habit & social features (12 Nov 2026, same branch)
+- Owner rule: **nothing that costs money**. OCR is on-device Tesseract (`offline_ocr_service.dart`, vendored plugin in `packages/flutter_tesseract_ocr` because the pub version uses `jcenter()`); Bengali/English traineddata downloads once from the official tessdata_fast repo. Gemini stays optional (user's own free key) and every call has a timeout.
+- Firestore rules must be updated by hand in the console: see `docs/firestore-rules-additions.md` (mistakes, mcq_*, forum_posts were PERMISSION_DENIED).
+- `study_habits_service.dart`: daily goal (+20 XP), study minutes (tasks + Pomodoro trees), streak day-off (2/month, used in `GamificationService.calculateStreak`), 9 PM reminder, distraction count, weekly minutes (`users/{uid}.weeklyStudyMinutes/weeklyStudyWeek`), Friday 8 PM weekly report notification.
+- `weekly_report_screen.dart`, `focus_hub_screen.dart` (4th tab "Focus"), `dnd_service.dart` + MethodChannel `studymate/dnd` in `MainActivity.kt`.
+- Pomodoro: 10 s grace + warning notification when leaving the app; auto DND option.
+- Voice task add: mic in quick add (`speech_to_text`, phone's own recognizer); parser understands কাল/পরশু/tomorrow, Bengali number words, সাড়ে, আধা/দেড়/আড়াই ঘণ্টা; future-day tasks go to that day's routine.
+- Phone file backup/restore in Cloud Backup screen (save/share JSON, restore from file).
+- Group weekly challenge + leaderboard (`group_challenge_card.dart`, `chats/{id}.weeklyGoalMinutes`), live group Pomodoro in Study Room (`tools/live_room_timer.dart`, `study_rooms/{code}.liveTimer`), Q&A forum (`forum_screen.dart`, `forum_posts`).
+
 ## Still open from the UX list
 - 4th bottom tab (Chat or Focus) — not added; screens there have their own Scaffold/back button, needs care.
 - Language: many plain labels (not snackbars) are still English-only or Bengali-only; continue with `trx()` screen by screen.

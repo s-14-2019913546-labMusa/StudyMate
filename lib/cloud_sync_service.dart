@@ -27,6 +27,10 @@ class CloudSyncService {
     'pdfBookmarks',
     'custom_news_feeds',
     'pomodoroForest',
+    // নতুন ফিচারের ডেটা
+    'mistakes',
+    'mcq_questions',
+    'mcq_results',
   ];
 
   // যেসব কালেকশনের ভেতরে আরেকটা সাব-কালেকশন আছে

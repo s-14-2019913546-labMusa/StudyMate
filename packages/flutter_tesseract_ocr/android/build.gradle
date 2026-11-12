@@ -1,0 +1,44 @@
+group 'io.paratoner.flutter_tesseract_ocr'
+version '1.0'
+
+// buildscript সরানো হয়েছে: আসল প্যাকেজে jcenter() ছিল, যা নতুন Gradle-এ নেই।
+// Android Gradle Plugin অ্যাপের মূল প্রজেক্ট থেকেই আসে।
+
+rootProject.allprojects {
+    repositories {
+        flatDir {
+           dirs project(':flutter_tesseract_ocr').file('libs')
+        }
+        
+    }
+}
+
+apply plugin: 'com.android.library'
+
+android {
+    namespace "io.paratoner.flutter_tesseract_ocr"
+    compileSdkVersion 34
+    
+     
+    defaultConfig {
+        minSdkVersion 21
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+
+    }
+    lintOptions {
+        disable 'InvalidPackage'
+    }
+    // packagingOptions{
+    //     doNotStrip '*/mips/*.so'
+    //     doNotStrip '*/mips64/*.so'
+    // }
+}
+// repositories {
+//     flatDir {
+//         dirs 'libs'
+//         dirs project(':flutter_tesseract_ocr').file('libs')
+//     }
+// }
+dependencies {
+    api(name: 'tesseract4android-release', ext: 'aar')
+}

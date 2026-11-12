@@ -41,6 +41,7 @@ import '../weekly_overview_screen.dart';
 import '../task_history_screen.dart';
 import '../gamification_service.dart';
 import '../language_manager.dart';
+import 'live_room_timer.dart';
 import '../study_folder_manager_screen.dart';
 import '../special_day_countdown_screen.dart';
 import '../daily_diary_screen.dart';
@@ -740,6 +741,9 @@ class _StudyRoomScreenState extends State<StudyRoomScreen> {
                 ],
               ),
             ),
+
+            // সবার জন্য একসাথে চলা Pomodoro
+            LiveRoomTimer(roomCode: _roomCode, roomData: roomData, participantNames: participantNames),
 
             // Pending Proof Requests for Me (With 30-Second dismiss countdowns)
             StreamBuilder<QuerySnapshot>(

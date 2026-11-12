@@ -31,6 +31,8 @@ import 'mcq/mcq_home_screen.dart';
 import 'mcq/mistake_book_screen.dart';
 import 'daily_review_screen.dart';
 import 'photo_to_note_screen.dart';
+import 'forum_screen.dart';
+import 'weekly_report_screen.dart';
 
 // ==========================================
 // IMPORT TOOLS MODULES
@@ -299,6 +301,8 @@ class _ToolsScreenState extends State<ToolsScreen> {
           {'title': 'Partner Tasks', 'icon': Icons.group_add_rounded, 'color': Colors.green, 'action': 'partner_tasks', 'requiresInternet': true},
           {'title': 'Web Study', 'icon': Icons.bookmarks_rounded, 'color': Colors.blue, 'action': 'bookmarks', 'requiresInternet': true},
           {'title': 'Study Analytics', 'icon': Icons.analytics_rounded, 'color': Colors.teal, 'action': 'analytics'},
+          {'title': 'Q&A Forum', 'icon': Icons.forum_rounded, 'color': Colors.indigo, 'action': 'forum', 'requiresInternet': true},
+          {'title': 'Weekly Report', 'icon': Icons.bar_chart_rounded, 'color': Colors.deepPurple, 'action': 'weekly_report'},
           // Notifications এখন শুধু হোমের 🔔 আইকনে
         ]
       },
@@ -342,6 +346,10 @@ class _ToolsScreenState extends State<ToolsScreen> {
         push(const DailyReviewScreen());
       case 'photo_note':
         push(const PhotoToNoteScreen());
+      case 'forum':
+        push(const ForumScreen());
+      case 'weekly_report':
+        push(const WeeklyReportScreen());
       case 'analytics':
         push(const StudyAnalyticsScreen());
       case 'pdf_reader':
