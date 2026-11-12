@@ -176,7 +176,9 @@ class McqService {
   }
 
   static Future<void> saveResult(McqResult r) async {
-    await _userRef?.collection('mcq_results').add(r.toMap());
+    try {
+      await _userRef?.collection('mcq_results').add(r.toMap());
+    } catch (_) {}
   }
 
   /// শেষ ৩০টা পরীক্ষা থেকে বিষয়ভিত্তিক সঠিকতার হার (দুর্বল বিষয় বের করতে)

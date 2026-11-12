@@ -29,6 +29,9 @@ import 'home_widget_service.dart';
 import 'widgets/skeleton.dart';
 import 'weekly_overview_screen.dart';
 import 'daily_review_screen.dart';
+import 'study_habits_service.dart';
+import 'weekly_report_screen.dart';
+import 'focus_hub_screen.dart';
 
 class DashboardRoutineData {
   final DailyRoutine? localRoutine;
@@ -681,6 +684,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       _checkWeeklyTasksForToday();
       _checkDailyTasksForToday();
       _loadReviewDue();
+      _loadHabits(syncWeek: true);
 
       Future.delayed(const Duration(seconds: 2), () {
         if (mounted) {
@@ -695,6 +699,216 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   Timer? _summaryDebounce;
+
+  // ---------- দৈনিক লক্ষ্য ও streak-এর ছুটি ----------
+  int _dailyGoal = 240;
+  int _pomodoroMinutesToday = 0;
+  bool _goalCelebrated = false;
+
+  int get _todayStudyMinutes {
+    var s = 0;
+    for (final t in _currentRoutine?.tasks ?? const <Task>[]) {
+      s += StudyHabitsService.taskSeconds(t.toMap());
+    }
+    return s ~/ 60 + _pomodoroMinutesToday;
+  }
+
+  Future<void> _loadHabits({bool syncWeek = false}) async {
+    try {
+      final goal = await StudyHabitsService.getDailyGoal();
+      // Pomodoro-র মিনিট = আজকের মোট − টাস্কের মিনিট
+      final total = await StudyHabitsService.studyMinutesOn(DateTime.now());
+      var taskMin = 0;
+      for (final t in _currentRoutine?.tasks ?? const <Task>[]) {
+        taskMin += StudyHabitsService.taskSeconds(t.toMap());
+      }
+      taskMin ~/= 60;
+      if (!mounted) return;
+      setState(() {
+        _dailyGoal = goal;
+        _pomodoroMinutesToday = (total - taskMin).clamp(0, 24 * 60);
+      });
+      if (syncWeek) StudyHabitsService.scheduleWeeklyReport(); // এতে সাপ্তাহিক মিনিটও হালনাগাদ হয়
+      _afterStudyChange();
+    } catch (_) {}
+  }
+
+  Future<void> _afterStudyChange() async {
+    final minutes = _todayStudyMinutes;
+    StudyHabitsService.refreshReminder(minutes);
+    if (await StudyHabitsService.maybeAwardGoalXp(minutes) && mounted && !_goalCelebrated) {
+      _goalCelebrated = true;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(trx('🎯 Daily goal reached! +${StudyHabitsService.goalXp} XP', '🎯 আজকের লক্ষ্য পূরণ! +${StudyHabitsService.goalXp} XP')),
+      ));
+    }
+  }
+
+  String _hm(int minutes) {
+    final h = minutes ~/ 60, m = minutes % 60;
+    return trx('${h > 0 ? '${h}h ' : ''}${m}m', '${h > 0 ? '$h ঘ ' : ''}$m মি');
+  }
+
+  Widget _buildDailyGoalCard() {
+    final scheme = Theme.of(context).colorScheme;
+    final done = _todayStudyMinutes;
+    final p = _dailyGoal == 0 ? 0.0 : (done / _dailyGoal).clamp(0.0, 1.0);
+    final reached = done >= _dailyGoal;
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Material(
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(18),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: _showGoalSheet,
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 64,
+                  height: 64,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      CircularProgressIndicator(
+                        value: p,
+                        strokeWidth: 7,
+                        backgroundColor: scheme.primary.withValues(alpha: 0.12),
+                        color: reached ? Colors.green : scheme.primary,
+                        strokeCap: StrokeCap.round,
+                      ),
+                      Text('${(p * 100).round()}%', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(trx('Daily goal', 'আজকের লক্ষ্য'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                      const SizedBox(height: 2),
+                      Text('${_hm(done)} / ${_hm(_dailyGoal)}',
+                          style: TextStyle(color: scheme.onSurfaceVariant)),
+                      const SizedBox(height: 2),
+                      Text(
+                        reached
+                            ? trx('Goal reached 🎉 +${StudyHabitsService.goalXp} XP', 'লক্ষ্য পূরণ 🎉 +${StudyHabitsService.goalXp} XP')
+                            : trx('${_hm(_dailyGoal - done)} to go', 'আর ${_hm(_dailyGoal - done)} বাকি'),
+                        style: TextStyle(fontSize: 12, color: reached ? Colors.green : scheme.primary, fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.tune_rounded, size: 20),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showGoalSheet() async {
+    int goal = _dailyGoal;
+    await showModalBottomSheet(
+      context: context,
+      useSafeArea: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheet) => Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(trx('How long will you study each day?', 'প্রতিদিন কতক্ষণ পড়বেন?'),
+                  style: Theme.of(ctx).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              Text(_hm(goal), style: TextStyle(fontSize: 32, fontWeight: FontWeight.w800, color: Theme.of(ctx).colorScheme.primary)),
+              Slider(
+                value: goal.toDouble(),
+                min: 30,
+                max: 720,
+                divisions: 23,
+                label: _hm(goal),
+                onChanged: (v) => setSheet(() => goal = v.round()),
+              ),
+              Text(
+                trx('Task timers and Pomodoro sessions count. Reach it for +${StudyHabitsService.goalXp} XP.',
+                    'টাস্কের টাইমার আর Pomodoro দুটোই গোনা হয়। পূরণ হলে +${StudyHabitsService.goalXp} XP।'),
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12, color: Theme.of(ctx).colorScheme.onSurfaceVariant),
+              ),
+              const SizedBox(height: 12),
+              FilledButton(
+                onPressed: () async {
+                  await StudyHabitsService.setDailyGoal(goal);
+                  if (ctx.mounted) Navigator.pop(ctx);
+                },
+                style: FilledButton.styleFrom(minimumSize: const Size(double.infinity, 50)),
+                child: Text('Save'.tr()),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    _loadHabits();
+  }
+
+  Future<void> _showStreakSheet() async {
+    final left = await StudyHabitsService.freezesLeftThisMonth();
+    final frozenToday = await StudyHabitsService.isFrozen(DateTime.now());
+    if (!mounted) return;
+    showModalBottomSheet(
+      context: context,
+      useSafeArea: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.local_fire_department_rounded, color: Colors.orange, size: 48),
+            Text(trx('$_currentStreak day streak', '$_currentStreak দিনের streak'),
+                style: Theme.of(ctx).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Text(
+              trx('Sick or travelling? Take a day off — your streak won\'t break. You get $left more this month (max ${StudyHabitsService.freezesPerMonth}).',
+                  'অসুস্থ বা ভ্রমণে? একদিন ছুটি নিন, streak ভাঙবে না। এই মাসে আর $leftটি ছুটি বাকি (মাসে সর্বোচ্চ ${StudyHabitsService.freezesPerMonth}টি)।'),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: (left <= 0 || frozenToday)
+                  ? null
+                  : () async {
+                      final ok = await StudyHabitsService.freezeToday();
+                      if (ctx.mounted) Navigator.pop(ctx);
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text(ok
+                            ? trx('Today is a day off. Your streak is safe ✓', 'আজ ছুটি নেওয়া হলো। আপনার streak নিরাপদ ✓')
+                            : trx('No days off left this month.', 'এই মাসের ছুটি শেষ।')),
+                      ));
+                      _loadStreak();
+                    },
+              icon: const Icon(Icons.beach_access_rounded),
+              label: Text(frozenToday ? trx('Today is already a day off', 'আজ ছুটি নেওয়া আছে') : trx('Take today off', 'আজ ছুটি নিন')),
+              style: FilledButton.styleFrom(minimumSize: const Size(double.infinity, 50)),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              trx('If you haven\'t studied by 9 PM, we\'ll remind you.', 'রাত ৯টার মধ্যে না পড়লে অ্যাপ মনে করিয়ে দেবে।'),
+              style: TextStyle(fontSize: 12, color: Theme.of(ctx).colorScheme.onSurfaceVariant),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   // আজকের রিভিশন (ফ্ল্যাশকার্ড + ভুলের খাতা) কতগুলো বাকি
   int _reviewDue = 0;
@@ -745,6 +959,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     _summaryDebounce = Timer(const Duration(seconds: 3), () {
       NightlySummaryService.refresh();
       HomeWidgetService.refresh();
+      _afterStudyChange();
     });
   }
 
@@ -754,6 +969,8 @@ class _DashboardScreenState extends State<DashboardScreen>
     LocalNotificationService.pendingAction.value = null;
     if (action == TaskNotificationActions.actionPlanTomorrow) {
       showNextDayRoutineSheet(context);
+    } else if (action == StudyHabitsService.openWeeklyReport) {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const WeeklyReportScreen()));
     }
   }
 
@@ -764,6 +981,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     if (state == AppLifecycleState.resumed) {
       _updateUserStatus(true);
       _loadReviewDue();
+      _loadHabits(syncWeek: true);
       LocalNotificationService.clearPastPrayerNotifications();
     } else {
       _updateUserStatus(false);
@@ -2088,6 +2306,11 @@ class _DashboardScreenState extends State<DashboardScreen>
               label: 'Tools'.tr(),
             ),
             NavigationDestination(
+              icon: const Icon(Icons.self_improvement_outlined),
+              selectedIcon: const Icon(Icons.self_improvement_rounded),
+              label: trx('Focus', 'মনোযোগ'),
+            ),
+            NavigationDestination(
               icon: const Icon(Icons.person_outline),
               selectedIcon: const Icon(Icons.person_rounded),
               label: 'Profile'.tr(),
@@ -2129,6 +2352,8 @@ class _DashboardScreenState extends State<DashboardScreen>
     if (_bottomNavIndex == 1) {
       return ToolsScreen(onTasksGenerated: _addTasksToFirestore);
     } else if (_bottomNavIndex == 2) {
+      return const FocusHubScreen();
+    } else if (_bottomNavIndex == 3) {
       return const ProfileScreen();
     }
 
@@ -2232,7 +2457,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                         ),
                         if (_currentStreak > 0) ...[
                           const SizedBox(width: 8),
-                          Container(
+                          GestureDetector(
+                            onTap: _showStreakSheet,
+                            child: Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 8,
                               vertical: 2,
@@ -2262,6 +2489,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                                 ),
                               ],
                             ),
+                          ),
                           ),
                         ],
                       ],
@@ -2358,6 +2586,7 @@ class _DashboardScreenState extends State<DashboardScreen>
             const SizedBox(height: 16),
             _buildSpecialIslamicDayBanner(context),
             _buildTodayProgressCard(context),
+            _buildDailyGoalCard(),
             _buildWeeklyTasksAlertCard(),
             _buildDailyTasksAlertCard(),
             _buildReviewDueCard(),

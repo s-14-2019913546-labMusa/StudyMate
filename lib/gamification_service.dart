@@ -1,3 +1,4 @@
+import 'study_habits_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -263,6 +264,8 @@ class GamificationService {
     try {
       int streak = 0;
       DateTime checkDate = DateTime.now();
+      // "ছুটি" নেওয়া দিনগুলোতে না পড়লেও streak ভাঙে না
+      final freezes = await StudyHabitsService.getFreezes();
 
       // Check up to 365 days back
       for (int i = 0; i < 365; i++) {
@@ -283,6 +286,9 @@ class GamificationService {
           if (hasCompletedTask) {
             streak++;
             checkDate = checkDate.subtract(const Duration(days: 1));
+          } else if (freezes.contains(dateId)) {
+            checkDate = checkDate.subtract(const Duration(days: 1));
+            continue;
           } else {
             // If today has no completed tasks but we haven't started counting yet, skip today
             if (i == 0) {
@@ -292,7 +298,7 @@ class GamificationService {
             break;
           }
         } else {
-          if (i == 0) {
+          if (i == 0 || freezes.contains(dateId)) {
             checkDate = checkDate.subtract(const Duration(days: 1));
             continue;
           }

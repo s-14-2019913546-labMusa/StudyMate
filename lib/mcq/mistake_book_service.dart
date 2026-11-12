@@ -38,7 +38,18 @@ class MistakeBookService {
 
   static DateTime _dayStart(DateTime d) => DateTime(d.year, d.month, d.day);
 
+  /// ভুলের খাতায় লেখা যায়নি এমন হলে (যেমন Firestore rules) অ্যাপ যেন বন্ধ না হয়
+  static String? lastError;
+
   static Future<void> recordWrong(McqQuestion q, int? chosen) async {
+    try {
+      await _recordWrong(q, chosen);
+    } catch (e) {
+      lastError = e.toString();
+    }
+  }
+
+  static Future<void> _recordWrong(McqQuestion q, int? chosen) async {
     final col = _col;
     if (col == null) return;
     final ref = col.doc(q.id);
@@ -58,16 +69,24 @@ class MistakeBookService {
 
   /// রিভিশনে উত্তর দিলে: ঠিক হলে পরের ধাপে, ভুল হলে আবার শুরু থেকে
   static Future<void> recordReview(McqQuestion q, bool correct, int? chosen) async {
+    try {
+      await _recordReview(q, correct, chosen);
+    } catch (e) {
+      lastError = e.toString();
+    }
+  }
+
+  static Future<void> _recordReview(McqQuestion q, bool correct, int? chosen) async {
     final col = _col;
     if (col == null) return;
     final ref = col.doc(q.id);
     final snap = await ref.get();
     if (!snap.exists) {
-      if (!correct) await recordWrong(q, chosen);
+      if (!correct) await _recordWrong(q, chosen);
       return;
     }
     if (!correct) {
-      await recordWrong(q, chosen);
+      await _recordWrong(q, chosen);
       return;
     }
     final stage = ((snap.data()?['stage'] as num?)?.toInt() ?? 0) + 1;
@@ -84,7 +103,13 @@ class MistakeBookService {
   static Future<List<MistakeEntry>> loadAll() async {
     final col = _col;
     if (col == null) return [];
-    final snap = await col.get();
+    QuerySnapshot<Map<String, dynamic>> snap;
+    try {
+      snap = await col.get();
+    } catch (e) {
+      lastError = e.toString();
+      return [];
+    }
     final list = snap.docs.map((d) {
       final m = d.data();
       return MistakeEntry(

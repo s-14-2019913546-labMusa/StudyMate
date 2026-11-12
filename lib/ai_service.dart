@@ -26,7 +26,8 @@ class AIService {
     for (final modelName in _geminiModels) {
       try {
         final model = GenerativeModel(model: modelName, apiKey: apiKey);
-        final response = await model.generateContent([Content.text(prompt)]);
+        // সময়সীমা: উত্তর না এলে অনন্তকাল লোডিং না দেখিয়ে পরের মডেলে যাওয়া
+        final response = await model.generateContent([Content.text(prompt)]).timeout(const Duration(seconds: 45));
         final text = response.text;
         if (text != null && text.trim().isNotEmpty) {
           lastGeminiError = null;
@@ -799,7 +800,7 @@ Do not add explanations or translate anything. If no text is visible, reply with
         final model = GenerativeModel(model: modelName, apiKey: apiKey);
         final response = await model.generateContent([
           Content.multi([TextPart(prompt), DataPart(mimeType, bytes)]),
-        ]);
+        ]).timeout(const Duration(seconds: 60));
         final text = response.text?.trim();
         if (text != null && text.isNotEmpty) {
           lastGeminiError = null;

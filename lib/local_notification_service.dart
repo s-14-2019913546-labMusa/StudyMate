@@ -27,6 +27,11 @@ void notificationTapBackground(NotificationResponse notificationResponse) {
 }
 
 Future<void> _handleNotificationAction(String? actionId, {String? payload}) async {
+  // নোটিফিকেশনের গায়ে চাপলে কোন স্ক্রিন খুলবে (যেমন সাপ্তাহিক রিপোর্ট)
+  if (actionId == null && payload != null && payload.startsWith('open:')) {
+    LocalNotificationService.pendingAction.value = payload;
+    return;
+  }
   if (actionId == null) return;
 
   // টাস্ক নোটিফিকেশনের Start / Complete বাটন
@@ -153,6 +158,9 @@ class LocalNotificationService {
         if ((launch?.didNotificationLaunchApp ?? false) &&
             resp?.actionId == TaskNotificationActions.actionPlanTomorrow) {
           pendingAction.value = resp!.actionId;
+        } else if ((launch?.didNotificationLaunchApp ?? false) &&
+            (resp?.payload ?? '').startsWith('open:')) {
+          pendingAction.value = resp!.payload;
         }
       } catch (_) {}
 
@@ -980,6 +988,38 @@ class LocalNotificationService {
       body: body,
       scheduledDate: tz.TZDateTime.from(scheduledDate, tz.local),
       notificationDetails: platformDetails,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      payload: payload,
+    );
+  }
+
+  /// একটা নির্দিষ্ট সময়ে সাধারণ নোটিফিকেশন, গায়ে চাপলে [payload] অনুযায়ী স্ক্রিন খোলে
+  static Future<void> scheduleOpenNotification({
+    required int id,
+    required String title,
+    required String body,
+    required DateTime when,
+    required String payload,
+    String channelId = 'study_reports_channel',
+    String channelName = 'Study Reports',
+  }) async {
+    if (kIsWeb) return;
+    await _notificationsPlugin.cancel(id: id);
+    await _notificationsPlugin.zonedSchedule(
+      id: id,
+      title: title,
+      body: body,
+      scheduledDate: tz.TZDateTime.from(when, tz.local),
+      notificationDetails: NotificationDetails(
+        android: AndroidNotificationDetails(
+          channelId,
+          channelName,
+          importance: Importance.high,
+          priority: Priority.high,
+          styleInformation: BigTextStyleInformation(body),
+        ),
+        iOS: const DarwinNotificationDetails(presentAlert: true, presentSound: true),
+      ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       payload: payload,
     );

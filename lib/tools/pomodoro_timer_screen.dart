@@ -41,6 +41,8 @@ import '../weekly_overview_screen.dart';
 import '../task_history_screen.dart';
 import '../gamification_service.dart';
 import '../language_manager.dart';
+import '../study_habits_service.dart';
+import '../dnd_service.dart';
 import '../study_folder_manager_screen.dart';
 import '../special_day_countdown_screen.dart';
 import '../daily_diary_screen.dart';
@@ -98,13 +100,44 @@ class _PomodoroTimerScreenState extends State<PomodoroTimerScreen> with WidgetsB
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _loadSessionCount();
+    _loadDistractions();
+  }
+
+  // অন্য অ্যাপে গেলে সাথে সাথে গাছ না মেরে ১০ সেকেন্ড সময় দেওয়া হয়, নোটিফিকেশনে সতর্ক করা হয়
+  static const int _graceSeconds = 10;
+  static const int _focusWarningId = 777010;
+  DateTime? _leftAt;
+  int _distractionsToday = 0;
+
+  Future<void> _loadDistractions() async {
+    final n = await StudyHabitsService.distractionsOn(DateTime.now());
+    if (mounted) setState(() => _distractionsToday = n);
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (_currentMode == 'Focus' && _isRunning) {
-      if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
-        // User left the app mid-focus → kill the tree
+    if (_currentMode != 'Focus') return;
+    if (state == AppLifecycleState.paused && _isRunning) {
+      _leftAt = DateTime.now();
+      StudyHabitsService.addDistraction();
+      LocalNotificationService.scheduleNotification(
+        id: _focusWarningId,
+        title: trx('🌱 Come back to your tree!', '🌱 গাছের কাছে ফিরে আসুন!'),
+        body: trx('Return within $_graceSeconds seconds or your focus tree will wither.',
+            '$_graceSeconds সেকেন্ডের মধ্যে ফিরে না এলে ফোকাসের গাছটা মরে যাবে।'),
+        scheduledDate: DateTime.now().add(const Duration(seconds: 1)),
+        channelId: 'focus_guard_channel',
+        channelName: 'Focus Guard',
+        channelDescription: 'Warns you when you leave the app during a Pomodoro focus session',
+      );
+    } else if (state == AppLifecycleState.resumed && _leftAt != null) {
+      final away = DateTime.now().difference(_leftAt!);
+      _leftAt = null;
+      LocalNotificationService.cancelNotification(_focusWarningId);
+      _loadDistractions();
+      if (!_isRunning) return;
+      if (away.inSeconds > _graceSeconds) {
+        // দেরি হয়ে গেছে → গাছ মরে গেল
         _appWentBackground = true;
         _timer?.cancel();
         setState(() {
@@ -112,6 +145,13 @@ class _PomodoroTimerScreenState extends State<PomodoroTimerScreen> with WidgetsB
           _treeKilled = true;
           _remainingSeconds = _selectedDuration; // reset
         });
+      } else {
+        // সময়মতো ফিরেছেন: বাইরে থাকার সময়টুকুও ফোকাসে গোনা হয়
+        setState(() => _remainingSeconds = (_remainingSeconds - away.inSeconds).clamp(0, _selectedDuration));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(trx('Welcome back — your tree is safe 🌱', 'ফিরে আসার জন্য ধন্যবাদ, গাছ বেঁচে আছে 🌱')),
+          duration: const Duration(seconds: 2),
+        ));
       }
     }
   }
@@ -138,6 +178,7 @@ class _PomodoroTimerScreenState extends State<PomodoroTimerScreen> with WidgetsB
     if (_screenKeptOn == want) return;
     _screenKeptOn = want;
     _screenChannel.invokeMethod('keepOn', {'on': want}).catchError((_) {});
+    DndService.onFocusChanged(want); // চাইলে ফোকাসের সময় অন্য নোটিফিকেশন নীরব
   }
 
   @override
@@ -145,6 +186,7 @@ class _PomodoroTimerScreenState extends State<PomodoroTimerScreen> with WidgetsB
     WidgetsBinding.instance.removeObserver(this);
     if (_screenKeptOn == true) {
       _screenChannel.invokeMethod('keepOn', {'on': false}).catchError((_) {});
+      DndService.onFocusChanged(false);
     }
     _timer?.cancel();
     super.dispose();
@@ -419,12 +461,17 @@ class _PomodoroTimerScreenState extends State<PomodoroTimerScreen> with WidgetsB
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 10),
+          Text(
+            trx('Focus broken today: $_distractionsToday times', 'আজ মনোযোগ ভেঙেছে: $_distractionsToday বার'),
+            style: TextStyle(fontSize: 12, color: _distractionsToday == 0 ? Colors.green : Colors.orange, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 6),
           if (_currentMode == 'Focus' && _isRunning)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 32),
               child: Text(
-                '⚠️ অ্যাপ থেকে বের হলে গাছটি মরে যাবে!',
+                trx('⚠️ Leave the app for more than 10 s and the tree withers!', '⚠️ ১০ সেকেন্ডের বেশি অ্যাপের বাইরে থাকলে গাছটি মরে যাবে!'),
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.orange.shade600, fontSize: 12, fontWeight: FontWeight.w600),
               ),

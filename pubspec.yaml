@@ -84,6 +84,7 @@ dependencies:
   xml: ^7.0.1
   package_info_plus: ^9.0.1
   home_widget: ^0.10.0
+  flutter_tesseract_ocr: ^0.4.31
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -111,6 +112,7 @@ flutter:
     - assets/images/
     - assets/audio/
     - assets/data/
+    - assets/tessdata_config.json
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

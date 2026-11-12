@@ -9,6 +9,7 @@ import 'language_manager.dart';
 import 'mcq/mcq_service.dart';
 import 'mcq/mcq_test_screen.dart';
 import 'tools/quick_notes_screen.dart';
+import 'offline_ocr_service.dart';
 
 /// বইয়ের পাতা বা খাতার ছবি তুলুন → লেখা বের হবে (বাংলা/ইংরেজি) →
 /// নোট হিসেবে রাখুন, MCQ বানান বা ফ্ল্যাশকার্ড বানান।
@@ -24,9 +25,24 @@ class _PhotoToNoteScreenState extends State<PhotoToNoteScreen> {
   final _text = TextEditingController();
   final _title = TextEditingController();
   Uint8List? _image;
+  String? _imagePath;
   String _mime = 'image/jpeg';
   bool _reading = false;
   bool _working = false;
+  double? _downloadProgress; // প্রথমবার ভাষা-ফাইল ডাউনলোডের অগ্রগতি
+  bool _hasKey = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkKey();
+  }
+
+  Future<void> _checkKey() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final key = uid == null ? null : await AIService.getSavedApiKey(uid);
+    if (mounted) setState(() => _hasKey = key != null && key.isNotEmpty);
+  }
 
   @override
   void dispose() {
@@ -65,6 +81,7 @@ class _PhotoToNoteScreenState extends State<PhotoToNoteScreen> {
       final name = file.name.toLowerCase();
       setState(() {
         _image = bytes;
+        _imagePath = file.path;
         _mime = name.endsWith('.png') ? 'image/png' : (name.endsWith('.webp') ? 'image/webp' : 'image/jpeg');
         _text.clear();
       });
@@ -76,7 +93,49 @@ class _PhotoToNoteScreenState extends State<PhotoToNoteScreen> {
     }
   }
 
+  /// বিনা খরচে, ফোনেই পড়া (Tesseract)
   Future<void> _read() async {
+    final path = _imagePath;
+    if (path == null) return;
+    setState(() => _reading = true);
+    try {
+      if (!await OfflineOcrService.isReady()) {
+        setState(() => _downloadProgress = 0);
+        await OfflineOcrService.ensureLanguageData(
+          onProgress: (p) {
+            if (mounted) setState(() => _downloadProgress = p);
+          },
+        );
+        if (mounted) setState(() => _downloadProgress = null);
+      }
+      final text = await OfflineOcrService.readImage(path);
+      _applyText(text);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _downloadProgress = null);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(trx('Could not read the photo: $e\n(The first time needs internet to download the language files.)',
+                'ছবি পড়া যায়নি: $e\n(প্রথমবার ভাষা-ফাইল নামাতে ইন্টারনেট লাগে।)'))));
+      }
+    } finally {
+      if (mounted) setState(() => _reading = false);
+    }
+  }
+
+  void _applyText(String text) {
+    if (!mounted) return;
+    setState(() => _text.text = text);
+    if (text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(trx('No text found in this photo. Try a clearer, closer photo.', 'ছবিতে কোনো লেখা পাওয়া যায়নি। আরও কাছ থেকে পরিষ্কার ছবি তুলুন।'))));
+    } else if (_title.text.isEmpty) {
+      final firstLine = text.split('\n').firstWhere((l) => l.trim().isNotEmpty, orElse: () => '').replaceAll('#', '').trim();
+      _title.text = firstLine.length > 40 ? '${firstLine.substring(0, 40)}…' : firstLine;
+    }
+  }
+
+  /// ঐচ্ছিক: নিজের Gemini key থাকলে AI দিয়ে আরও নিখুঁত পড়া (ফ্রি টিয়ারে টাকা লাগে না)
+  Future<void> _readWithAi() async {
     final img = _image;
     if (img == null) return;
     final key = await _apiKey();
@@ -155,8 +214,9 @@ class _PhotoToNoteScreenState extends State<PhotoToNoteScreen> {
     final t = _text.text.trim();
     final user = FirebaseAuth.instance.currentUser;
     if (t.isEmpty || user == null) return;
-    final key = await _apiKey();
-    if (key == null) return;
+    // Gemini key না থাকলেও চলে: তখন অ্যাপ নিজেই লেখা থেকে প্রশ্ন-উত্তর কার্ড বানায়
+    final uid = user.uid;
+    final key = await AIService.getSavedApiKey(uid);
     setState(() => _working = true);
     try {
       final cards = await AIService.generateQuizFromNote(t, key);
@@ -210,8 +270,8 @@ class _PhotoToNoteScreenState extends State<PhotoToNoteScreen> {
                       textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                   const SizedBox(height: 6),
                   Text(
-                    trx('The text (Bengali or English) is typed out for you. Then save it as a note, or turn it into MCQs or flashcards.',
-                        'লেখাটা (বাংলা বা ইংরেজি) টাইপ হয়ে আসবে। তারপর নোট হিসেবে রাখুন, অথবা MCQ বা ফ্ল্যাশকার্ড বানান।'),
+                    trx('The text (Bengali or English) is read on your phone for free and typed out for you. Then save it as a note, or turn it into flashcards or MCQs.',
+                        'লেখাটা (বাংলা বা ইংরেজি) ফোনেই বিনা খরচে পড়ে টাইপ হয়ে আসবে। তারপর নোট হিসেবে রাখুন, অথবা ফ্ল্যাশকার্ড বা MCQ বানান।'),
                     textAlign: TextAlign.center,
                     style: TextStyle(color: scheme.onSurfaceVariant),
                   ),
@@ -247,9 +307,15 @@ class _PhotoToNoteScreenState extends State<PhotoToNoteScreen> {
           ),
           if (_reading) ...[
             const SizedBox(height: 20),
-            const LinearProgressIndicator(),
+            LinearProgressIndicator(value: _downloadProgress),
             const SizedBox(height: 8),
-            Text(trx('Reading the photo…', 'ছবি থেকে লেখা পড়া হচ্ছে…'), textAlign: TextAlign.center),
+            Text(
+              _downloadProgress != null
+                  ? trx('First time only: downloading Bengali + English reading files (${((_downloadProgress ?? 0) * 100).round()}%)…',
+                      'শুধু প্রথমবার: বাংলা ও ইংরেজি পড়ার ফাইল নামানো হচ্ছে (${((_downloadProgress ?? 0) * 100).round()}%)…')
+                  : trx('Reading the photo on your phone…', 'ফোনেই ছবি থেকে লেখা পড়া হচ্ছে…'),
+              textAlign: TextAlign.center,
+            ),
           ],
           if (hasText || (_image != null && !_reading)) ...[
             const SizedBox(height: 16),
@@ -301,6 +367,21 @@ class _PhotoToNoteScreenState extends State<PhotoToNoteScreen> {
             if (_working) const Padding(padding: EdgeInsets.only(top: 12), child: LinearProgressIndicator()),
             if (_image != null && !hasText && !_reading)
               TextButton.icon(onPressed: _read, icon: const Icon(Icons.refresh_rounded), label: Text(trx('Read again', 'আবার পড়ুন'))),
+            if (_image != null && !_reading && _hasKey)
+              TextButton.icon(
+                onPressed: _readWithAi,
+                icon: const Icon(Icons.auto_awesome_rounded),
+                label: Text(trx('Read more accurately with my Gemini key (optional)', 'নিজের Gemini key দিয়ে আরও নিখুঁতভাবে পড়ুন (ঐচ্ছিক)')),
+              ),
+            if (!_hasKey)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  trx('"Make MCQs" needs your own free Gemini key (Profile → AI Settings). Everything else works without it.',
+                      '"MCQ বানান" করতে নিজের ফ্রি Gemini key লাগে (Profile → AI Settings)। বাকি সব key ছাড়াই চলে।'),
+                  style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+                ),
+              ),
           ],
         ],
       ),
