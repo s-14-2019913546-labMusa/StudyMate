@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'dart:math';
+import 'app_entry.dart';
 import 'dashboard_screen.dart';
 import 'language_manager.dart';
 
@@ -13,8 +15,12 @@ class FocusModeScreen extends StatefulWidget {
   State<FocusModeScreen> createState() => _FocusModeScreenState();
 }
 
-class _FocusModeScreenState extends State<FocusModeScreen> {
+class _FocusModeScreenState extends State<FocusModeScreen> with SingleTickerProviderStateMixin {
   String _randomQuote = '';
+  static const int _autoSeconds = 3;
+  bool _auto = false;
+  bool _navigated = false;
+  AnimationController? _countdown;
 
   // আপনার দেওয়া বাণীগুলির তালিকা
   final List<String> _quotes = [
@@ -54,6 +60,43 @@ class _FocusModeScreenState extends State<FocusModeScreen> {
   void initState() {
     super.initState();
     _selectRandomQuote();
+    _setupAutoContinue();
+  }
+
+  Future<void> _setupAutoContinue() async {
+    final mode = await AppEntry.getFocusMode();
+    if (!mounted || mode != 'auto') return;
+    final c = AnimationController(vsync: this, duration: const Duration(seconds: _autoSeconds));
+    c.addStatusListener((status) {
+      if (status == AnimationStatus.completed) _goHome();
+    });
+    setState(() {
+      _auto = true;
+      _countdown = c;
+    });
+    c.forward();
+  }
+
+  @override
+  void dispose() {
+    _countdown?.dispose();
+    super.dispose();
+  }
+
+  void _goHome() {
+    if (_navigated || !mounted) return;
+    _navigated = true;
+    _countdown?.stop();
+    Navigator.pushReplacement(
+      context,
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) => const DashboardScreen(),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+        transitionDuration: const Duration(milliseconds: 600),
+      ),
+    );
   }
 
   void _selectRandomQuote() {
@@ -81,7 +124,10 @@ class _FocusModeScreenState extends State<FocusModeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
-      body: SafeArea(
+      body: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: _auto ? _goHome : null, // অটো মোডে যেকোনো জায়গায় চাপলেই হোমে
+        child: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
           child: Column(
@@ -125,18 +171,7 @@ class _FocusModeScreenState extends State<FocusModeScreen> {
               ),
               const SizedBox(height: 80),
               ElevatedButton(
-                onPressed: () {
-                  Navigator.pushReplacement(
-                    context,
-                    PageRouteBuilder(
-                      pageBuilder: (context, animation, secondaryAnimation) => const DashboardScreen(),
-                      transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                        return FadeTransition(opacity: animation, child: child);
-                      },
-                      transitionDuration: const Duration(milliseconds: 600),
-                    ),
-                  );
-                },
+                onPressed: _goHome,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Theme.of(context).colorScheme.primary,
                   padding: const EdgeInsets.symmetric(vertical: 16),
@@ -157,9 +192,39 @@ class _FocusModeScreenState extends State<FocusModeScreen> {
                   ],
                 ),
               ),
+              if (_auto && _countdown != null) ...[
+                const SizedBox(height: 16),
+                AnimatedBuilder(
+                  animation: _countdown!,
+                  builder: (context, _) {
+                    final left = (_autoSeconds * (1 - _countdown!.value)).ceil();
+                    return Column(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(value: _countdown!.value, minHeight: 4),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          trx('Going home in $left s… (tap anywhere to skip)', '$left সেকেন্ডে হোমে যাচ্ছে… (চাপলেই এখনই যাবে)'),
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ],
+              const SizedBox(height: 8),
+              Text(
+                trx('You can turn this screen off in Profile → Focus screen.', 'Profile → ফোকাস স্ক্রিন থেকে এটা বন্ধ করতে পারবেন।'),
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.7)),
+              ),
             ],
           ),
         ),
+      ),
       ),
     );
   }

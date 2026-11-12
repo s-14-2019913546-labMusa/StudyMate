@@ -53,6 +53,7 @@ import '../multi_sheet_manager_screen.dart';
 import '../notifications_hub_screen.dart';
 import '../widgets/sound_picker_widget.dart';
 import '../tools_screen.dart';
+import '../widgets/undo_snackbar.dart';
 
 // ==========================================
 // 9. Quick Notes Screen (ইন্টারন্যাশনাল মানের নোটস)
@@ -1160,41 +1161,39 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: _isNoteDarkMode ? const Color(0xFF2D2D2D) : Theme.of(context).cardColor,
-        title: Text('Delete Note?', style: TextStyle(color: _isNoteDarkMode ? Colors.white : Theme.of(context).colorScheme.onSurface)),
-        content: Text('Are you sure you want to delete this note? This action cannot be undone.', 
+        title: Text(trx('Delete Note?', 'নোট মুছবেন?'), style: TextStyle(color: _isNoteDarkMode ? Colors.white : Theme.of(context).colorScheme.onSurface)),
+        content: Text(trx('Are you sure you want to delete this note?', 'আপনি কি নোটটি মুছে ফেলতে চান?'),
           style: TextStyle(color: _isNoteDarkMode ? Colors.white70 : Colors.black87)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+            child: Text('Cancel'.tr()),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            child: Text('Delete'.tr(), style: const TextStyle(color: Colors.red)),
           ),
         ],
       ),
     );
 
     if (confirm == true) {
+      final messenger = ScaffoldMessenger.of(context);
       try {
-        await FirebaseFirestore.instance
+        final ref = FirebaseFirestore.instance
             .collection('users')
             .doc(currentUser!.uid)
             .collection('notes')
-            .doc(docId)
-            .delete();
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Note deleted successfully.')),
-          );
-        }
+            .doc(docId);
+        final backup = (await ref.get()).data();
+        await ref.delete();
+        showUndoSnackBar(messenger, trx('Note deleted.', 'নোট মুছে ফেলা হয়েছে।'), () async {
+          if (backup != null) await ref.set(backup);
+        });
       } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error deleting note: $e')),
-          );
-        }
+        messenger.showSnackBar(
+          SnackBar(content: Text(trx('Could not delete the note: $e', 'নোট মোছা যায়নি: $e'))),
+        );
       }
     }
   }

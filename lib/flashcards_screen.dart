@@ -6,6 +6,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'flashcard_study_screen.dart';
 import 'deck_dashboard_screen.dart';
+import 'widgets/undo_snackbar.dart';
+import 'language_manager.dart';
 import 'ai_service.dart';
 
 class FlashcardDecksScreen extends StatefulWidget {
@@ -339,12 +341,17 @@ class _FlashcardDecksScreenState extends State<FlashcardDecksScreen> {
   // Delete Deck
   Future<void> _deleteDeck(String docId) async {
     if (currentUser == null) return;
-    await FirebaseFirestore.instance
+    final messenger = ScaffoldMessenger.of(context);
+    final ref = FirebaseFirestore.instance
         .collection('users')
         .doc(currentUser!.uid)
         .collection('flashcard_decks')
-        .doc(docId)
-        .delete();
+        .doc(docId);
+    final backup = (await ref.get()).data();
+    await ref.delete();
+    showUndoSnackBar(messenger, trx('Deck deleted.', 'ডেক মুছে ফেলা হয়েছে।'), () async {
+      if (backup != null) await ref.set(backup);
+    });
   }
 
   void _showApiKeyDialog() {
@@ -692,12 +699,12 @@ class _FlashcardDecksScreenState extends State<FlashcardDecksScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete Deck?'),
-        content: const Text('Are you sure you want to delete this study deck? This cannot be undone.'),
+        title: Text(trx('Delete Deck?', 'ডেক মুছবেন?')),
+        content: Text(trx('Are you sure you want to delete this study deck?', 'আপনি কি এই ফ্ল্যাশকার্ড ডেকটি মুছে ফেলতে চান?')),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
+            child: Text('Cancel'.tr()),
           ),
           ElevatedButton(
             onPressed: () {
@@ -705,7 +712,7 @@ class _FlashcardDecksScreenState extends State<FlashcardDecksScreen> {
               _deleteDeck(docId);
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Delete'),
+            child: Text('Delete'.tr()),
           ),
         ],
       ),

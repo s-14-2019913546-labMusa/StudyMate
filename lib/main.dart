@@ -157,6 +157,7 @@ class _StudyMateAppState extends State<StudyMateApp> with WidgetsBindingObserver
       builder: (context, _) {
         final lockService = AppLockService();
         final bool showLockOnStartup = lockService.isAppLockEnabled() && !lockService.isSessionUnlocked;
+        ThemeManager().appIsBengali = LanguageManager().isBengali;
 
         return MaterialApp(
           title: 'StudyMate',
@@ -164,6 +165,15 @@ class _StudyMateAppState extends State<StudyMateApp> with WidgetsBindingObserver
           scaffoldMessengerKey: scaffoldMessengerKey,
           navigatorKey: navigatorKey,
           theme: ThemeManager().currentThemeData,
+          // অ্যাপের ভেতরের লেখার আকার (Profile → লেখার আকার ও ফন্ট)
+          builder: (context, child) {
+            final mq = MediaQuery.of(context);
+            final system = mq.textScaler.scale(14) / 14;
+            return MediaQuery(
+              data: mq.copyWith(textScaler: TextScaler.linear((system * ThemeManager().textScale).clamp(0.8, 1.6))),
+              child: child ?? const SizedBox.shrink(),
+            );
+          },
           home: showLockOnStartup
               ? AppLockScreen(
                   mode: AppLockMode.unlock,

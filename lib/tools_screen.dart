@@ -26,6 +26,7 @@ import 'google_sheet_sync_screen.dart';
 import 'multi_sheet_manager_screen.dart';
 import 'notifications_hub_screen.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // ==========================================
 // IMPORT TOOLS MODULES
@@ -79,6 +80,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
   void initState() {
     super.initState();
     _checkConnectivity();
+    _loadToolPrefs();
     _connectivitySubscription = Connectivity().onConnectivityChanged.listen((result) {
       if (!mounted) return;
       setState(() {
@@ -99,12 +101,111 @@ class _ToolsScreenState extends State<ToolsScreen> {
   @override
   void dispose() {
     _connectivitySubscription.cancel();
+    _searchController.dispose();
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final List<Map<String, dynamic>> categories = [
+  // ---------- পিন করা ও সম্প্রতি ব্যবহৃত টুল ----------
+  static const _prefPinned = 'tools_pinned_v1';
+  static const _prefRecent = 'tools_recent_v1';
+  static const int _maxRecent = 6;
+
+  final TextEditingController _searchController = TextEditingController();
+  String _query = '';
+  List<String> _pinned = [];
+  List<String> _recent = [];
+
+  Future<void> _loadToolPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (!mounted) return;
+      setState(() {
+        _pinned = prefs.getStringList(_prefPinned) ?? [];
+        _recent = prefs.getStringList(_prefRecent) ?? [];
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _saveToolPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(_prefPinned, _pinned);
+      await prefs.setStringList(_prefRecent, _recent);
+    } catch (_) {}
+  }
+
+  void _markRecent(String action) {
+    setState(() {
+      _recent.remove(action);
+      _recent.insert(0, action);
+      if (_recent.length > _maxRecent) _recent = _recent.sublist(0, _maxRecent);
+    });
+    _saveToolPrefs();
+  }
+
+  void _togglePin(Map<String, dynamic> tool) {
+    final action = tool['action'] as String;
+    final wasPinned = _pinned.contains(action);
+    setState(() {
+      if (wasPinned) {
+        _pinned.remove(action);
+      } else {
+        _pinned.add(action);
+      }
+    });
+    _saveToolPrefs();
+    final name = (tool['title'] as String).tr();
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(wasPinned
+          ? trx('$name removed from favourites', '$name পছন্দের তালিকা থেকে সরানো হয়েছে')
+          : trx('$name pinned to the top ⭐', '$name উপরে পিন করা হয়েছে ⭐')),
+      duration: const Duration(seconds: 2),
+    ));
+  }
+
+  void _showToolOptions(Map<String, dynamic> tool) {
+    final isPinned = _pinned.contains(tool['action']);
+    showModalBottomSheet(
+      context: context,
+      useSafeArea: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: Icon(tool['icon'] as IconData, color: tool['color'] as Color),
+              title: Text((tool['title'] as String).tr(), style: const TextStyle(fontWeight: FontWeight.bold)),
+            ),
+            const Divider(height: 1),
+            ListTile(
+              leading: Icon(isPinned ? Icons.star_outline_rounded : Icons.star_rounded, color: Colors.amber),
+              title: Text(isPinned
+                  ? trx('Remove from favourites', 'পছন্দের তালিকা থেকে সরান')
+                  : trx('Pin to favourites', 'পছন্দের তালিকায় পিন করুন')),
+              onTap: () {
+                Navigator.pop(ctx);
+                _togglePin(tool);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.open_in_new_rounded),
+              title: Text(trx('Open', 'খুলুন')),
+              onTap: () {
+                Navigator.pop(ctx);
+                _openTool(tool);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<Map<String, dynamic>> _buildCategories() {
+    return [
       {
         'name': 'Study Tools',
         'icon': Icons.school_rounded,
@@ -122,7 +223,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
           {'title': 'Dictionary', 'icon': Icons.menu_book_rounded, 'color': Colors.orangeAccent, 'action': 'dict', 'requiresInternet': true},
           {'title': 'Study Map', 'icon': Icons.folder_copy_rounded, 'color': Colors.teal, 'action': 'study_folders'},
           {'title': 'Countdown', 'icon': Icons.event_note_rounded, 'color': const Color(0xFF6366F1), 'action': 'countdown'},
-          {'title': 'Calendar', 'icon': Icons.calendar_month_rounded, 'color': Colors.teal, 'action': 'calendar'},
+          // Calendar এখন শুধু হোমের তারিখে চাপলে খোলে (একই জিনিসের দুই জায়গা বাদ)
           {'title': 'My Study Sheets', 'icon': Icons.folder_special_rounded, 'color': const Color(0xFF6366F1), 'action': 'multi_sheet', 'requiresInternet': true},
         ]
       },
@@ -132,7 +233,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
         'tools': [
           {'title': 'Islamic Life', 'icon': Icons.mosque_rounded, 'color': Colors.teal, 'action': 'islamic', 'requiresInternet': true},
           {'title': 'Breathing Exercise', 'icon': Icons.air_rounded, 'color': Colors.lightBlueAccent, 'action': 'breath'},
-          {'title': 'Focus Music', 'icon': Icons.headphones_rounded, 'color': Colors.teal, 'action': 'music', 'requiresInternet': true},
+          {'title': 'Focus Music', 'icon': Icons.headphones_rounded, 'color': Colors.teal, 'action': 'music'},
         ]
       },
       {
@@ -144,7 +245,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
           {'title': 'Partner Tasks', 'icon': Icons.group_add_rounded, 'color': Colors.green, 'action': 'partner_tasks', 'requiresInternet': true},
           {'title': 'Web Study', 'icon': Icons.bookmarks_rounded, 'color': Colors.blue, 'action': 'bookmarks', 'requiresInternet': true},
           {'title': 'Study Analytics', 'icon': Icons.analytics_rounded, 'color': Colors.teal, 'action': 'analytics'},
-          {'title': 'Notifications', 'icon': Icons.notifications_active_rounded, 'color': Colors.redAccent, 'action': 'notifications'},
+          // Notifications এখন শুধু হোমের 🔔 আইকনে
         ]
       },
       {
@@ -157,10 +258,230 @@ class _ToolsScreenState extends State<ToolsScreen> {
         ]
       },
     ];
+  }
+
+  void _openTool(Map<String, dynamic> tool) {
+    final action = tool['action'] as String;
+    _markRecent(action);
+    void push(Widget screen) => Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
+    void sheet(Widget child) => showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          useSafeArea: true,
+          backgroundColor: Colors.transparent,
+          builder: (_) => child,
+        );
+    switch (action) {
+      case 'mood':
+        sheet(const MoodTrackerBottomSheet());
+      case 'breath':
+        sheet(const BreathingExerciseBottomSheet());
+      case 'routine':
+        sheet(const RoutinePlannerBottomSheet());
+      case 'theme':
+        sheet(const ThemeCustomizerBottomSheet());
+      case 'analytics':
+        push(const StudyAnalyticsScreen());
+      case 'pdf_reader':
+        push(const PdfReaderScreen());
+      case 'pomodoro':
+        push(const PomodoroTimerScreen());
+      case 'stopwatch':
+        push(const StopwatchScreen());
+      case 'calc':
+        push(const CalculatorScreen());
+      case 'study_room':
+        push(const StudyRoomScreen());
+      case 'partner_tasks':
+        push(const PartnerTasksScreen());
+      case 'social_hub':
+        push(const SocialHubScreen());
+      case 'notifications':
+        push(const NotificationsHubScreen());
+      case 'notes':
+        push(const QuickNotesScreen());
+      case 'sleep':
+        push(const SleepTrackerScreen());
+      case 'music':
+        push(const FocusMusicScreen());
+      case 'flash':
+        push(const FlashcardDecksScreen());
+      case 'news':
+        push(const NewsReaderScreen());
+      case 'dict':
+        push(const DictionaryScreen());
+      case 'revision_147':
+        push(const Revision147Screen());
+      case 'task_history':
+        push(const TaskHistoryScreen());
+      case 'study_folders':
+        push(const StudyFolderManagerScreen());
+      case 'countdown':
+        push(const SpecialDayCountdownScreen());
+      case 'calendar':
+        push(const CalendarScreen());
+      case 'gsheet_sync':
+        push(const GoogleSheetSyncScreen());
+      case 'multi_sheet':
+        push(const MultiSheetManagerScreen());
+      case 'islamic':
+        push(const IslamicLifeScreen());
+      case 'daily_diary':
+        push(const DailyDiaryScreen());
+      case 'bookmarks':
+        push(const BookmarksScreen());
+      default:
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${(tool['title'] as String).tr()} ${'is coming soon!'.tr()}')),
+        );
+    }
+  }
+
+  bool _matches(Map<String, dynamic> tool, String q) {
+    final title = (tool['title'] as String);
+    final hay = '${title.toLowerCase()} ${title.tr().toLowerCase()}';
+    return hay.contains(q);
+  }
+
+  Widget _buildToolTile(Map<String, dynamic> tool) {
+    final cardDeco = ThemeManager.getCardDecoration(context);
+    final isPinned = _pinned.contains(tool['action']);
+    final Color color = tool['color'] as Color;
+    return Container(
+      decoration: cardDeco,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: cardDeco.borderRadius as BorderRadius?,
+              onTap: () => _openTool(tool),
+              onLongPress: () => _showToolOptions(tool),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(color: color.withValues(alpha: 0.1), shape: BoxShape.circle),
+                    child: Icon(tool['icon'] as IconData, size: 22, color: color),
+                  ),
+                  const SizedBox(height: 8),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                    child: Text(
+                      (tool['title'] as String).tr(),
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, height: 1.2),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (isPinned)
+            const Positioned(
+              top: 6,
+              left: 6,
+              child: Icon(Icons.star_rounded, size: 14, color: Colors.amber),
+            ),
+          if (tool['requiresInternet'] == true && _isOffline)
+            Positioned(
+              top: 8,
+              right: 8,
+              child: Tooltip(
+                message: 'Offline - Requires Internet'.tr(),
+                child: const Icon(Icons.wifi_off_rounded, size: 13, color: Colors.redAccent),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildToolGrid(List<Map<String, dynamic>> tools) {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      padding: EdgeInsets.zero,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3, // এক লাইনে ৩টি করে বক্স থাকবে
+        crossAxisSpacing: 10,
+        mainAxisSpacing: 10,
+        childAspectRatio: 0.95,
+      ),
+      itemCount: tools.length,
+      itemBuilder: (context, index) => _buildToolTile(tools[index]),
+    );
+  }
+
+  Widget _buildSectionHeader(IconData icon, String title, {Color? iconColor, Widget? trailing}) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 28.0, bottom: 12.0),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: iconColor ?? Theme.of(context).colorScheme.primary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              title,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
+                  ),
+            ),
+          ),
+          if (trailing != null) trailing,
+        ],
+      ),
+    );
+  }
+
+  /// সম্প্রতি ব্যবহৃত টুলগুলোর এক সারির ছোট চিপ
+  Widget _buildRecentRow(List<Map<String, dynamic>> recentTools) {
+    final scheme = Theme.of(context).colorScheme;
+    return SizedBox(
+      height: 44,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: recentTools.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (context, i) {
+          final tool = recentTools[i];
+          final color = tool['color'] as Color;
+          return ActionChip(
+            avatar: Icon(tool['icon'] as IconData, size: 18, color: color),
+            label: Text((tool['title'] as String).tr(), style: const TextStyle(fontWeight: FontWeight.w600)),
+            backgroundColor: color.withValues(alpha: 0.08),
+            side: BorderSide(color: color.withValues(alpha: 0.25)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+            labelStyle: TextStyle(color: scheme.onSurface, fontSize: 12),
+            onPressed: () => _openTool(tool),
+          );
+        },
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final categories = _buildCategories();
+    final allTools = <String, Map<String, dynamic>>{
+      for (final c in categories)
+        for (final t in (c['tools'] as List<Map<String, dynamic>>)) t['action'] as String: t,
+    };
+    final pinnedTools = _pinned.where(allTools.containsKey).map((a) => allTools[a]!).toList();
+    final recentTools = _recent.where(allTools.containsKey).map((a) => allTools[a]!).toList();
+    final q = _query.trim().toLowerCase();
+    final searchResults = q.isEmpty ? <Map<String, dynamic>>[] : allTools.values.where((t) => _matches(t, q)).toList();
+    final scheme = Theme.of(context).colorScheme;
 
     return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -168,185 +489,82 @@ class _ToolsScreenState extends State<ToolsScreen> {
               'Study Tools'.tr(),
               style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.primary,
+                    color: scheme.primary,
                   ),
             ),
-            const SizedBox(height: 24),
-            
-            // AI Study Planner Banner (First Tool)
-            _buildAIPlannerBanner(context),
-            const SizedBox(height: 12),
-            _buildNextDayRoutineButton(context),
-            const SizedBox(height: 12),
-            _buildWeeklyRoutineButton(context),
-            
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: categories.map((category) {
-                final List<Map<String, dynamic>> catTools = category['tools'];
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.only(top: 28.0, bottom: 12.0),
-                      child: Row(
-                        children: [
-                          Icon(category['icon'], size: 20, color: Theme.of(context).colorScheme.primary),
-                          const SizedBox(width: 8),
-                          Text(
-                            (category['name'] as String).tr(),
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
-                                ),
-                          ),
-                        ],
+            const SizedBox(height: 16),
+
+            // সার্চ বার
+            TextField(
+              controller: _searchController,
+              onChanged: (v) => setState(() => _query = v),
+              textInputAction: TextInputAction.search,
+              decoration: InputDecoration(
+                hintText: trx('Search tools… (e.g. notes, pomodoro)', 'টুল খুঁজুন… (যেমন: নোট, পোমোডোরো)'),
+                prefixIcon: const Icon(Icons.search_rounded),
+                suffixIcon: _query.isEmpty
+                    ? null
+                    : IconButton(
+                        tooltip: trx('Clear', 'মুছুন'),
+                        icon: const Icon(Icons.close_rounded),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() => _query = '');
+                          FocusScope.of(context).unfocus();
+                        },
                       ),
-                    ),
-                    GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 3, // এক লাইনে ৩টি করে বক্স থাকবে
-                        crossAxisSpacing: 10,
-                        mainAxisSpacing: 10,
-                        childAspectRatio: 0.95, // ৩ কলামের মানানসই অনুপাত
-                      ),
-                      itemCount: catTools.length,
-                      itemBuilder: (context, index) {
-                        final tool = catTools[index];
-                        final cardDeco = ThemeManager.getCardDecoration(context);
-                        return Container(
-                          decoration: cardDeco,
-                          child: Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              Material(
-                                color: Colors.transparent,
-                                child: InkWell(
-                                  borderRadius: cardDeco.borderRadius as BorderRadius?,
-                                  onTap: () {
-                                    if (tool['action'] == 'mood') {
-                                      showModalBottomSheet(context: context, isScrollControlled: true, useSafeArea: true, backgroundColor: Colors.transparent, builder: (_) => const MoodTrackerBottomSheet());
-                                    } else if (tool['action'] == 'breath') {
-                                      showModalBottomSheet(context: context, isScrollControlled: true, useSafeArea: true, backgroundColor: Colors.transparent, builder: (_) => const BreathingExerciseBottomSheet());
-                                    } else if (tool['action'] == 'routine') {
-                                      showModalBottomSheet(context: context, isScrollControlled: true, useSafeArea: true, backgroundColor: Colors.transparent, builder: (_) => const RoutinePlannerBottomSheet());
-                                    } else if (tool['action'] == 'analytics') {
-                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const StudyAnalyticsScreen()));
-                                    } else if (tool['action'] == 'pdf_reader') {
-                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const PdfReaderScreen()));
-                                    } else if (tool['action'] == 'pomodoro') {
-                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const PomodoroTimerScreen()));
-                                    } else if (tool['action'] == 'stopwatch') {
-                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const StopwatchScreen()));
-                                    } else if (tool['action'] == 'calc') {
-                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const CalculatorScreen()));
-                                    } else if (tool['action'] == 'study_room') {
-                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const StudyRoomScreen()));
-                                    } else if (tool['action'] == 'partner_tasks') {
-                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const PartnerTasksScreen()));
-                                    } else if (tool['action'] == 'social_hub') {
-                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const SocialHubScreen()));
-                                    } else if (tool['action'] == 'notifications') {
-                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsHubScreen()));
-                                    } else if (tool['action'] == 'notes') {
-                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const QuickNotesScreen()));
-                                    } else if (tool['action'] == 'sleep') {
-                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const SleepTrackerScreen()));
-                                    } else if (tool['action'] == 'music') {
-                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const FocusMusicScreen()));
-                                    } else if (tool['action'] == 'flash') {
-                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const FlashcardDecksScreen()));
-                                    } else if (tool['action'] == 'news') {
-                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const NewsReaderScreen()));
-                                    } else if (tool['action'] == 'dict') {
-                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const DictionaryScreen()));
-                                    } else if (tool['action'] == 'revision_147') {
-                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const Revision147Screen()));
-                                    } else if (tool['action'] == 'task_history') {
-                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const TaskHistoryScreen()));
-                                    } else if (tool['action'] == 'study_folders') {
-                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const StudyFolderManagerScreen()));
-                                    } else if (tool['action'] == 'countdown') {
-                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const SpecialDayCountdownScreen()));
-                                    } else if (tool['action'] == 'calendar') {
-                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const CalendarScreen()));
-                                    } else if (tool['action'] == 'gsheet_sync') {
-                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const GoogleSheetSyncScreen()));
-                                    } else if (tool['action'] == 'multi_sheet') {
-                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const MultiSheetManagerScreen()));
-                                    } else if (tool['action'] == 'islamic') {
-                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const IslamicLifeScreen()));
-                                    } else if (tool['action'] == 'daily_diary') {
-                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const DailyDiaryScreen()));
-                                    } else if (tool['action'] == 'bookmarks') {
-                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const BookmarksScreen()));
-                                    } else if (tool['action'] == 'theme') {
-                                      showModalBottomSheet(
-                                        context: context,
-                                        isScrollControlled: true,
-                                        useSafeArea: true,
-                                        backgroundColor: Colors.transparent,
-                                        builder: (_) => const ThemeCustomizerBottomSheet(),
-                                      );
-                                    } else {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(content: Text('${tool['title']} is coming soon!')),
-                                      );
-                                    }
-                                  },
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.all(10),
-                                        decoration: BoxDecoration(
-                                          color: tool['color'].withValues(alpha: 0.1),
-                                          shape: BoxShape.circle,
-                                        ),
-                                        child: Icon(tool['icon'], size: 22, color: tool['color']),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Padding(
-                                        padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                                        child: Text(
-                                          (tool['title'] as String).tr(),
-                                          textAlign: TextAlign.center,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                              if (tool['requiresInternet'] == true && _isOffline)
-                                Positioned(
-                                  top: 8,
-                                  right: 8,
-                                  child: Tooltip(
-                                    message: 'Offline - Requires Internet'.tr(),
-                                    child: const Icon(
-                                      Icons.wifi_off_rounded,
-                                      size: 13,
-                                      color: Colors.redAccent,
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                );
-              }).toList(),
+                filled: true,
+                fillColor: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+              ),
             ),
+
+            if (q.isNotEmpty) ...[
+              _buildSectionHeader(Icons.search_rounded, trx('Results (${searchResults.length})', 'ফলাফল (${searchResults.length})')),
+              if (searchResults.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 24),
+                  child: Center(
+                    child: Text(
+                      trx('No tool found for "$_query".', '"$_query" নামে কোনো টুল পাওয়া যায়নি।'),
+                      style: TextStyle(color: scheme.onSurfaceVariant),
+                    ),
+                  ),
+                )
+              else
+                _buildToolGrid(searchResults),
+            ] else ...[
+              if (pinnedTools.isNotEmpty) ...[
+                _buildSectionHeader(Icons.star_rounded, trx('Favourites', 'পছন্দের টুল'), iconColor: Colors.amber),
+                _buildToolGrid(pinnedTools),
+              ],
+              if (recentTools.isNotEmpty) ...[
+                _buildSectionHeader(Icons.history_rounded, trx('Recently used', 'সম্প্রতি ব্যবহৃত')),
+                _buildRecentRow(recentTools),
+              ],
+              if (pinnedTools.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 10),
+                  child: Text(
+                    trx('Tip: long-press any tool to pin it here ⭐', 'টিপস: যেকোনো টুল লম্বা করে চেপে ধরে উপরে পিন করুন ⭐'),
+                    style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+                  ),
+                ),
+              const SizedBox(height: 20),
+
+              // AI Study Planner Banner (First Tool)
+              _buildAIPlannerBanner(context),
+              const SizedBox(height: 12),
+              _buildNextDayRoutineButton(context),
+              const SizedBox(height: 12),
+              _buildWeeklyRoutineButton(context),
+
+              for (final category in categories) ...[
+                _buildSectionHeader(category['icon'] as IconData, (category['name'] as String).tr()),
+                _buildToolGrid(category['tools'] as List<Map<String, dynamic>>),
+              ],
+            ],
           ],
         ),
       ),

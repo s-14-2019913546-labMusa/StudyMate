@@ -8,6 +8,10 @@ extension TranslationExtension on String {
   }
 }
 
+/// নতুন লেখার জন্য সহজ উপায়: অ্যাপের ভাষা বাংলা হলে [bn], না হলে [en] দেখায়।
+/// এতে একই স্ক্রিনে বাংলা-ইংরেজি মিশে যায় না।
+String trx(String en, String bn) => LanguageManager().isBengali ? bn : en;
+
 class LanguageManager extends ChangeNotifier {
   static final LanguageManager _instance = LanguageManager._internal();
   factory LanguageManager() => _instance;
@@ -296,6 +300,10 @@ class LanguageManager extends ChangeNotifier {
     'Sleep Tracker': 'স্লিপ ট্র্যাকার',
     'Islamic Life': 'ইসলামিক লাইফ',
     'Calculator': 'ক্যালকুলেটর',
+    'Daily Diary': 'দৈনিক ডায়েরি',
+    'Daily News': 'দৈনিক খবর',
+    'My Study Sheets': 'আমার স্টাডি শিট',
+    'Offline - Requires Internet': 'অফলাইন - ইন্টারনেট লাগবে',
     'Theme Option': 'থিম অপশন',
     'Theme': 'থিম',
     'Focus': 'মনোযোগ',

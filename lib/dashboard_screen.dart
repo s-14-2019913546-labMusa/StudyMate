@@ -21,6 +21,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
 import 'local_notification_service.dart';
 import 'update_service.dart';
+import 'widgets/undo_snackbar.dart';
 
 class DashboardRoutineData {
   final DailyRoutine? localRoutine;
@@ -4287,6 +4288,12 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                       ),
                     );
                     if (confirm == true) {
+                      final messenger = ScaffoldMessenger.of(context);
+                      DocumentReference<Map<String, dynamic>>? routineRef;
+                      Map<String, dynamic>? removedTaskMap;
+                      int removedIndex = -1;
+                      DocumentReference<Map<String, dynamic>>? partnerRef;
+                      Map<String, dynamic>? partnerData;
                       try {
                         final user = FirebaseAuth.instance.currentUser;
                         if (user != null) {
@@ -4306,9 +4313,16 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                               snapshot.data()!,
                               snapshot.id,
                             );
+                            removedIndex = routine.tasks.indexWhere(
+                              (t) => t.id == widget.task.id,
+                            );
+                            if (removedIndex >= 0) {
+                              removedTaskMap = routine.tasks[removedIndex].toMap();
+                            }
                             routine.tasks.removeWhere(
                               (t) => t.id == widget.task.id,
                             );
+                            routineRef = docRef;
                             await docRef.update({
                               'tasks': routine.tasks
                                   .map((t) => t.toMap())
@@ -4326,23 +4340,36 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                             final docId = parts.sublist(3).join('_');
 
                             if (role == 'admin') {
-                              await FirebaseFirestore.instance
+                              final pRef = FirebaseFirestore.instance
                                   .collection('partner_rooms')
                                   .doc(roomCode)
                                   .collection('tasks')
-                                  .doc(docId)
-                                  .delete();
+                                  .doc(docId);
+                              partnerData = (await pRef.get()).data();
+                              partnerRef = pRef;
+                              await pRef.delete();
                             }
                           }
                         }
 
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Task deleted successfully.'.tr()),
-                            ),
-                          );
-                        }
+                        // মোছার পরে Undo
+                        showUndoSnackBar(
+                          messenger,
+                          'Task deleted successfully.'.tr(),
+                          () async {
+                            if (routineRef != null && removedTaskMap != null) {
+                              final snap = await routineRef.get();
+                              final List<dynamic> tasks =
+                                  List<dynamic>.from(snap.data()?['tasks'] ?? []);
+                              final idx = removedIndex.clamp(0, tasks.length);
+                              tasks.insert(idx, removedTaskMap);
+                              await routineRef.update({'tasks': tasks});
+                            }
+                            if (partnerRef != null && partnerData != null) {
+                              await partnerRef.set(partnerData);
+                            }
+                          },
+                        );
                       } catch (e) {
                         debugPrint("Error deleting task: $e");
                       }

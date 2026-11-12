@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'login_screen.dart';
-import 'focus_mode_screen.dart';
+import 'app_entry.dart';
 import 'language_manager.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -57,16 +57,9 @@ class _SplashScreenState extends State<SplashScreen> {
       
       // চেক করবে ইউজার আগে থেকে লগইন করা আছে কিনা
       if (FirebaseAuth.instance.currentUser != null && !shouldForceLogin) {
-        Navigator.pushReplacement(
-          context,
-          PageRouteBuilder(
-            pageBuilder: (context, animation, secondaryAnimation) => const FocusModeScreen(),
-            transitionsBuilder: (context, animation, secondaryAnimation, child) {
-              return FadeTransition(opacity: animation, child: child);
-            },
-            transitionDuration: const Duration(milliseconds: 800),
-          ),
-        );
+        final page = await AppEntry.resolve();
+        if (!mounted) return;
+        Navigator.pushReplacement(context, AppEntry.fadeRoute(page, ms: 800));
       } else {
         Navigator.pushReplacement(
           context,

@@ -17,6 +17,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'cloud_backup_screen.dart';
 import 'notifications_hub_screen.dart';
 import 'ai_service.dart';
+import 'app_entry.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -288,6 +289,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     onTap: () => _showAiKeyDialog(context),
                   ),
                   _buildListTile(context, Icons.dark_mode_outlined, 'Dark Mode', isToggle: true),
+                  _buildListTile(
+                    context,
+                    Icons.text_fields_rounded,
+                    trx('Text size & font', 'লেখার আকার ও ফন্ট'),
+                    onTap: () => _showTextSizeSheet(context),
+                  ),
+                  _buildListTile(
+                    context,
+                    Icons.self_improvement_rounded,
+                    trx('Focus screen at startup', 'শুরুতে ফোকাস স্ক্রিন'),
+                    onTap: () => _showFocusScreenSheet(context),
+                  ),
 
                   _buildListTile(
                     context,
@@ -814,6 +827,139 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Future<void> _showFocusScreenSheet(BuildContext context) async {
+    String mode = await AppEntry.getFocusMode();
+    if (!context.mounted) return;
+    showModalBottomSheet(
+      context: context,
+      useSafeArea: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheet) {
+          Widget option(String value, String title, String subtitle) => ListTile(
+                minVerticalPadding: 12,
+                leading: Icon(mode == value ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
+                    color: Theme.of(ctx).colorScheme.primary),
+                title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: Text(subtitle),
+                onTap: () async {
+                  await AppEntry.setFocusMode(value);
+                  setSheet(() => mode = value);
+                },
+              );
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(8, 16, 8, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(trx('Focus screen at startup', 'শুরুতে ফোকাস স্ক্রিন'),
+                    style: Theme.of(ctx).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                option('auto', trx('Show, then go home automatically', 'দেখাবে, তারপর নিজে হোমে যাবে'),
+                    trx('Quote for 3 seconds, tap to skip', '৩ সেকেন্ড বাণী দেখাবে, চাপলেই হোম')),
+                option('manual', trx('Show and wait for the button', 'দেখাবে, বাটন চাপলে হোম'),
+                    trx('Press "Continue to Home" every time', 'প্রতিবার "হোমে যান" চাপতে হবে')),
+                option('off', trx("Don't show", 'দেখাবে না'),
+                    trx('Open straight to Home', 'সরাসরি হোম খুলবে')),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void _showTextSizeSheet(BuildContext context) {
+    final tm = ThemeManager();
+    showModalBottomSheet(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => ListenableBuilder(
+        listenable: tm,
+        builder: (ctx, _) {
+          final scheme = Theme.of(ctx).colorScheme;
+          final pct = (tm.textScale * 100).round();
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Text(trx('Text size & font', 'লেখার আকার ও ফন্ট'),
+                      style: Theme.of(ctx).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Text(trx('Text size', 'লেখার আকার'), style: const TextStyle(fontWeight: FontWeight.w600)),
+                    const Spacer(),
+                    Text('$pct%', style: TextStyle(color: scheme.primary, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+                Row(
+                  children: [
+                    const Text('A', style: TextStyle(fontSize: 13)),
+                    Expanded(
+                      child: Slider(
+                        value: tm.textScale,
+                        min: 0.85,
+                        max: 1.3,
+                        divisions: 9,
+                        label: '$pct%',
+                        onChanged: (v) => tm.setTextScale(v),
+                      ),
+                    ),
+                    const Text('A', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: scheme.primary.withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Text('আজকের পড়া: বাংলা ব্যাকরণ ৮টা–১০টা\nToday: English grammar 8–10 AM'),
+                ),
+                const SizedBox(height: 20),
+                Text(trx('Bengali font', 'বাংলা ফন্ট'), style: const TextStyle(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                SegmentedButton<String>(
+                  segments: const [
+                    ButtonSegment(value: 'hind', label: Text('Hind Siliguri')),
+                    ButtonSegment(value: 'noto', label: Text('Noto Sans Bengali')),
+                  ],
+                  selected: {tm.bengaliFont},
+                  onSelectionChanged: (v) => tm.setBengaliFont(v.first),
+                ),
+                const SizedBox(height: 8),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(trx('Use the Bengali font as main font in Bengali',
+                      'বাংলা ভাষায় বাংলা ফন্টকেই মূল ফন্ট করুন')),
+                  subtitle: Text(trx('Bengali text looks bigger and clearer', 'বাংলা লেখা বড় ও পরিষ্কার দেখাবে')),
+                  value: tm.bengaliPrimary,
+                  onChanged: (v) => tm.setBengaliPrimary(v),
+                ),
+                const SizedBox(height: 4),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () => tm.setTextScale(1.0),
+                    child: Text(trx('Reset size', 'আকার আগের মতো')),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }

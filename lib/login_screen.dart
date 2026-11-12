@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'signup_screen.dart';
-import 'focus_mode_screen.dart';
+import 'app_entry.dart';
 import 'language_manager.dart';
 import 'fcm_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -51,7 +51,7 @@ class _LoginScreenState extends State<LoginScreen> {
       await prefs.setInt('last_password_login_timestamp', DateTime.now().millisecondsSinceEpoch);
 
       if (mounted) {
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const FocusModeScreen()));
+        await AppEntry.go(context);
       }
     } on FirebaseAuthException catch (e) {
       if (mounted) {

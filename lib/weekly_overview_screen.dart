@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'daily_routine.dart';
 import 'tools_screen.dart'; // To use AddWeeklyRoutineTaskBottomSheet
 import 'language_manager.dart';
+import 'widgets/undo_snackbar.dart';
 
 class WeeklyOverviewScreen extends StatefulWidget {
   const WeeklyOverviewScreen({super.key});
@@ -58,21 +59,21 @@ class _WeeklyOverviewScreenState extends State<WeeklyOverviewScreen> with Single
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
+    final messenger = ScaffoldMessenger.of(context);
     try {
-      await FirebaseFirestore.instance
+      final ref = FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
           .collection('weeklyRoutines')
           .doc(day)
           .collection('tasks')
-          .doc(taskId)
-          .delete();
+          .doc(taskId);
+      final backup = (await ref.get()).data();
+      await ref.delete();
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Task deleted successfully.'.tr())),
-        );
-      }
+      showUndoSnackBar(messenger, 'Task deleted successfully.'.tr(), () async {
+        if (backup != null) await ref.set(backup);
+      });
     } catch (e) {
       debugPrint("Error deleting weekly task: $e");
     }

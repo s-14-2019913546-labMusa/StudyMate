@@ -45,6 +45,52 @@ class ThemeManager extends ChangeNotifier {
   AppFontStyle get currentFontStyle => _currentFontStyle;
   AppLayoutStyle get currentLayoutStyle => _currentLayoutStyle;
 
+  // ---------- লেখার আকার ও বাংলা ফন্ট ----------
+  static const String _textScaleKey = "text_scale";
+  static const String _bengaliFontKey = "bengali_font";
+  static const String _bengaliPrimaryKey = "bengali_font_primary";
+
+  /// অ্যাপের ভেতরের লেখার আকার (০.৮৫ – ১.৩০)
+  double _textScale = 1.0;
+  double get textScale => _textScale;
+
+  /// 'hind' = Hind Siliguri, 'noto' = Noto Sans Bengali
+  String _bengaliFont = 'hind';
+  String get bengaliFont => _bengaliFont;
+
+  /// চালু থাকলে বাংলা ভাষায় বাংলা ফন্টই মূল ফন্ট হয় (Poppins-এ বাংলা ছোট দেখায়)
+  bool _bengaliPrimary = true;
+  bool get bengaliPrimary => _bengaliPrimary;
+
+  /// main.dart থেকে বলা হয় এখন অ্যাপের ভাষা বাংলা কিনা
+  bool appIsBengali = false;
+
+  Future<void> setTextScale(double v) async {
+    _textScale = v.clamp(0.85, 1.3);
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(_textScaleKey, _textScale);
+  }
+
+  Future<void> setBengaliFont(String f) async {
+    _bengaliFont = f;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_bengaliFontKey, f);
+  }
+
+  Future<void> setBengaliPrimary(bool v) async {
+    _bengaliPrimary = v;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_bengaliPrimaryKey, v);
+  }
+
+  TextTheme _bengaliTextTheme(TextTheme base) =>
+      _bengaliFont == 'noto' ? GoogleFonts.notoSansBengaliTextTheme(base) : GoogleFonts.hindSiliguriTextTheme(base);
+  String _bengaliFamily() =>
+      (_bengaliFont == 'noto' ? GoogleFonts.notoSansBengali() : GoogleFonts.hindSiliguri()).fontFamily!;
+
   // Backward compatibility getters
   ThemeMode get themeMode => (_currentTheme == AppThemeType.light || _currentTheme == AppThemeType.sakura) ? ThemeMode.light : ThemeMode.dark;
   bool get isDarkMode => !(_currentTheme == AppThemeType.light || _currentTheme == AppThemeType.sakura);
@@ -87,6 +133,10 @@ class ThemeManager extends ChangeNotifier {
         orElse: () => AppLayoutStyle.classic,
       );
     }
+
+    _textScale = (prefs.getDouble(_textScaleKey) ?? 1.0).clamp(0.85, 1.3);
+    _bengaliFont = prefs.getString(_bengaliFontKey) ?? 'hind';
+    _bengaliPrimary = prefs.getBool(_bengaliPrimaryKey) ?? true;
 
     notifyListeners();
   }
@@ -288,17 +338,23 @@ class ThemeManager extends ChangeNotifier {
 
     switch (_currentFontStyle) {
       case AppFontStyle.modern:
-        fallback = [GoogleFonts.hindSiliguri().fontFamily!];
+        fallback = [_bengaliFamily()];
         textTheme = GoogleFonts.poppinsTextTheme(baseTextTheme);
         break;
       case AppFontStyle.clean:
-        fallback = [GoogleFonts.notoSansBengali().fontFamily!];
+        fallback = [_bengaliFamily()];
         textTheme = GoogleFonts.robotoTextTheme(baseTextTheme);
         break;
       case AppFontStyle.classic:
         fallback = [GoogleFonts.anekBangla().fontFamily!];
         textTheme = GoogleFonts.loraTextTheme(baseTextTheme);
         break;
+    }
+
+    // বাংলা ভাষায় বাংলা ফন্টকে মূল ফন্ট করা, যাতে বাংলা লেখা ছোট না দেখায়
+    if (appIsBengali && _bengaliPrimary && _currentFontStyle != AppFontStyle.classic) {
+      textTheme = _bengaliTextTheme(baseTextTheme);
+      fallback = [GoogleFonts.poppins().fontFamily!];
     }
 
     // Dynamic builders based on Layout Style
