@@ -60,7 +60,8 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen> {
     super.dispose();
   }
 
-  Future<void> _recordResponse(String difficulty, String cardId) async {
+  /// [deckId]: কার্ডটা কোন ডেকের ("আজকের রিভিশন"-এ কার্ড একাধিক ডেক থেকে আসে)
+  Future<void> _recordResponse(String difficulty, String cardId, [String? deckId]) async {
     _sessionStats[difficulty] = (_sessionStats[difficulty] ?? 0) + 1;
 
     final User? user = FirebaseAuth.instance.currentUser;
@@ -70,7 +71,7 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen> {
             .collection('users')
             .doc(user.uid)
             .collection('flashcard_decks')
-            .doc(widget.deckId);
+            .doc(deckId ?? widget.deckId);
 
         final docSnap = await docRef.get();
         if (docSnap.exists) {
@@ -122,7 +123,7 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen> {
     }
 
     final cardId = widget.cards[previousIndex]['id'];
-    _recordResponse(difficulty, cardId);
+    _recordResponse(difficulty, cardId, widget.cards[previousIndex]['_deckId'] as String?);
 
     setState(() {
       _currentIndex = currentIndex ?? widget.cards.length;

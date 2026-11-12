@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:math';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -781,5 +782,81 @@ Do not write any markdown code blocks (like ```json), explanations, or preamble.
       'exampleBengali': 'ফ্ল্যাশকার্ড স্ক্রিনে চাবি আইকন চেপে এপিআই কী বসাতে পারেন।',
       'synonyms': ['Learn', 'Expand', 'Grow']
     };
+  }
+
+  // -------------------------------------------------------------
+  // ছবি থেকে লেখা (বইয়ের পাতা / খাতার ছবি → টেক্সট), বাংলা ও ইংরেজি দুটোই
+  // -------------------------------------------------------------
+  static Future<String> extractTextFromImage(Uint8List bytes, String mimeType, String apiKey) async {
+    Object? lastError;
+    const prompt = '''
+Read all the text in this photo of a book page, notes or a whiteboard.
+Write it out exactly as it appears, keeping the original language (Bengali stays Bengali, English stays English).
+Keep headings, numbered points and line breaks. Use Markdown for headings and lists.
+Do not add explanations or translate anything. If no text is visible, reply with: NO_TEXT''';
+    for (final modelName in _geminiModels) {
+      try {
+        final model = GenerativeModel(model: modelName, apiKey: apiKey);
+        final response = await model.generateContent([
+          Content.multi([TextPart(prompt), DataPart(mimeType, bytes)]),
+        ]);
+        final text = response.text?.trim();
+        if (text != null && text.isNotEmpty) {
+          lastGeminiError = null;
+          return text == 'NO_TEXT' ? '' : text;
+        }
+        lastError = Exception('Empty response from $modelName');
+      } catch (e) {
+        debugPrint('AIService: image OCR with $modelName failed: $e');
+        lastError = e;
+        final msg = e.toString().toLowerCase();
+        if (msg.contains('api key') || msg.contains('api_key') || msg.contains('permission')) break;
+      }
+    }
+    lastGeminiError = lastError?.toString();
+    throw Exception('Could not read the image: $lastError');
+  }
+
+  // -------------------------------------------------------------
+  // MCQ তৈরি (বিষয় বা নোট থেকে) — [{question, options[4], answer(index), explanation}]
+  // -------------------------------------------------------------
+  static Future<List<Map<String, dynamic>>> generateMcqs({
+    required String topicOrText,
+    required String apiKey,
+    int count = 10,
+    String? subject,
+    bool fromText = false,
+  }) async {
+    final limited = topicOrText.length > 6000 ? topicOrText.substring(0, 6000) : topicOrText;
+    final source = fromText
+        ? 'Make the questions ONLY from this study text:\n$limited'
+        : 'Topic: $limited${subject != null ? ' (subject: $subject)' : ''}. Use the style of Bangladesh competitive exams (BCS, bank jobs, primary teacher).';
+    final prompt = '''
+You are an exam question writer. Create $count multiple-choice questions with exactly 4 options each and one correct answer.
+Write in the same language as the topic/text (Bengali → Bengali). Facts must be correct; skip anything you are not sure about.
+$source
+Return ONLY a raw JSON array, no markdown:
+[{"question": "...", "options": ["...","...","...","..."], "answer": 0, "explanation": "one short line"}]
+"answer" is the 0-based index of the correct option.''';
+    final response = await _queryGemini(prompt, apiKey);
+    final first = response.indexOf('[');
+    final last = response.lastIndexOf(']');
+    if (first == -1 || last <= first) return [];
+    final List<dynamic> list = jsonDecode(response.substring(first, last + 1));
+    final out = <Map<String, dynamic>>[];
+    for (final item in list) {
+      if (item is! Map) continue;
+      final options = (item['options'] as List?)?.map((e) => e.toString()).toList() ?? [];
+      final answer = (item['answer'] as num?)?.toInt() ?? -1;
+      final q = item['question']?.toString().trim() ?? '';
+      if (q.isEmpty || options.length != 4 || answer < 0 || answer > 3) continue;
+      out.add({
+        'question': q,
+        'options': options,
+        'answer': answer,
+        'explanation': item['explanation']?.toString() ?? '',
+      });
+    }
+    return out;
   }
 }

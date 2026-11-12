@@ -28,6 +28,7 @@ import 'task_notification_actions.dart';
 import 'home_widget_service.dart';
 import 'widgets/skeleton.dart';
 import 'weekly_overview_screen.dart';
+import 'daily_review_screen.dart';
 
 class DashboardRoutineData {
   final DailyRoutine? localRoutine;
@@ -679,6 +680,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       _updateUserStatus(true); // Initial status update
       _checkWeeklyTasksForToday();
       _checkDailyTasksForToday();
+      _loadReviewDue();
 
       Future.delayed(const Duration(seconds: 2), () {
         if (mounted) {
@@ -693,6 +695,50 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   Timer? _summaryDebounce;
+
+  // আজকের রিভিশন (ফ্ল্যাশকার্ড + ভুলের খাতা) কতগুলো বাকি
+  int _reviewDue = 0;
+
+  Future<void> _loadReviewDue() async {
+    try {
+      final r = await DailyReviewService.load();
+      if (mounted) setState(() => _reviewDue = r.total);
+    } catch (_) {}
+  }
+
+  Widget _buildReviewDueCard() {
+    if (_reviewDue <= 0) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Material(
+        color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const DailyReviewScreen()),
+          ).then((_) => _loadReviewDue()),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
+              children: [
+                const Icon(Icons.psychology_rounded, color: Color(0xFF8B5CF6)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    trx("Today's revision: $_reviewDue items", 'আজকের রিভিশন: $_reviewDueটি বাকি'),
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                const Icon(Icons.chevron_right_rounded),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   void _scheduleSummaryRefresh() {
     _summaryDebounce?.cancel();
@@ -717,6 +763,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     if (user == null) return;
     if (state == AppLifecycleState.resumed) {
       _updateUserStatus(true);
+      _loadReviewDue();
       LocalNotificationService.clearPastPrayerNotifications();
     } else {
       _updateUserStatus(false);
@@ -2313,6 +2360,7 @@ class _DashboardScreenState extends State<DashboardScreen>
             _buildTodayProgressCard(context),
             _buildWeeklyTasksAlertCard(),
             _buildDailyTasksAlertCard(),
+            _buildReviewDueCard(),
             const SizedBox(height: 30),
 
             if (_isLoadingRoutine)

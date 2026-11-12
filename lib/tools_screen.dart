@@ -27,6 +27,10 @@ import 'multi_sheet_manager_screen.dart';
 import 'notifications_hub_screen.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'mcq/mcq_home_screen.dart';
+import 'mcq/mistake_book_screen.dart';
+import 'daily_review_screen.dart';
+import 'photo_to_note_screen.dart';
 
 // ==========================================
 // IMPORT TOOLS MODULES
@@ -256,6 +260,10 @@ class _ToolsScreenState extends State<ToolsScreen> {
         'name': 'Study Tools',
         'icon': Icons.school_rounded,
         'tools': [
+          {'title': 'MCQ Practice', 'icon': Icons.quiz_rounded, 'color': const Color(0xFF16A34A), 'action': 'mcq'},
+          {'title': 'Mistake Book', 'icon': Icons.menu_book_rounded, 'color': Colors.red, 'action': 'mistakes'},
+          {'title': "Today's Revision", 'icon': Icons.psychology_rounded, 'color': const Color(0xFF8B5CF6), 'action': 'review'},
+          {'title': 'Photo to Note', 'icon': Icons.document_scanner_rounded, 'color': Colors.cyan.shade700, 'action': 'photo_note', 'requiresInternet': true},
           {'title': 'Calculator', 'icon': Icons.calculate_rounded, 'color': Colors.blueAccent, 'action': 'calc'},
           {'title': 'Pomodoro', 'icon': Icons.timer_rounded, 'color': Colors.redAccent, 'action': 'pomodoro'},
           {'title': 'Stopwatch', 'icon': Icons.timer_outlined, 'color': Colors.deepOrangeAccent, 'action': 'stopwatch'},
@@ -326,6 +334,14 @@ class _ToolsScreenState extends State<ToolsScreen> {
         sheet(const RoutinePlannerBottomSheet());
       case 'theme':
         sheet(const ThemeCustomizerBottomSheet());
+      case 'mcq':
+        push(const McqHomeScreen());
+      case 'mistakes':
+        push(const MistakeBookScreen());
+      case 'review':
+        push(const DailyReviewScreen());
+      case 'photo_note':
+        push(const PhotoToNoteScreen());
       case 'analytics':
         push(const StudyAnalyticsScreen());
       case 'pdf_reader':

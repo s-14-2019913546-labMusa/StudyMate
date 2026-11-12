@@ -57,6 +57,14 @@
 - Profile photo is stored only on the device (friends can't see it).
 - Release keystore: he has none yet; changing the signing key forces users to reinstall once.
 
+## Study features (12 Nov 2026, same branch)
+- MCQ practice & model test: `lib/mcq/` (service, test, result, home + import sheet, mistake book). Starter bank `assets/data/mcq_bank.json` (80 Qs, 8 subjects, tagged by exam). Users add Qs by paste (ক/খ/গ/ঘ + "উত্তর: খ") or AI (`AIService.generateMcqs`); stored in `users/{uid}/mcq_questions`. Results in `mcq_results` → weak subjects.
+- Mistake Book: `users/{uid}/mistakes`, 1-4-7 schedule, mastered after 3 correct reviews; wrong answers also go to the "ভুল প্রশ্ন (MCQ)" flashcard deck.
+- Today's Revision (`daily_review_screen.dart`): due flashcards across all decks (existing per-card SRS) + due mistakes; Home card shows the count. `FlashcardStudyScreen` reads `card['_deckId']` for mixed decks.
+- Photo to Note (`photo_to_note_screen.dart`): Gemini vision OCR (`AIService.extractTextFromImage`, needs the user's Gemini key) → note / MCQ / flashcards.
+- Study Map pacing: folder field `examDate`; header shows days left, topics/day (keeps ~10% days for revision) and the 3 subjects furthest behind.
+- Tests: `test/mcq_test.dart` (bank validity, paste parser).
+
 ## Still open from the UX list
 - 4th bottom tab (Chat or Focus) — not added; screens there have their own Scaffold/back button, needs care.
 - Language: many plain labels (not snackbars) are still English-only or Bengali-only; continue with `trx()` screen by screen.

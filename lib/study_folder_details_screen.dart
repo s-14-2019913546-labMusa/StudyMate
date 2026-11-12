@@ -578,6 +578,172 @@ class _StudyFolderDetailsScreenState extends State<StudyFolderDetailsScreen> wit
     );
   }
 
+  // --- পরীক্ষার তারিখ অনুযায়ী প্রতিদিন কতটুকু পড়তে হবে ---
+
+  DocumentReference<Map<String, dynamic>> get _folderRef => FirebaseFirestore.instance
+      .collection('users')
+      .doc(_currentUser!.uid)
+      .collection('studyFolders')
+      .doc(widget.folderId);
+
+  Future<void> _pickExamDate(DateTime? current) async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: current ?? now.add(const Duration(days: 60)),
+      firstDate: DateTime(now.year, now.month, now.day),
+      lastDate: now.add(const Duration(days: 3 * 365)),
+      helpText: trx('Exam date', 'পরীক্ষার তারিখ'),
+    );
+    if (picked == null) return;
+    await _folderRef.update({'examDate': Timestamp.fromDate(picked)});
+  }
+
+  String _bnDigits(String s) {
+    if (!LanguageManager().isBengali) return s;
+    const bn = '০১২৩৪৫৬৭৮৯';
+    return s.split('').map((c) {
+      final i = c.codeUnitAt(0) - 48;
+      return (i >= 0 && i <= 9) ? bn[i] : c;
+    }).join();
+  }
+
+  Widget _buildPaceRow(Map<String, dynamic> data, int total, int done) {
+    final examDate = (data['examDate'] as Timestamp?)?.toDate();
+    final scheme = Theme.of(context).colorScheme;
+    if (examDate == null) {
+      return InkWell(
+        onTap: () => _pickExamDate(null),
+        borderRadius: BorderRadius.circular(10),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(
+            children: [
+              Icon(Icons.event_rounded, size: 18, color: _folderColor),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  trx('Set the exam date to see how much to study each day',
+                      'পরীক্ষার তারিখ দিন, প্রতিদিন কতটুকু পড়তে হবে দেখাবে'),
+                  style: TextStyle(color: _folderColor, fontWeight: FontWeight.w600, fontSize: 13),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    final today = DateTime.now();
+    final daysLeft = DateTime(examDate.year, examDate.month, examDate.day)
+        .difference(DateTime(today.year, today.month, today.day))
+        .inDays;
+    final remaining = total - done;
+    String status;
+    Color color;
+    if (daysLeft < 0) {
+      status = trx('The exam date has passed.', 'পরীক্ষার তারিখ পার হয়ে গেছে।');
+      color = scheme.onSurfaceVariant;
+    } else if (remaining <= 0) {
+      status = trx('Syllabus finished 🎉 Keep revising.', 'সিলেবাস শেষ 🎉 এখন রিভিশন চালিয়ে যান।');
+      color = Colors.green;
+    } else {
+      // শেষ ১০% দিন রিভিশনের জন্য রেখে হিসাব (কমপক্ষে ১ দিন)
+      final studyDays = daysLeft <= 3 ? (daysLeft == 0 ? 1 : daysLeft) : (daysLeft * 0.9).floor();
+      final perDay = (remaining / studyDays).ceil();
+      status = trx(
+        '$remaining topics left · about $perDay per day to finish in time (keeps ${daysLeft - studyDays} days for revision)',
+        'বাকি $remainingটি টপিক · সময়মতো শেষ করতে দিনে প্রায় $perDayটি (${daysLeft - studyDays} দিন রিভিশনের জন্য থাকবে)',
+      );
+      color = perDay <= 2 ? Colors.green : (perDay <= 5 ? Colors.orange : Colors.red);
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.event_rounded, size: 18, color: _folderColor),
+            const SizedBox(width: 6),
+            Text(
+              _bnDigits(DateFormat('d MMM yyyy').format(examDate)),
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(width: 8),
+            if (daysLeft >= 0)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: _folderColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  _bnDigits(trx('$daysLeft days left', 'আর $daysLeft দিন')),
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: _folderColor),
+                ),
+              ),
+            const Spacer(),
+            IconButton(
+              visualDensity: VisualDensity.compact,
+              tooltip: trx('Change exam date', 'তারিখ বদলান'),
+              icon: const Icon(Icons.edit_calendar_rounded, size: 20),
+              onPressed: () => _pickExamDate(examDate),
+            ),
+          ],
+        ),
+        Text(_bnDigits(status), style: TextStyle(fontSize: 13, color: color, fontWeight: FontWeight.w600)),
+      ],
+    );
+  }
+
+  /// সবচেয়ে পিছিয়ে থাকা ৩টি বিষয় (জায়গা কম লাগে, কোনটায় মন দিতে হবে বোঝা যায়)
+  Widget _buildSubjectBars(List<dynamic> subjects) {
+    final stats = <(String, double)>[];
+    for (final s in subjects) {
+      final topics = (s['topics'] as List<dynamic>? ?? []);
+      if (topics.isEmpty) continue;
+      final d = topics.where((t) => t['isCompleted'] == true).length;
+      stats.add(((s['name'] ?? '').toString(), d / topics.length));
+    }
+    stats.sort((x, y) => x.$2.compareTo(y.$2));
+    final behind = stats.where((e) => e.$2 < 1).take(3).toList();
+    if (behind.isEmpty) return const SizedBox.shrink();
+    final rows = <Widget>[
+      Padding(
+        padding: const EdgeInsets.only(bottom: 4),
+        child: Text(trx('Furthest behind', 'সবচেয়ে পিছিয়ে'),
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+      ),
+    ];
+    for (final e in behind) {
+      final p = e.$2;
+      final name = e.$1;
+      rows.add(Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 110,
+              child: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12)),
+            ),
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: p,
+                  minHeight: 6,
+                  backgroundColor: _folderColor.withValues(alpha: 0.08),
+                  valueColor: AlwaysStoppedAnimation<Color>(p >= 1 ? Colors.green : _folderColor),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(_bnDigits('${(p * 100).round()}%'), style: const TextStyle(fontSize: 12)),
+          ],
+        ),
+      ));
+    }
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: rows);
+  }
+
   // --- 1. Syllabus Tab ---
 
   Widget _buildSyllabusTab() {
@@ -650,6 +816,12 @@ class _StudyFolderDetailsScreenState extends State<StudyFolderDetailsScreen> wit
                       valueColor: AlwaysStoppedAnimation<Color>(_folderColor),
                     ),
                   ),
+                  const SizedBox(height: 10),
+                  _buildPaceRow(data, totalTopics, completedTopics),
+                  if (subjects.length > 1) ...[
+                    const SizedBox(height: 10),
+                    _buildSubjectBars(subjects),
+                  ],
                 ],
               ),
             ),
