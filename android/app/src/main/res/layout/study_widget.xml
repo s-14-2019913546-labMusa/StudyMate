@@ -64,7 +64,8 @@
         android:textColor="#E0E7FF"
         android:textSize="12sp" />
 
-    <View
+    <!-- ফাঁকা জায়গা। হোম স্ক্রিন উইজেটে সাধারণ View চলে না, তাই FrameLayout -->
+    <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1" />
