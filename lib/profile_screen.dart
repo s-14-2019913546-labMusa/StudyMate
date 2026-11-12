@@ -18,6 +18,8 @@ import 'cloud_backup_screen.dart';
 import 'notifications_hub_screen.dart';
 import 'ai_service.dart';
 import 'app_entry.dart';
+import 'nightly_summary_service.dart';
+import 'onboarding_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -297,6 +299,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   _buildListTile(
                     context,
+                    Icons.nights_stay_rounded,
+                    trx('Nightly summary', 'রাতের সারাংশ'),
+                    onTap: () => _showNightlySummarySheet(context),
+                  ),
+                  _buildListTile(
+                    context,
                     Icons.self_improvement_rounded,
                     trx('Focus screen at startup', 'শুরুতে ফোকাস স্ক্রিন'),
                     onTap: () => _showFocusScreenSheet(context),
@@ -307,6 +315,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     Icons.language_rounded,
                     'Language (ভাষা)',
                     onTap: () => _showLanguageDialog(context),
+                  ),
+                  _buildListTile(
+                    context,
+                    Icons.waving_hand_rounded,
+                    trx('App intro & exam syllabus', 'অ্যাপ পরিচিতি ও পরীক্ষার সিলেবাস'),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const OnboardingScreen(fromSettings: true)),
+                    ),
                   ),
                    _buildListTile(
                     context,
@@ -827,6 +844,62 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Future<void> _showNightlySummarySheet(BuildContext context) async {
+    bool enabled = await NightlySummaryService.isEnabled();
+    var (hour, minute) = await NightlySummaryService.getTime();
+    if (!context.mounted) return;
+    showModalBottomSheet(
+      context: context,
+      useSafeArea: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheet) {
+          final t = TimeOfDay(hour: hour, minute: minute);
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(trx('Nightly summary', 'রাতের সারাংশ'),
+                    style: Theme.of(ctx).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                Text(
+                  trx('Every night: how long you studied, tasks done and what is planned for tomorrow.',
+                      'প্রতি রাতে: আজ কতক্ষণ পড়েছেন, কয়টা টাস্ক শেষ, আর কালকের জন্য কী আছে।'),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Theme.of(ctx).colorScheme.onSurfaceVariant),
+                ),
+                SwitchListTile(
+                  title: Text(trx('Send nightly summary', 'রাতের সারাংশ পাঠাও')),
+                  value: enabled,
+                  onChanged: (v) async {
+                    await NightlySummaryService.setEnabled(v);
+                    setSheet(() => enabled = v);
+                  },
+                ),
+                ListTile(
+                  enabled: enabled,
+                  leading: const Icon(Icons.schedule_rounded),
+                  title: Text(trx('Time', 'সময়')),
+                  trailing: Text(t.format(ctx), style: const TextStyle(fontWeight: FontWeight.bold)),
+                  onTap: () async {
+                    final picked = await showTimePicker(context: ctx, initialTime: t);
+                    if (picked == null) return;
+                    await NightlySummaryService.setTime(picked.hour, picked.minute);
+                    setSheet(() {
+                      hour = picked.hour;
+                      minute = picked.minute;
+                    });
+                  },
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }

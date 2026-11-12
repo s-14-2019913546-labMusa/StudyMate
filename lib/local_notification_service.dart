@@ -14,6 +14,8 @@ import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'daily_routine.dart';
 import 'notification_service.dart';
+import 'task_notification_actions.dart';
+import 'nightly_summary_service.dart';
 
 @pragma('vm:entry-point')
 void notificationTapBackground(NotificationResponse notificationResponse) {
@@ -21,11 +23,24 @@ void notificationTapBackground(NotificationResponse notificationResponse) {
   log(
     'Background Notification Action Triggered: ${notificationResponse.actionId}',
   );
-  _handleNotificationAction(notificationResponse.actionId);
+  _handleNotificationAction(notificationResponse.actionId, payload: notificationResponse.payload);
 }
 
-Future<void> _handleNotificationAction(String? actionId) async {
+Future<void> _handleNotificationAction(String? actionId, {String? payload}) async {
   if (actionId == null) return;
+
+  // টাস্ক নোটিফিকেশনের Start / Complete বাটন
+  if (TaskNotificationActions.handles(actionId)) {
+    await TaskNotificationActions.handle(actionId, payload);
+    if (actionId == TaskNotificationActions.actionComplete) {
+      await NightlySummaryService.refresh();
+    }
+    return;
+  }
+  if (actionId == TaskNotificationActions.actionPlanTomorrow) {
+    LocalNotificationService.pendingAction.value = actionId;
+    return;
+  }
 
   // Initialize timezone in background isolate before using any tz functions
   tz.initializeTimeZones();
@@ -89,6 +104,9 @@ class LocalNotificationService {
   static final FlutterLocalNotificationsPlugin _notificationsPlugin =
       FlutterLocalNotificationsPlugin();
 
+  /// নোটিফিকেশন থেকে অ্যাপ খুললে কোন কাজ করতে হবে (যেমন 'plan_tomorrow'); হোম স্ক্রিন এটা শোনে
+  static final ValueNotifier<String?> pendingAction = ValueNotifier<String?>(null);
+
   static Future<void> init() async {
     if (kIsWeb) {
       log(
@@ -123,10 +141,20 @@ class LocalNotificationService {
         settings: initializationSettings,
         onDidReceiveNotificationResponse: (NotificationResponse response) {
           log('Foreground Notification Action Triggered: ${response.actionId}');
-          _handleNotificationAction(response.actionId);
+          _handleNotificationAction(response.actionId, payload: response.payload);
         },
         onDidReceiveBackgroundNotificationResponse: notificationTapBackground,
       );
+
+      // বন্ধ অ্যাপ নোটিফিকেশনের বাটন চেপে খোলা হলে
+      try {
+        final launch = await _notificationsPlugin.getNotificationAppLaunchDetails();
+        final resp = launch?.notificationResponse;
+        if ((launch?.didNotificationLaunchApp ?? false) &&
+            resp?.actionId == TaskNotificationActions.actionPlanTomorrow) {
+          pendingAction.value = resp!.actionId;
+        }
+      } catch (_) {}
 
       // Request Android 13+ permissions
       final androidPlugin = _notificationsPlugin
@@ -837,13 +865,28 @@ class LocalNotificationService {
 
     final now = DateTime.now();
 
+    final prefs = await SharedPreferences.getInstance();
+    final bn = (prefs.getString('app_language') ?? 'en') == 'bn';
+    final payload = TaskNotificationActions.payloadFor(task.id, task.startTime ?? now);
+
     // 1. Alert at task start time
     if (task.startTime != null && task.startTime!.isAfter(now)) {
       await _scheduleNotificationForTask(
         id: startId,
-        title: '⏰ Task Starting: ${task.title}',
-        body: 'It is time to start your scheduled task: ${task.title}.',
+        title: bn ? '⏰ টাস্ক শুরুর সময়: ${task.title}' : '⏰ Task Starting: ${task.title}',
+        body: bn
+            ? '"${task.title}" শুরু করার সময় হয়েছে। নিচের ▶ Start চাপলেই সময় গোনা শুরু হবে।'
+            : 'It is time to start your scheduled task: ${task.title}.',
         scheduledDate: task.startTime!,
+        payload: payload,
+        actions: [
+          AndroidNotificationAction(
+            TaskNotificationActions.actionStart,
+            bn ? '▶ শুরু করুন' : '▶ Start',
+            showsUserInterface: false,
+            cancelNotification: true,
+          ),
+        ],
       );
 
       final user = FirebaseAuth.instance.currentUser;
@@ -868,9 +911,18 @@ class LocalNotificationService {
       if (warningTime.isAfter(now)) {
         await _scheduleNotificationForTask(
           id: endId,
-          title: '⏳ Task Ending Soon: ${task.title}',
-          body: 'Your task is ending in 5 minutes.',
+          title: bn ? '⏳ টাস্ক শেষ হচ্ছে: ${task.title}' : '⏳ Task Ending Soon: ${task.title}',
+          body: bn ? '৫ মিনিট পরে টাস্কের সময় শেষ হবে। শেষ হলে ✓ চাপুন।' : 'Your task is ending in 5 minutes.',
           scheduledDate: warningTime,
+          payload: payload,
+          actions: [
+            AndroidNotificationAction(
+              TaskNotificationActions.actionComplete,
+              bn ? '✓ শেষ করেছি' : '✓ Complete',
+              showsUserInterface: false,
+              cancelNotification: true,
+            ),
+          ],
         );
         log(
           'Scheduled end warning notification for task "${task.title}" at $warningTime',
@@ -893,6 +945,8 @@ class LocalNotificationService {
     required String title,
     required String body,
     required DateTime scheduledDate,
+    String? payload,
+    List<AndroidNotificationAction>? actions,
   }) async {
     if (kIsWeb) return;
     final sound = await _getAndroidSoundForType(false); // Push sound
@@ -906,6 +960,7 @@ class LocalNotificationService {
           playSound: true,
           sound: sound,
           enableVibration: true,
+          actions: actions,
         );
 
     final DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
@@ -925,6 +980,46 @@ class LocalNotificationService {
       body: body,
       scheduledDate: tz.TZDateTime.from(scheduledDate, tz.local),
       notificationDetails: platformDetails,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      payload: payload,
+    );
+  }
+
+  /// রাতের সারাংশ (একটা নির্দিষ্ট সময়ে, "কালকের রুটিন" বাটনসহ)
+  static Future<void> scheduleNightlySummary({
+    required int id,
+    required String title,
+    required String body,
+    required DateTime when,
+    required String planButton,
+  }) async {
+    if (kIsWeb) return;
+    await _notificationsPlugin.cancel(id: id);
+    final androidDetails = AndroidNotificationDetails(
+      'nightly_summary_channel',
+      'Nightly Summary',
+      channelDescription: 'A short summary of your study day every night',
+      importance: Importance.high,
+      priority: Priority.high,
+      styleInformation: BigTextStyleInformation(body),
+      actions: [
+        AndroidNotificationAction(
+          TaskNotificationActions.actionPlanTomorrow,
+          planButton,
+          showsUserInterface: true,
+          cancelNotification: true,
+        ),
+      ],
+    );
+    await _notificationsPlugin.zonedSchedule(
+      id: id,
+      title: title,
+      body: body,
+      scheduledDate: tz.TZDateTime.from(when, tz.local),
+      notificationDetails: NotificationDetails(
+        android: androidDetails,
+        iOS: const DarwinNotificationDetails(presentAlert: true, presentSound: true),
+      ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
     );
   }

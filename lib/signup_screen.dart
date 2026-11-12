@@ -70,6 +70,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
       await prefs.setInt('last_password_login_timestamp', DateTime.now().millisecondsSinceEpoch);
 
       if (mounted) {
+        await AppEntry.markNewAccount();
+        if (!mounted) return;
         await AppEntry.go(context, clearStack: true);
       }
     } on FirebaseAuthException catch (e) {

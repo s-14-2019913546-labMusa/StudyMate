@@ -40,8 +40,20 @@
             </intent-filter>
         </activity>
 
+        <!-- হোম স্ক্রিন উইজেট -->
+        <receiver android:name=".StudyWidgetProvider" android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/study_widget_info" />
+        </receiver>
+
         <!-- Receivers for flutter_local_notifications -->
         <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
+        <!-- নোটিফিকেশনের বাটন (▶ Start / ✓ Complete) অ্যাপ না খুলেই কাজ করার জন্য -->
+        <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ActionBroadcastReceiver" />
         <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED"/>

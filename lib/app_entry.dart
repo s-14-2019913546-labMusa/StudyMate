@@ -11,6 +11,16 @@ class AppEntry {
   static const String focusModePrefKey = 'focus_screen_mode';
   static const String onboardingDoneKey = 'onboarding_done_v1';
 
+  /// নতুন অ্যাকাউন্ট খুললে true হয়, তখনই পরিচিতি দেখানো হয়।
+  /// পুরনো ব্যবহারকারী Profile → "অ্যাপ পরিচিতি" থেকে দেখতে পারবেন।
+  static const String onboardingPendingKey = 'onboarding_pending_v1';
+
+  static Future<void> markNewAccount() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(onboardingPendingKey, true);
+    await prefs.setBool(onboardingDoneKey, false);
+  }
+
   static Future<String> getFocusMode() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -29,7 +39,8 @@ class AppEntry {
   static Future<Widget> resolve() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      if (!(prefs.getBool(onboardingDoneKey) ?? false)) {
+      final pending = prefs.getBool(onboardingPendingKey) ?? false;
+      if (pending && !(prefs.getBool(onboardingDoneKey) ?? false)) {
         return const OnboardingScreen();
       }
     } catch (_) {}

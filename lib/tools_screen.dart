@@ -64,6 +64,52 @@ export 'tools/theme_customizer_bottom_sheet.dart';
 export 'tools/pdf_reader_screen.dart';
 export 'tools/multi_task_import_sheet.dart';
 
+/// আগামীকালের (next-day) রুটিনে টাস্ক যোগ করার ফর্ম। রাতের সারাংশ নোটিফিকেশন থেকেও খোলে।
+void showNextDayRoutineSheet(BuildContext context) {
+  final User? user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    final tomorrowDate = DateTime.now().add(const Duration(days: 1));
+    final tomorrowDocId = DateFormat('yyyy-MM-dd').format(tomorrowDate);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => AddTaskBottomSheet(
+        title: 'Add to Next-day Routine'.tr(),
+        submitButtonText: 'Save'.tr(),
+        onTaskAdded: (newTask) async {
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .collection('dailyRoutines')
+              .doc(tomorrowDocId)
+              .get()
+              .then((doc) async {
+            if (doc.exists) {
+              await doc.reference.update({
+                'tasks': FieldValue.arrayUnion([newTask.toMap()])
+              });
+            } else {
+              final newRoutine = DailyRoutine(
+                id: tomorrowDocId,
+                userId: user.uid,
+                date: tomorrowDate,
+                tasks: [newTask],
+              );
+              await doc.reference.set(newRoutine.toMap());
+            }
+          });
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Added to tomorrow\'s routine!'.tr())),
+            );
+          }
+        },
+      ),
+    );
+}
+
 class ToolsScreen extends StatefulWidget {
   final Function(List<Task>) onTasksGenerated;
   const ToolsScreen({super.key, required this.onTasksGenerated});
@@ -647,51 +693,8 @@ class _ToolsScreenState extends State<ToolsScreen> {
   }
 
   Widget _buildNextDayRoutineButton(BuildContext context) {
-    final User? user = FirebaseAuth.instance.currentUser;
     return GestureDetector(
-      onTap: () {
-        if (user == null) return;
-        final tomorrowDate = DateTime.now().add(const Duration(days: 1));
-        final tomorrowDocId = DateFormat('yyyy-MM-dd').format(tomorrowDate);
-        showModalBottomSheet(
-          context: context,
-          isScrollControlled: true,
-          useSafeArea: true,
-          backgroundColor: Colors.transparent,
-          builder: (context) => AddTaskBottomSheet(
-            title: 'Add to Next-day Routine'.tr(),
-            submitButtonText: 'Save'.tr(),
-            onTaskAdded: (newTask) async {
-              await FirebaseFirestore.instance
-                  .collection('users')
-                  .doc(user.uid)
-                  .collection('dailyRoutines')
-                  .doc(tomorrowDocId)
-                  .get()
-                  .then((doc) async {
-                if (doc.exists) {
-                  await doc.reference.update({
-                    'tasks': FieldValue.arrayUnion([newTask.toMap()])
-                  });
-                } else {
-                  final newRoutine = DailyRoutine(
-                    id: tomorrowDocId,
-                    userId: user.uid,
-                    date: tomorrowDate,
-                    tasks: [newTask],
-                  );
-                  await doc.reference.set(newRoutine.toMap());
-                }
-              });
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Added to tomorrow\'s routine!')),
-                );
-              }
-            },
-          ),
-        );
-      },
+      onTap: () => showNextDayRoutineSheet(context),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         decoration: BoxDecoration(

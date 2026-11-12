@@ -22,6 +22,10 @@ import 'package:flutter/services.dart';
 import 'local_notification_service.dart';
 import 'update_service.dart';
 import 'widgets/undo_snackbar.dart';
+import 'quick_add_task.dart';
+import 'nightly_summary_service.dart';
+import 'task_notification_actions.dart';
+import 'home_widget_service.dart';
 
 class DashboardRoutineData {
   final DailyRoutine? localRoutine;
@@ -679,6 +683,29 @@ class _DashboardScreenState extends State<DashboardScreen>
           UpdateService.checkUpdate(context);
         }
       });
+
+      // রাতের সারাংশের "কালকের রুটিন" বাটন থেকে অ্যাপ খুললে
+      LocalNotificationService.pendingAction.addListener(_onPendingNotificationAction);
+      WidgetsBinding.instance.addPostFrameCallback((_) => _onPendingNotificationAction());
+    }
+  }
+
+  Timer? _summaryDebounce;
+
+  void _scheduleSummaryRefresh() {
+    _summaryDebounce?.cancel();
+    _summaryDebounce = Timer(const Duration(seconds: 3), () {
+      NightlySummaryService.refresh();
+      HomeWidgetService.refresh();
+    });
+  }
+
+  void _onPendingNotificationAction() {
+    final action = LocalNotificationService.pendingAction.value;
+    if (action == null || !mounted) return;
+    LocalNotificationService.pendingAction.value = null;
+    if (action == TaskNotificationActions.actionPlanTomorrow) {
+      showNextDayRoutineSheet(context);
     }
   }
 
@@ -723,6 +750,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
             _isLoadingRoutine = false;
           });
+          _scheduleSummaryRefresh();
         }
       },
       onError: (err) {
@@ -749,6 +777,8 @@ class _DashboardScreenState extends State<DashboardScreen>
     _missedTasksSnoozeTimer?.cancel();
     _taskAlertsTimer?.cancel();
     _routineSubscription?.cancel();
+    _summaryDebounce?.cancel();
+    LocalNotificationService.pendingAction.removeListener(_onPendingNotificationAction);
     super.dispose();
   }
 
@@ -1274,6 +1304,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       final streak = await GamificationService.calculateStreak();
       // Leaderboard-এর জন্য streak প্রোফাইলে সেভ করা
       GamificationService.saveStreak(streak);
+      HomeWidgetService.refresh(streak: streak); // হোম স্ক্রিন উইজেটে streak
       if (mounted) {
         setState(() {
           _currentStreak = streak;
@@ -1513,6 +1544,39 @@ class _DashboardScreenState extends State<DashboardScreen>
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Task Added Successfully!'.tr())));
+  }
+
+  void _openFullTaskForm() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true, // কিবোর্ড উঠলে ফর্ম স্ক্রল করার জন্য
+      useSafeArea: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => AddTaskBottomSheet(
+        title: 'Add New Task'.tr(),
+        submitButtonText: 'Save'.tr(),
+        onTaskAdded: (newTask) {
+          _addTaskToFirestore(newTask);
+        },
+      ),
+    );
+  }
+
+  void _openQuickAdd() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => QuickAddTaskSheet(
+        onTaskAdded: _addTaskToFirestore,
+        onOpenFullForm: _openFullTaskForm,
+      ),
+    );
   }
 
   Future<void> _addTasksToFirestore(List<Task> newTasks) async {
@@ -1982,27 +2046,14 @@ class _DashboardScreenState extends State<DashboardScreen>
           ],
         ),
         floatingActionButton: _bottomNavIndex == 0
-            ? FloatingActionButton.extended(
-                onPressed: () {
-                  showModalBottomSheet(
-                    context: context,
-                    isScrollControlled:
-                        true, // কিবোর্ড উঠলে ফর্ম স্ক্রল করার জন্য
-                    useSafeArea: true,
-                    shape: const RoundedRectangleBorder(
-                      borderRadius: BorderRadius.vertical(
-                        top: Radius.circular(24),
-                      ),
-                    ),
-                    builder: (context) => AddTaskBottomSheet(
-                      title: 'Add New Task'.tr(),
-                      submitButtonText: 'Save'.tr(),
-                      onTaskAdded: (newTask) {
-                        _addTaskToFirestore(newTask);
-                      },
-                    ),
-                  );
+            ? GestureDetector(
+                // লম্বা করে চাপলে এক লাইনের দ্রুত টাস্ক ফর্ম
+                onLongPress: () {
+                  HapticFeedback.mediumImpact();
+                  _openQuickAdd();
                 },
+                child: FloatingActionButton.extended(
+                onPressed: _openFullTaskForm,
                 label: Text(
                   'New Task'.tr(),
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -2017,6 +2068,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 backgroundColor: Theme.of(context).colorScheme.primary,
                 foregroundColor: Theme.of(context).colorScheme.onPrimary,
                 elevation: 8,
+              ),
               )
             : null,
         floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
@@ -2293,13 +2345,57 @@ class _DashboardScreenState extends State<DashboardScreen>
                   if (activeTasks.isEmpty &&
                       missedTasks.isEmpty &&
                       otherTasks.isEmpty) ...[
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 20.0, top: 4.0),
-                      child: Text(
-                        "No tasks listed for today.".tr(),
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    // ফাঁকা অবস্থায় কী করতে হবে তা দেখানো
+                    Container(
+                      width: double.infinity,
+                      margin: const EdgeInsets.only(bottom: 20.0, top: 4.0),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
                         ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "No tasks listed for today.".tr(),
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            trx('Type one line like "English grammar 8–10pm" and it is added.',
+                                '"বাংলা ব্যাকরণ ৮টা–১০টা" এভাবে এক লাইন লিখলেই টাস্ক তৈরি হবে।'),
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              FilledButton.icon(
+                                onPressed: _openQuickAdd,
+                                icon: const Icon(Icons.bolt_rounded, size: 18),
+                                label: Text(trx('Quick add', 'দ্রুত যোগ')),
+                              ),
+                              OutlinedButton.icon(
+                                onPressed: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (_) => const WeeklyOverviewScreen()),
+                                ),
+                                icon: const Icon(Icons.calendar_view_week_rounded, size: 18),
+                                label: Text(trx('Weekly routine', 'সাপ্তাহিক রুটিন')),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -3677,8 +3773,17 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
     _status = widget.task.status;
     if (_status == 'running') {
       _startTimer(saveToDb: false);
+      _addTimeFromNotificationStart();
     }
     _loadFolders();
+  }
+
+  /// নোটিফিকেশনের ▶ Start চেপে অ্যাপ বন্ধ অবস্থায় যতক্ষণ পড়েছেন, সেই সময় যোগ করা
+  Future<void> _addTimeFromNotificationStart() async {
+    final extra = await TaskNotificationActions.consumeBackgroundSeconds(widget.task.id);
+    if (extra <= 0 || !mounted) return;
+    setState(() => _elapsedSeconds += extra);
+    widget.onUpdate(widget.task.copyWith(status: 'running', elapsedSeconds: _elapsedSeconds));
   }
 
   Future<void> _loadFolders() async {
