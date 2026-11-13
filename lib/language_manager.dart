@@ -26,6 +26,12 @@ class LanguageManager extends ChangeNotifier {
 
   bool get isBengali => _currentLanguage == 'bn';
 
+  /// "25" → "২৫"
+  static String toBnDigits(String s) {
+    const bn = '০১২৩৪৫৬৭৮৯';
+    return s.replaceAllMapped(RegExp('[0-9]'), (m) => bn[int.parse(m.group(0)!)]);
+  }
+
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
     _currentLanguage = prefs.getString('app_language') ?? 'en';

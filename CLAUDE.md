@@ -91,3 +91,9 @@
 ## Tools order (13 Nov 2026)
 - Default order in `_defaultCategories()` (`tools_screen.dart`) is by importance; new last section "MCQ & Revision" (MCQ Practice, Mistake Book, Today's Revision).
 - Users rearrange via Tools → "সাজান" (or long-press a tool → "টুল সাজান"): `lib/tools/tool_arrange_screen.dart`, drag tools (also across sections), ↑↓ moves sections, "আগের মতো" resets. Saved in SharedPreferences `tools_layout_v1`; `applyToolLayout` appends new tools to their default section. Empty sections are hidden. Test: `test/tool_layout_test.dart`.
+
+## Pomodoro rules & Focus language (13 Nov 2026)
+- `lib/tools/pomodoro_timer_screen.dart` rewritten. Focus is always 25 min when the screen opens; "২৫ মিনিট · বদলান" lets the user pick 30–90 for this visit only, with the "25 min is usually best" advice. XP scales with minutes (8 XP per 25).
+- Timer runs off an end timestamp (correct after background). Once a focus session has started, leaving the app >10 s kills the tree even while paused; finishing within the grace still counts. Back button mid-focus asks first; leaving kills the tree. Distractions are counted only when a tree dies from leaving (not on a safe return, not on Reset).
+- Long break (15 min) after every 4th focus of the day (`pomodoro_cycles_<date>` in SharedPreferences), dots show progress.
+- All text in Pomodoro, Stopwatch, Breathing, Focus Music, Focus tab, Weekly Report follows the app language via `trx()`; `LanguageManager.toBnDigits` for Bengali numbers.

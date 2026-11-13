@@ -62,10 +62,10 @@ class BreathingExerciseBottomSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final patterns = [
-      {'title': '4-7-8 Relaxing Breath', 'desc': 'Inhale 4s, Hold 7s, Exhale 8s.', 'icon': Icons.self_improvement_rounded, 'phases': [4, 7, 8, 0]},
-      {'title': 'Box Breathing', 'desc': 'Inhale 4s, Hold 4s, Exhale 4s, Hold 4s.', 'icon': Icons.crop_square_rounded, 'phases': [4, 4, 4, 4]},
-      {'title': 'Equal Breathing', 'desc': 'Inhale 5s, Exhale 5s.', 'icon': Icons.balance_rounded, 'phases': [5, 0, 5, 0]},
-      {'title': 'Deep Calm', 'desc': 'Inhale 4s, Exhale 6s.', 'icon': Icons.waves_rounded, 'phases': [4, 0, 6, 0]},
+      {'title': trx('4-7-8 Relaxing Breath', '৪-৭-৮ আরামের শ্বাস'), 'desc': trx('Inhale 4s, Hold 7s, Exhale 8s.', 'শ্বাস নিন ৪ সে., ধরে রাখুন ৭ সে., ছাড়ুন ৮ সে.।'), 'icon': Icons.self_improvement_rounded, 'phases': [4, 7, 8, 0]},
+      {'title': trx('Box Breathing', 'বক্স ব্রিদিং'), 'desc': trx('Inhale 4s, Hold 4s, Exhale 4s, Hold 4s.', 'শ্বাস নিন ৪ সে., ধরে রাখুন ৪ সে., ছাড়ুন ৪ সে., থামুন ৪ সে.।'), 'icon': Icons.crop_square_rounded, 'phases': [4, 4, 4, 4]},
+      {'title': trx('Equal Breathing', 'সমান শ্বাস'), 'desc': trx('Inhale 5s, Exhale 5s.', 'শ্বাস নিন ৫ সে., ছাড়ুন ৫ সে.।'), 'icon': Icons.balance_rounded, 'phases': [5, 0, 5, 0]},
+      {'title': trx('Deep Calm', 'গভীর প্রশান্তি'), 'desc': trx('Inhale 4s, Exhale 6s.', 'শ্বাস নিন ৪ সে., ছাড়ুন ৬ সে.।'), 'icon': Icons.waves_rounded, 'phases': [4, 0, 6, 0]},
     ];
 
     return Container(
@@ -75,9 +75,9 @@ class BreathingExerciseBottomSheet extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('Breathing Exercises', textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: Colors.lightBlue)),
+          Text(trx('Breathing Exercises', 'শ্বাসের ব্যায়াম'), textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: Colors.lightBlue)),
           const SizedBox(height: 8),
-          const Text('Choose a pattern to boost your focus and calm your mind.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
+          Text(trx('Choose a pattern to boost your focus and calm your mind.', 'একটা ধরন বেছে নিন: মনোযোগ বাড়বে, মন শান্ত হবে।'), textAlign: TextAlign.center, style: const TextStyle(color: Colors.grey)),
           const SizedBox(height: 24),
           Expanded(
             child: ListView.builder(
@@ -220,12 +220,12 @@ class _BreathingPlayerScreenState extends State<BreathingPlayerScreen> with Sing
   }
 
   String get _currentInstruction {
-    if (!_isRunning) return 'Ready?';
+    if (!_isRunning) return trx('Ready?', 'প্রস্তুত?');
     switch (_phaseIndex) {
-      case 0: return 'Inhale';
-      case 1: return 'Hold';
-      case 2: return 'Exhale';
-      case 3: return 'Hold';
+      case 0: return trx('Inhale', 'শ্বাস নিন');
+      case 1: return trx('Hold', 'ধরে রাখুন');
+      case 2: return trx('Exhale', 'শ্বাস ছাড়ুন');
+      case 3: return trx('Hold', 'থামুন');
       default: return '';
     }
   }
@@ -351,7 +351,7 @@ class _BreathingPlayerScreenState extends State<BreathingPlayerScreen> with Sing
                   int remaining = (duration - elapsed).ceil();
                   if (remaining < 0) remaining = 0;
                   return Text(
-                    '${remaining}s',
+                    trx('${remaining}s', '${LanguageManager.toBnDigits('$remaining')} সে.'),
                     style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 24, fontWeight: FontWeight.w200),
                   );
                 }

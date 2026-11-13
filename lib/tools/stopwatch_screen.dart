@@ -200,8 +200,8 @@ class _StopwatchScreenState extends State<StopwatchScreen> with TickerProviderSt
       context: context,
       barrierDismissible: false, // ব্যাকগ্রাউন্ডে ট্যাপ করলে বন্ধ না হওয়ার জন্য
       builder: (_) => AlertDialog(
-        title: const Text('⏰ Timer Finished!', textAlign: TextAlign.center),
-        content: const Text('আপনার কাউন্টডাউন টাইমার শেষ হয়েছে।', textAlign: TextAlign.center),
+        title: Text(trx('⏰ Timer finished!', '⏰ টাইমার শেষ!'), textAlign: TextAlign.center),
+        content: Text(trx('Your countdown timer has finished.', 'আপনার কাউন্টডাউন টাইমার শেষ হয়েছে।'), textAlign: TextAlign.center),
         actionsAlignment: MainAxisAlignment.center,
         actions: [
           ElevatedButton(
@@ -210,7 +210,7 @@ class _StopwatchScreenState extends State<StopwatchScreen> with TickerProviderSt
               Navigator.pop(context);  // তারপর ডায়ালগ বন্ধ
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-            child: const Text('⏹ Stop Alarm', style: TextStyle(color: Colors.white)),
+            child: Text(trx('⏹ Stop alarm', '⏹ এলার্ম বন্ধ করুন'), style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -295,7 +295,7 @@ class _StopwatchScreenState extends State<StopwatchScreen> with TickerProviderSt
           child: ListView.builder(
             itemCount: _laps.length,
             itemBuilder: (ctx, i) => ListTile(
-              leading: Text('Lap ${_laps.length - i}', style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+              leading: Text(trx('Lap ${_laps.length - i}', 'ল্যাপ ${LanguageManager.toBnDigits('${_laps.length - i}')}'), style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
               trailing: Text(_laps[i].formattedLapDuration, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
             ),
           ),
@@ -472,7 +472,7 @@ class _StopwatchScreenState extends State<StopwatchScreen> with TickerProviderSt
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'Lap ${_laps.length - i}',
+                          trx('Lap ${_laps.length - i}', 'ল্যাপ ${LanguageManager.toBnDigits('${_laps.length - i}')}'),
                           style: TextStyle(color: isFastest ? Colors.green : (isSlowest ? Colors.red : colorScheme.onSurface), fontWeight: FontWeight.bold),
                         ),
                         Row(
@@ -531,7 +531,7 @@ class _StopwatchScreenState extends State<StopwatchScreen> with TickerProviderSt
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'এলার্ম',
+                          trx('Alarm', 'এলার্ম'),
                           style: TextStyle(
                             fontWeight: FontWeight.w600,
                             color: colorScheme.onSurface,
@@ -539,7 +539,9 @@ class _StopwatchScreenState extends State<StopwatchScreen> with TickerProviderSt
                           ),
                         ),
                         Text(
-                          _alarmEnabled ? 'টাইমার শেষে এলার্ম বাজবে' : 'টাইমার শেষে এলার্ম বাজবে না',
+                          _alarmEnabled
+                              ? trx('Alarm rings when the timer ends', 'টাইমার শেষে এলার্ম বাজবে')
+                              : trx('No alarm when the timer ends', 'টাইমার শেষে এলার্ম বাজবে না'),
                           style: TextStyle(
                             fontSize: 12,
                             color: colorScheme.onSurfaceVariant,
@@ -656,11 +658,11 @@ class _StopwatchScreenState extends State<StopwatchScreen> with TickerProviderSt
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text('Stopwatch & Timer'),
+        title: Text(trx('Stopwatch & Timer', 'স্টপওয়াচ ও টাইমার')),
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: Theme.of(context).colorScheme.primary,
-          tabs: const [Tab(text: 'Stopwatch'), Tab(text: 'Countdown')],
+          tabs: [Tab(text: trx('Stopwatch', 'স্টপওয়াচ')), Tab(text: trx('Countdown', 'কাউন্টডাউন'))],
         ),
       ),
       body: TabBarView(

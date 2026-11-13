@@ -22,32 +22,32 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
   final List<Map<String, dynamic>> _tracks = [
     {
       'id': 'lofi',
-      'title': 'Lo-Fi Study Beats',
-      'subtitle': 'Chill beats for deep focus',
+      'title': trx('Lo-Fi Study Beats', 'লো-ফাই স্টাডি বিটস'),
+      'subtitle': trx('Chill beats for deep focus', 'গভীর মনোযোগের জন্য হালকা সুর'),
       'icon': Icons.headphones_rounded,
       'color': Colors.purpleAccent,
       'asset': 'audio/focus_lofi.ogg', // অ্যাপের ভেতরেই আছে, ইন্টারনেট লাগে না
     },
     {
       'id': 'rain',
-      'title': 'Gentle Rainfall',
-      'subtitle': 'Peaceful shower sounds',
+      'title': trx('Gentle Rainfall', 'মৃদু বৃষ্টি'),
+      'subtitle': trx('Peaceful shower sounds', 'শান্ত বৃষ্টির শব্দ'),
       'icon': Icons.water_drop_rounded,
       'color': Colors.blueAccent,
       'asset': 'audio/focus_rain.ogg',
     },
     {
       'id': 'forest',
-      'title': 'Forest Ambience',
-      'subtitle': 'Rustling leaves & birds chirping',
+      'title': trx('Forest Ambience', 'বনের পরিবেশ'),
+      'subtitle': trx('Rustling leaves & birds chirping', 'পাতার মর্মর আর পাখির ডাক'),
       'icon': Icons.park_rounded,
       'color': Colors.greenAccent,
       'asset': 'audio/focus_forest.ogg',
     },
     {
       'id': 'white_noise',
-      'title': 'Deep Brown Noise',
-      'subtitle': 'Steady noise for blocking noise',
+      'title': trx('Deep Brown Noise', 'গভীর ব্রাউন নয়েজ'),
+      'subtitle': trx('Steady noise for blocking noise', 'চারপাশের শব্দ ঢাকার জন্য একটানা শব্দ'),
       'icon': Icons.air_rounded,
       'color': Colors.tealAccent,
       'asset': 'audio/focus_noise.ogg',
@@ -462,7 +462,7 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
                       onPressed: () => Navigator.pop(context),
                     ),
                     Text(
-                      'Focus Music',
+                      'Focus Music'.tr(),
                       style: GoogleFonts.poppins(
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
@@ -473,16 +473,16 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
                     // Cache মুছে ফেলার বাটন
                     IconButton(
                       icon: const Icon(Icons.delete_sweep_rounded, color: Colors.white54),
-                      tooltip: 'Cache মুছুন',
+                      tooltip: trx('Clear cache', 'Cache মুছুন'),
                       onPressed: () async {
                         final confirm = await showDialog<bool>(
                           context: context,
                           builder: (_) => AlertDialog(
-                            title: const Text('Cache মুছবেন?'),
-                            content: const Text('সব ডাউনলোড করা ট্র্যাক মুছে যাবে এবং পরেরবার আবার ডাউনলোড করতে হবে।'),
+                            title: Text(trx('Clear cache?', 'Cache মুছবেন?')),
+                            content: Text(trx('All downloaded tracks will be removed and downloaded again next time.', 'সব ডাউনলোড করা ট্র্যাক মুছে যাবে এবং পরেরবার আবার ডাউনলোড করতে হবে।')),
                             actions: [
-                              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('বাতিল')),
-                              TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('মুছুন', style: TextStyle(color: Colors.redAccent))),
+                              TextButton(onPressed: () => Navigator.pop(context, false), child: Text(trx('Cancel', 'বাতিল'))),
+                              TextButton(onPressed: () => Navigator.pop(context, true), child: Text(trx('Clear', 'মুছুন'), style: const TextStyle(color: Colors.redAccent))),
                             ],
                           ),
                         );
@@ -497,7 +497,7 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                 child: Text(
-                  'Choose your ambient sound to boost concentration and block noise.',
+                  trx('Choose your ambient sound to boost concentration and block noise.', 'মনোযোগ বাড়াতে আর আশপাশের শব্দ ঢাকতে একটা শব্দ বেছে নিন।'),
                   style: GoogleFonts.poppins(
                     fontSize: 14,
                     color: Colors.white.withValues(alpha: 0.6),
@@ -515,7 +515,7 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
                     Padding(
                       padding: const EdgeInsets.only(bottom: 10),
                       child: Text(
-                        'Ambient Sounds',
+                        trx('Ambient Sounds', 'পরিবেশের শব্দ'),
                         style: GoogleFonts.poppins(
                           color: Colors.white54,
                           fontSize: 12,
@@ -641,7 +641,7 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
                                         children: [
                                           const Icon(Icons.offline_pin_rounded, color: Colors.greenAccent, size: 14),
                                           const SizedBox(width: 4),
-                                          Text('অফলাইনে সেভ আছে', style: GoogleFonts.poppins(color: Colors.greenAccent, fontSize: 11)),
+                                          Text(trx('Saved offline', 'অফলাইনে সেভ আছে'), style: GoogleFonts.poppins(color: Colors.greenAccent, fontSize: 11)),
                                         ],
                                       );
                                     }
@@ -649,7 +649,7 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
                                       children: [
                                         const Icon(Icons.cloud_download_outlined, color: Colors.white38, size: 14),
                                         const SizedBox(width: 4),
-                                        Text('প্রথমবার ডাউনলোড হবে', style: GoogleFonts.poppins(color: Colors.white38, fontSize: 11)),
+                                        Text(trx('Downloads the first time', 'প্রথমবার ডাউনলোড হবে'), style: GoogleFonts.poppins(color: Colors.white38, fontSize: 11)),
                                       ],
                                     );
                                   }),
@@ -694,7 +694,7 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'My Music',
+                          trx('My Music', 'আমার গান'),
                           style: GoogleFonts.poppins(
                             color: Colors.white54,
                             fontSize: 12,
@@ -716,7 +716,7 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
                                 const Icon(Icons.add_rounded, color: Colors.pinkAccent, size: 16),
                                 const SizedBox(width: 4),
                                 Text(
-                                  'গান যোগ করুন',
+                                  trx('Add songs', 'গান যোগ করুন'),
                                   style: GoogleFonts.poppins(color: Colors.pinkAccent, fontSize: 12, fontWeight: FontWeight.w600),
                                 ),
                               ],
@@ -742,12 +742,12 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
                             Icon(Icons.library_music_rounded, color: Colors.white24, size: 36),
                             const SizedBox(height: 8),
                             Text(
-                              'আপনার পছন্দের গান যোগ করুন',
+                              trx('Add your favourite songs', 'আপনার পছন্দের গান যোগ করুন'),
                               style: GoogleFonts.poppins(color: Colors.white38, fontSize: 13),
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'MP3, WAV, AAC, M4A, FLAC, OGG সাপোর্ট',
+                              trx('Supports MP3, WAV, AAC, M4A, FLAC, OGG', 'MP3, WAV, AAC, M4A, FLAC, OGG সাপোর্ট'),
                               style: GoogleFonts.poppins(color: Colors.white24, fontSize: 11),
                             ),
                           ],
@@ -800,7 +800,7 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
                               ),
                             ),
                             subtitle: Text(
-                              'ডিভাইস থেকে আমদানি',
+                              trx('Imported from device', 'ডিভাইস থেকে আমদানি'),
                               style: GoogleFonts.poppins(color: Colors.white38, fontSize: 11),
                             ),
                             trailing: Row(
@@ -864,7 +864,7 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Now Playing',
+                                trx('Now Playing', 'এখন বাজছে'),
                                 style: GoogleFonts.poppins(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
@@ -1034,7 +1034,7 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
                                 Text(
                                   _selectedTimerMinutes > 0
                                       ? _formatTimer(_timerSecondsRemaining)
-                                      : 'Set Timer',
+                                      : trx('Set Timer', 'টাইমার দিন'),
                                   style: GoogleFonts.poppins(
                                     color: _selectedTimerMinutes > 0
                                         ? Colors.indigoAccent
@@ -1125,7 +1125,7 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Set Focus Timer',
+                trx('Set Focus Timer', 'ফোকাস টাইমার দিন'),
                 style: GoogleFonts.poppins(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
@@ -1135,7 +1135,7 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
               ),
               const SizedBox(height: 8),
               Text(
-                'The focus music will automatically pause when the timer ends.',
+                trx('The focus music will automatically pause when the timer ends.', 'টাইমার শেষ হলে মিউজিক নিজে থেকে থেমে যাবে।'),
                 style: GoogleFonts.poppins(color: Colors.white60, fontSize: 13),
                 textAlign: TextAlign.center,
               ),
@@ -1163,7 +1163,7 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
                       ),
                     ),
                     child: Text(
-                      '$minutes min',
+                      trx('$minutes min', '${LanguageManager.toBnDigits('$minutes')} মিনিট'),
                       style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600),
                     ),
                   );
@@ -1177,7 +1177,7 @@ class _FocusMusicScreenState extends State<FocusMusicScreen> with SingleTickerPr
                     Navigator.pop(context);
                   },
                   child: Text(
-                    'Cancel Timer',
+                    trx('Cancel Timer', 'টাইমার বাতিল'),
                     style: GoogleFonts.poppins(color: Colors.redAccent, fontWeight: FontWeight.bold),
                   ),
                 ),

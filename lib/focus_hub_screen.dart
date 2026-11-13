@@ -66,7 +66,7 @@ class _FocusHubScreenState extends State<FocusHubScreen> with WidgetsBindingObse
 
   String _hm(int minutes) {
     final h = minutes ~/ 60, m = minutes % 60;
-    return trx('${h > 0 ? '${h}h ' : ''}${m}m', '${h > 0 ? '$h ঘ ' : ''}$m মি');
+    return trx('${h > 0 ? '${h}h ' : ''}${m}m', LanguageManager.toBnDigits('${h > 0 ? '$h ঘ ' : ''}$m মি'));
   }
 
   void _open(Widget screen) => Navigator.push(context, MaterialPageRoute(builder: (_) => screen)).then((_) => _load());
@@ -130,7 +130,7 @@ class _FocusHubScreenState extends State<FocusHubScreen> with WidgetsBindingObse
                         backgroundColor: Colors.white24,
                         strokeCap: StrokeCap.round,
                       ),
-                      Text('${(p * 100).round()}%', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      Text(trx('${(p * 100).round()}%', LanguageManager.toBnDigits('${(p * 100).round()}%')), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                     ]),
                   ),
                   const SizedBox(width: 16),
@@ -142,7 +142,7 @@ class _FocusHubScreenState extends State<FocusHubScreen> with WidgetsBindingObse
                         Text('${_hm(_minutes)} / ${_hm(_goal)}',
                             style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
                         const SizedBox(height: 4),
-                        Text(trx('Focus broken: $_distractions times', 'মনোযোগ ভেঙেছে: $_distractions বার'),
+                        Text(trx('Focus broken: $_distractions times', 'মনোযোগ ভেঙেছে: ${LanguageManager.toBnDigits('$_distractions')} বার'),
                             style: const TextStyle(color: Colors.white, fontSize: 12)),
                       ],
                     ),

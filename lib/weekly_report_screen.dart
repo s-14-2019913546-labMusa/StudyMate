@@ -73,7 +73,7 @@ class _WeeklyReportScreenState extends State<WeeklyReportScreen> {
     final t = _thisWeek, l = _lastWeek;
     final bn = LanguageManager().isBengali;
     final dayNames = bn ? ['শনি', 'রবি', 'সোম', 'মঙ্গল', 'বুধ', 'বৃহঃ', 'শুক্র'] : ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
-    final range = '${DateFormat('d MMM').format(_start)} – ${DateFormat('d MMM').format(_start.add(const Duration(days: 6)))}';
+    final range = '${DateFormat('d MMM', LanguageManager().currentLanguage).format(_start)} – ${DateFormat('d MMM', LanguageManager().currentLanguage).format(_start.add(const Duration(days: 6)))}';
 
     return Scaffold(
       appBar: AppBar(title: Text(trx('Weekly report', 'সাপ্তাহিক রিপোর্ট'))),
