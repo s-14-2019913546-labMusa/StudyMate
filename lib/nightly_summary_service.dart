@@ -9,6 +9,9 @@ import 'local_notification_service.dart';
 /// রাতের সারাংশ নোটিফিকেশন: "আজ ৩ ঘণ্টা ২০ মিনিট পড়েছেন, ৫টার মধ্যে ৪টা টাস্ক শেষ, কাল ৬টা টাস্ক আছে"
 /// অ্যাপ খুললে আর টাস্ক বদলালে আজকের হিসাব দিয়ে আবার সেট করা হয়।
 class NightlySummaryService {
+  /// রাতের সারাংশের গায়ে চাপলে বটে "কালকের প্ল্যান" খোলে
+  static const String openBotPlan = 'open:bot_plan';
+
   static const int notificationId = 777001;
   static const String enabledKey = 'nightly_summary_enabled';
   static const String hourKey = 'nightly_summary_hour';
@@ -129,6 +132,7 @@ class NightlySummaryService {
         body: body,
         when: when,
         planButton: bn ? '📝 কালকের রুটিন' : '📝 Plan tomorrow',
+        payload: openBotPlan,
       );
       log('Nightly summary scheduled for $when: $body');
     } catch (e) {

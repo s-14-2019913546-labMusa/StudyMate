@@ -32,6 +32,7 @@ import 'daily_review_screen.dart';
 import 'study_habits_service.dart';
 import 'weekly_report_screen.dart';
 import 'focus_hub_screen.dart';
+import 'bot_chat_screen.dart';
 
 class DashboardRoutineData {
   final DailyRoutine? localRoutine;
@@ -969,6 +970,10 @@ class _DashboardScreenState extends State<DashboardScreen>
     LocalNotificationService.pendingAction.value = null;
     if (action == TaskNotificationActions.actionPlanTomorrow) {
       showNextDayRoutineSheet(context);
+    } else if (action.startsWith('open:bot') ||
+        action.startsWith('${TaskNotificationActions.actionPostpone15}|') ||
+        action.startsWith('${TaskNotificationActions.actionTomorrow}|')) {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => BotChatScreen(initialAction: action)));
     } else if (action == StudyHabitsService.openWeeklyReport) {
       Navigator.push(context, MaterialPageRoute(builder: (_) => const WeeklyReportScreen()));
     }
@@ -1926,6 +1931,10 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   Future<void> _updateTaskInFirestore(Task updatedTask) async {
     if (user == null) return;
+    if (updatedTask.status != 'pending' || updatedTask.isCompleted) {
+      // শুরু/শেষ হয়ে গেছে: বটের "এখনো শুরু হয়নি" নোটিফিকেশন আর লাগবে না
+      LocalNotificationService.cancelTaskCheckIn(updatedTask.id);
+    }
 
     if (updatedTask.id.startsWith('partner_')) {
       final parts = updatedTask.id.split('_');

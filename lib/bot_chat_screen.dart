@@ -10,7 +10,15 @@ import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'google_sheet_syllabus_service.dart';
 import 'multi_sheet_manager_screen.dart';
-import 'language_manager.dart' show trx;
+import 'language_manager.dart' show trx, LanguageManager;
+import 'daily_routine.dart';
+import 'nightly_summary_service.dart';
+import 'quick_add_task.dart';
+import 'routine_assistant.dart';
+import 'routine_intent.dart';
+import 'task_notification_actions.dart';
+
+part 'bot_routine.dart';
 
 class BotChatMessage {
   final String id;
@@ -22,6 +30,10 @@ class BotChatMessage {
   int? selectedOption;
   bool isAnswered;
 
+  /// রুটিনের বাটন: [{label, type, data}]
+  final List<Map<String, dynamic>>? actions;
+  bool actionsUsed;
+
   BotChatMessage({
     required this.id,
     required this.text,
@@ -31,6 +43,8 @@ class BotChatMessage {
     this.quizData,
     this.selectedOption,
     this.isAnswered = false,
+    this.actions,
+    this.actionsUsed = false,
   });
 
   Map<String, dynamic> toJson() => {
@@ -42,6 +56,8 @@ class BotChatMessage {
     'quizData': quizData,
     'selectedOption': selectedOption,
     'isAnswered': isAnswered,
+    'actions': actions,
+    'actionsUsed': actionsUsed,
   };
 
   factory BotChatMessage.fromJson(Map<String, dynamic> json) => BotChatMessage(
@@ -55,11 +71,15 @@ class BotChatMessage {
     quizData: json['quizData'] != null ? Map<String, dynamic>.from(json['quizData']) : null,
     selectedOption: json['selectedOption'],
     isAnswered: json['isAnswered'] ?? false,
+    actions: (json['actions'] as List?)?.map((e) => Map<String, dynamic>.from(e as Map)).toList(),
+    actionsUsed: json['actionsUsed'] ?? false,
   );
 }
 
 class BotChatScreen extends StatefulWidget {
-  const BotChatScreen({super.key});
+  /// নোটিফিকেশন থেকে খোলা হলে কী দেখাবে (যেমন 'open:bot_plan', 'task_postpone15|{...}')
+  final String? initialAction;
+  const BotChatScreen({super.key, this.initialAction});
 
   @override
   State<BotChatScreen> createState() => _BotChatScreenState();
@@ -273,7 +293,40 @@ class _BotChatScreenState extends State<BotChatScreen> {
   @override
   void initState() {
     super.initState();
-    _loadChatHistory();
+    _loadChatHistory().then((_) {
+      final a = widget.initialAction;
+      if (a != null && mounted) _runInitialAction(a);
+    });
+  }
+
+  /// বটের একটা মেসেজ যোগ (রুটিনের বাটনসহ হতে পারে)
+  void _botSay(String text, {List<Map<String, dynamic>>? actions}) {
+    if (!mounted) return;
+    setState(() {
+      _messages.add(BotChatMessage(
+        id: DateTime.now().microsecondsSinceEpoch.toString(),
+        text: text,
+        isUser: false,
+        timestamp: DateTime.now(),
+        mode: 'routine',
+        actions: (actions == null || actions.isEmpty) ? null : actions,
+      ));
+    });
+    _saveChatHistory();
+    _scrollToBottom();
+  }
+
+  Future<void> _onActionTap(BotChatMessage msg, Map<String, dynamic> a) async {
+    if (a['type'] == 'fill') {
+      final text = (a['data'] as Map?)?['text'] as String? ?? '';
+      _inputController.text = text;
+      _inputController.selection = TextSelection.collapsed(offset: text.length);
+      return;
+    }
+    if (msg.actionsUsed) return;
+    setState(() => msg.actionsUsed = true);
+    _saveChatHistory();
+    await _runRoutineAction(a);
   }
 
   @override
@@ -301,14 +354,14 @@ class _BotChatScreenState extends State<BotChatScreen> {
       loadedMessages.add(
         BotChatMessage(
           id: 'welcome_1',
-          text: '👋 **স্বাগতম! আমি StudyMate Smart Study Bot!**\n\n'
-              'আমি আপনার পড়াশোনা, রুটিন বিশ্লেষণ এবং কুইজের সার্বক্ষণিক সহচর। কোনো ইন্টারনেট বা এপিআই কী ছাড়াই আমি শতভাগ কাজ করি।\n\n'
-              '📌 **আমি যা যা করতে পারি:**\n'
-              '• 📅 **আজকের রুটিন বিশ্লেষণ:** আপনার অ্যাপের পড়া ট্র্যাক ও বিশ্লেষণ\n'
-              '• 🎯 **লাইভ কুইজ:** বিসিএস, ইংরেজি ও সাধারণ জ্ঞান কুইজ\n'
-              '• 📖 **পড়ার তথ্য ও টিপস:** বাংলা সাহিত্য, ব্যাকরণ, ইংরেজি রুলস, গণিত সূত্র ও সাধারণ জ্ঞান\n'
-              '• 💡 **মনোযোগ ও মোটিভেশন:** পড়ার মন বসানোর উপায় ও উক্তি\n\n'
-              '💡 নিচে দেওয়া সাজেস্টেড বাটনগুলোতে চাপুন অথবা আপনার প্রশ্ন লিখুন!',
+          text: '👋 **স্বাগতম! আমি StudyMate Bot, আপনার রুটিনের সহকারী।**\n\n'
+              'ইন্টারনেট বা API key ছাড়াই কাজ করি। সাধারণ ভাষায় লিখলেই হবে:\n\n'
+              '• ▶ *এখন কী পড়ব?*\n'
+              '• ➕ *কাল সকাল ৭টায় গণিত ২ ঘণ্টা*\n'
+              '• 🕘 *ইংরেজিটা ৯টায় সরাও* · *গণিত ১৫ মিনিট পিছাও*\n'
+              '• 📅 *ফিজিক্স কালকে দাও* · *রসায়ন বাদ দাও*\n'
+              '• 🌙 *কালকের প্ল্যান*\n\n'
+              'টাস্কের সময় পেরিয়ে গেলেও শুরু না হলে আমি নিজেই মনে করিয়ে দেব।',
           isUser: false,
           timestamp: DateTime.now(),
           mode: 'system',
@@ -373,6 +426,13 @@ class _BotChatScreenState extends State<BotChatScreen> {
     // 1. Commands
     if (lower.startsWith('/')) {
       _handleCommand(lower, input);
+      return;
+    }
+
+    // 2. রুটিন: "এখন কী পড়ব", "কাল ৭টায় গণিত ২ ঘণ্টা", "ইংরেজিটা ৯টায় সরাও" ...
+    final routineIntent = RoutineIntentParser.parse(input);
+    if (routineIntent != null) {
+      await _handleRoutineIntent(routineIntent);
       return;
     }
 
@@ -465,6 +525,14 @@ class _BotChatScreenState extends State<BotChatScreen> {
   }
 
   void _handleCommand(String lowerCmd, String originalInput) {
+    if (lowerCmd == '/now' || lowerCmd == '/next') {
+      _handleRoutineIntent(const RoutineIntent(RoutineIntentType.whatNow));
+      return;
+    }
+    if (lowerCmd == '/plan' || lowerCmd == '/tomorrow') {
+      _handleRoutineIntent(const RoutineIntent(RoutineIntentType.planTomorrow));
+      return;
+    }
     if (lowerCmd == '/start' || lowerCmd == '/help') {
       _sendHelpMenu();
     } else if (lowerCmd.startsWith('/quiz')) {
@@ -1514,6 +1582,15 @@ class _BotChatScreenState extends State<BotChatScreen> {
         BotChatMessage(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
           text: '📋 **StudyMate Bot সকল কমান্ড ও গাইড:**\n\n'
+              '🗓️ **রুটিন (সাধারণ ভাষায় লিখুন):**\n'
+              '• *এখন কী পড়ব* — এখনকার ও পরের টাস্ক (`/now`)\n'
+              '• *কাল সকাল ৭টায় গণিত ২ ঘণ্টা* — নতুন টাস্ক\n'
+              '• *ইংরেজিটা ৯টায় সরাও* — সময় বদল\n'
+              '• *গণিত ২০ মিনিট পিছাও* — পিছানো\n'
+              '• *ফিজিক্স কালকে দাও* — অন্য দিনে নেওয়া\n'
+              '• *রসায়ন বাদ দাও* — মুছে ফেলা (ফেরত আনা যায়)\n'
+              '• *কালকের প্ল্যান* — বাকি টাস্ক কালকে, সাপ্তাহিক রুটিন বসানো (`/plan`)\n\n'
+              '📚 **অন্যান্য:**\n'
               '📅 `/routine` — আজকের রুটিন ও লাইভ টাস্ক বিশ্লেষণ\n'
               '🔄 `/revision` — ১-৪-৭ স্পেসড রিপিটেশন রিভিশন শিডিউল\n'
               '⏳ `/countdown` — পরীক্ষার দিন গণনা ও ডেডলাইন ট্র্যাকিং\n'
@@ -1845,6 +1922,12 @@ class _BotChatScreenState extends State<BotChatScreen> {
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 children: [
+                  _buildQuickChip(trx('▶ What now?', '▶ এখন কী পড়ব'), () => _handleRoutineIntent(const RoutineIntent(RoutineIntentType.whatNow))),
+                  _buildQuickChip(trx('➕ Add task', '➕ টাস্ক যোগ'), () {
+                    _inputController.text = trx('Math 7pm 2 hours', 'সন্ধ্যা ৭টায় গণিত ২ ঘণ্টা');
+                    _inputController.selection = TextSelection.collapsed(offset: _inputController.text.length);
+                  }),
+                  _buildQuickChip(trx('🌙 Plan tomorrow', '🌙 কালকের প্ল্যান'), () => _handleRoutineIntent(const RoutineIntent(RoutineIntentType.planTomorrow))),
                   _buildQuickChip('📊 আজকের রুটিন', () => _sendRoutineAnalysis()),
                   _buildQuickChip('🔄 ১-৪-৭ রিভিশন', () => _sendRevisionAnalysis()),
                   _buildQuickChip('⏳ পরীক্ষার কাউন্টডাউন', () => _sendExamCountdown()),
@@ -1853,11 +1936,11 @@ class _BotChatScreenState extends State<BotChatScreen> {
                   _buildQuickChip('🃏 ফ্ল্যাশকার্ড', () => _sendFlashcardReview()),
                   _buildQuickChip('📈 স্টাডি সময়', () => _sendStudyAnalyticsSummary()),
                   _buildQuickChip('📋 সিলেবাস ট্র্যাকার', () => _sendSyllabusTracker()),
-                  _buildQuickChip('🎯 কুইজ', () => _sendQuizQuestion()),
                   _buildQuickChip('💡 মোটিভেশন', () => _sendMotivation()),
                   _buildQuickChip('📚 বিসিএস সিলেবাস', () => _sendBcsInfo()),
                   _buildQuickChip('📿 তাসবীহ', () => _sendTasbeeh()),
                   _buildQuickChip('❓ সাহায্য', () => _sendHelpMenu()),
+                  _buildQuickChip('🎯 কুইজ', () => _sendQuizQuestion()),
                 ],
               ),
             ),
@@ -1871,9 +1954,9 @@ class _BotChatScreenState extends State<BotChatScreen> {
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.bolt_rounded, color: Colors.teal),
-                    tooltip: 'কুইজ খেলুন',
-                    onPressed: _sendQuizQuestion,
+                    icon: const Icon(Icons.play_circle_fill_rounded, color: Colors.teal),
+                    tooltip: trx('What now?', 'এখন কী পড়ব'),
+                    onPressed: () => _handleRoutineIntent(const RoutineIntent(RoutineIntentType.whatNow)),
                   ),
                   Expanded(
                     child: Container(
@@ -1887,9 +1970,9 @@ class _BotChatScreenState extends State<BotChatScreen> {
                         textInputAction: TextInputAction.send,
                         onSubmitted: _handleSubmitted,
                         maxLines: null,
-                        decoration: const InputDecoration(
-                          hintText: 'প্রশ্ন বা কমান্ড লিখুন (যেমন: নজরুল, রুটিন)...',
-                          hintStyle: TextStyle(fontSize: 14),
+                        decoration: InputDecoration(
+                          hintText: trx('e.g. "Math 7pm 2 hours" or "what now?"', 'যেমন: "কাল ৭টায় গণিত ২ ঘণ্টা", "এখন কী পড়ব"'),
+                          hintStyle: const TextStyle(fontSize: 14),
                           border: InputBorder.none,
                         ),
                       ),
@@ -2031,6 +2114,28 @@ class _BotChatScreenState extends State<BotChatScreen> {
                           ),
                         );
                       },
+                    ),
+                  ],
+
+                  // রুটিনের বাটন
+                  if (msg.actions != null && msg.actions!.isNotEmpty && !msg.actionsUsed) ...[
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: msg.actions!.map((a) {
+                        return OutlinedButton(
+                          onPressed: () => _onActionTap(msg, a),
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size(0, 40),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            backgroundColor: theme.colorScheme.surface,
+                            side: BorderSide(color: theme.colorScheme.primary.withValues(alpha: 0.5)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                          ),
+                          child: Text(a['label'] as String? ?? '', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                        );
+                      }).toList(),
                     ),
                   ],
 

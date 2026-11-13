@@ -6,6 +6,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'firebase_options.dart';
 import 'gamification_service.dart';
+import 'local_notification_service.dart';
 
 /// নোটিফিকেশনের "▶ Start" / "✓ Complete" বাটন চাপলে অ্যাপ না খুলেই টাস্ক আপডেট করে।
 /// এটা ব্যাকগ্রাউন্ড isolate থেকেও চলে, তাই নিজে Firebase চালু করে নেয়।
@@ -13,6 +14,8 @@ class TaskNotificationActions {
   static const String actionStart = 'task_start';
   static const String actionComplete = 'task_complete';
   static const String actionPlanTomorrow = 'plan_tomorrow';
+  static const String actionPostpone15 = 'task_postpone15';
+  static const String actionTomorrow = 'task_tomorrow';
 
   /// কখন নোটিফিকেশন থেকে Start চাপা হয়েছিল (অ্যাপ খুললে ততক্ষণের সময় যোগ হয়)
   static String startedAtKey(String taskId) => 'notif_started_at_$taskId';
@@ -21,6 +24,13 @@ class TaskNotificationActions {
     final d = taskDate;
     final docId = '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
     return jsonEncode({'taskId': taskId, 'date': docId});
+  }
+
+  /// "এখনো শুরু হয়নি" নোটিফিকেশনের payload (গায়ে চাপলে বট খোলে)
+  static String checkInPayloadFor(String taskId, DateTime taskDate) {
+    final m = jsonDecode(payloadFor(taskId, taskDate)) as Map<String, dynamic>;
+    m['checkin'] = true;
+    return jsonEncode(m);
   }
 
   static bool handles(String? actionId) => actionId == actionStart || actionId == actionComplete;
@@ -60,6 +70,7 @@ class TaskNotificationActions {
       if (actionId == actionStart) {
         if (t['status'] == 'completed') return;
         t['status'] = 'running';
+        await LocalNotificationService.cancelTaskCheckIn(taskId);
         final prefs = await SharedPreferences.getInstance();
         await prefs.setInt(startedAtKey(taskId), DateTime.now().millisecondsSinceEpoch);
       } else if (actionId == actionComplete) {
@@ -71,6 +82,7 @@ class TaskNotificationActions {
           elapsed += DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(startedAt)).inSeconds;
           await prefs.remove(startedAtKey(taskId));
         }
+        await LocalNotificationService.cancelTaskCheckIn(taskId);
         t['status'] = 'completed';
         t['isCompleted'] = true;
         t['elapsedSeconds'] = elapsed;

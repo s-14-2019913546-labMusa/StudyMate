@@ -32,7 +32,18 @@ Future<void> _handleNotificationAction(String? actionId, {String? payload}) asyn
     LocalNotificationService.pendingAction.value = payload;
     return;
   }
+  // "এখনো শুরু হয়নি" নোটিফিকেশনের গায়ে চাপলে বট খোলে
+  if (actionId == null && payload != null && payload.contains('"checkin"')) {
+    LocalNotificationService.pendingAction.value = 'open:bot|$payload';
+    return;
+  }
   if (actionId == null) return;
+
+  // পিছানো / কালকে সরানো: অ্যাপ খুলে বট কাজটা করে দেখায়
+  if (actionId == TaskNotificationActions.actionPostpone15 || actionId == TaskNotificationActions.actionTomorrow) {
+    LocalNotificationService.pendingAction.value = '$actionId|${payload ?? ''}';
+    return;
+  }
 
   // টাস্ক নোটিফিকেশনের Start / Complete বাটন
   if (TaskNotificationActions.handles(actionId)) {
@@ -158,6 +169,14 @@ class LocalNotificationService {
         if ((launch?.didNotificationLaunchApp ?? false) &&
             resp?.actionId == TaskNotificationActions.actionPlanTomorrow) {
           pendingAction.value = resp!.actionId;
+        } else if ((launch?.didNotificationLaunchApp ?? false) &&
+            (resp?.actionId == TaskNotificationActions.actionPostpone15 ||
+                resp?.actionId == TaskNotificationActions.actionTomorrow)) {
+          pendingAction.value = '${resp!.actionId}|${resp.payload ?? ''}';
+        } else if ((launch?.didNotificationLaunchApp ?? false) &&
+            resp?.actionId == null &&
+            (resp?.payload ?? '').contains('"checkin"')) {
+          pendingAction.value = 'open:bot|${resp!.payload}';
         } else if ((launch?.didNotificationLaunchApp ?? false) &&
             (resp?.payload ?? '').startsWith('open:')) {
           pendingAction.value = resp!.payload;
@@ -937,6 +956,50 @@ class LocalNotificationService {
         );
       }
     }
+
+    // 3. শুরুর ১০ মিনিট পরেও শুরু না হলে বটের "চেক-ইন" (শুরু করলে বাতিল হয়ে যায়)
+    if (task.startTime != null) {
+      final checkAt = task.startTime!.add(const Duration(minutes: 10));
+      final endAt = task.endTime ?? task.startTime!.add(const Duration(hours: 1));
+      if (checkAt.isAfter(now) && checkAt.isBefore(endAt)) {
+        final checkPayload = TaskNotificationActions.checkInPayloadFor(task.id, task.startTime!);
+        await _scheduleNotificationForTask(
+          id: startId + 2,
+          title: bn ? '🤖 "${task.title}" এখনো শুরু হয়নি' : '🤖 "${task.title}" has not started yet',
+          body: bn ? 'এখন শুরু করবেন, একটু পিছাবেন, নাকি কালকে সরাবেন?' : 'Start now, push it back a little, or move it to tomorrow?',
+          scheduledDate: checkAt,
+          payload: checkPayload,
+          actions: [
+            AndroidNotificationAction(
+              TaskNotificationActions.actionStart,
+              bn ? '▶ এখন শুরু' : '▶ Start now',
+              showsUserInterface: false,
+              cancelNotification: true,
+            ),
+            AndroidNotificationAction(
+              TaskNotificationActions.actionPostpone15,
+              bn ? '⏩ ১৫ মিনিট পরে' : '⏩ +15 min',
+              showsUserInterface: true,
+              cancelNotification: true,
+            ),
+            AndroidNotificationAction(
+              TaskNotificationActions.actionTomorrow,
+              bn ? '📅 কালকে' : '📅 Tomorrow',
+              showsUserInterface: true,
+              cancelNotification: true,
+            ),
+          ],
+        );
+      }
+    }
+  }
+
+  /// টাস্ক শুরু/শেষ হলে "এখনো শুরু হয়নি" নোটিফিকেশন আর লাগবে না
+  static Future<void> cancelTaskCheckIn(String taskId) async {
+    if (kIsWeb) return;
+    try {
+      await _notificationsPlugin.cancel(id: taskId.hashCode + 2);
+    } catch (_) {}
   }
 
   static Future<void> cancelTaskNotifications(String taskId) async {
@@ -945,6 +1008,7 @@ class LocalNotificationService {
     final int endId = startId + 1;
     await _notificationsPlugin.cancel(id: startId);
     await _notificationsPlugin.cancel(id: endId);
+    await _notificationsPlugin.cancel(id: startId + 2);
     log('Cancelled notifications for task ID: $taskId');
   }
 
@@ -1032,6 +1096,7 @@ class LocalNotificationService {
     required String body,
     required DateTime when,
     required String planButton,
+    String? payload,
   }) async {
     if (kIsWeb) return;
     await _notificationsPlugin.cancel(id: id);
@@ -1061,6 +1126,7 @@ class LocalNotificationService {
         iOS: const DarwinNotificationDetails(presentAlert: true, presentSound: true),
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      payload: payload,
     );
   }
 }

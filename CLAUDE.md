@@ -56,6 +56,15 @@
 - PC: old outer `StudyMate App/.git`, unused `StudyMate App/Android SDK`, empty files and logs went to the Recycle Bin. Real Android SDK: `C:\Users\MSI\AppData\Local\Android\Sdk`; Flutter SDK: `E:\development\Appss\flutter`.
 - Built APKs go to `E:\development\StudyMate App\releases\` (outside git). README.md describes layout, release steps, git workflow.
 
+## Routine bot (13 Nov 2026, v1.0.10+11, branch `feature/routine-bot`)
+- Owner: the app is mainly a ROUTINE app; quiz is low priority (quiz chip moved last, bolt icon → "what now").
+- `routine_intent.dart` (pure, tested in `test/routine_intent_test.dart`): understands এখন কী পড়ব / কাল ৭টায় গণিত ২ ঘণ্টা / ইংরেজিটা ৯টায় সরাও / গণিত ২০ মিনিট পিছাও / ফিজিক্স কালকে দাও / রসায়ন বাদ দাও / বাকিগুলো কালকে / কালকের প্ল্যান. Task lookup with Bengali↔English subject synonyms; current/next/missed/overlap helpers.
+- `routine_assistant.dart`: reads/writes `dailyRoutines/{yyyy-MM-dd}.tasks`, reschedules notifications, copies weekly routine (`[WR]`, sets `weekly_imported_<date>`), start/complete reuse `TaskNotificationActions.handle`.
+- `bot_routine.dart` is a `part of bot_chat_screen.dart` (extension on the state). Bot messages can carry buttons (`actions` [{label,type,data}], hidden after one tap); undo for delete/move/add.
+- Check-in notification: id `task.id.hashCode + 2`, 10 min after start (alarm-enabled tasks), buttons ▶ Start (background) / +15 min / Tomorrow (open app → `BotChatScreen(initialAction: 'task_postpone15|payload')`). Cancelled when the task is started/completed (dashboard `_updateTaskInFirestore`, notification Start/Complete).
+- Nightly summary body tap → `open:bot_plan` → bot "কালকের প্ল্যান".
+- Not yet tried on the phone by the owner.
+
 ## Open questions / still to do
 - Firestore rules: confirm writes are allowed for `users/{uid}` fields `streak`, `weeklyXp`, `weeklyXpWeek` and `users/{uid}/notes/{id}/versions`.
 
