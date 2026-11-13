@@ -79,3 +79,11 @@
 - 4th bottom tab (Chat or Focus) — not added; screens there have their own Scaffold/back button, needs care.
 - Language: many plain labels (not snackbars) are still English-only or Bengali-only; continue with `trx()` screen by screen.
 - Nightly summary is computed when the app last updated it; if the app is not opened for a day the numbers can be stale.
+
+## PDF → MCQ import (13 Nov 2026, version 1.0.8+9)
+- MCQ Practice → "প্রশ্ন যোগ" sheet → "PDF থেকে প্রশ্ন যোগ করুন" opens `lib/mcq/pdf_import_screen.dart` (pick PDF → page range + subject → read → review list → save).
+- `pdf_text_service.dart`: pdfrx (PDFium, native assets) text per page; pages with <40 real chars (scanned/CamScanner) are rendered at ~200 dpi grey PNG and read by `OfflineOcrService` (Tesseract). Option "read every page as OCR". No page limit, one page at a time, Stop button keeps what was read.
+- `pdf_mcq_parser.dart`: numbered questions (১। / 1. / Q1.), inline options split ("ক) .. খ) .." / "(ক)" / "a." / "গ. ৭ ঘ. ৯"), inline "উত্তর:"/"Ans:" (letter or option text), `*`/✓ marks, ব্যাখ্যা lines, answer-key lines ("১.ক ২.খ", "1-a, 2-c") matched by question number. Falls back to `McqService.parsePasted` if nothing found.
+- `bijoy_converter.dart`: SutonnyMJ/Bijoy → Unicode (auto-detected, toggle in review) and fixes visual-order kars (ি/ে/ৈ before the consonant) in Unicode PDFs.
+- `McqService.saveCustom` now commits in chunks of 400 (Firestore 500 limit). Saved questions have `source: 'pdf'`.
+- Tests: `test/pdf_mcq_parser_test.dart`. Not yet tried on the phone or with a real question-bank PDF (none in the project folder yet).

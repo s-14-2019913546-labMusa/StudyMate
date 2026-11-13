@@ -11,7 +11,7 @@ class McqQuestion {
   final List<String> options;
   final int answer; // সঠিক অপশনের index (0-3)
   final String explanation;
-  final String source; // 'bank' | 'custom' | 'ai'
+  final String source; // 'bank' | 'custom' | 'ai' | 'pdf'
 
   const McqQuestion({
     required this.id,
@@ -163,11 +163,14 @@ class McqService {
   static Future<int> saveCustom(List<McqQuestion> list) async {
     final ref = _userRef;
     if (ref == null || list.isEmpty) return 0;
-    final batch = FirebaseFirestore.instance.batch();
-    for (final q in list) {
-      batch.set(ref.collection('mcq_questions').doc(q.id), q.toMap());
+    // Firestore-এর এক batch-এ সর্বোচ্চ ৫০০টা লেখা যায়, তাই ভাগে ভাগে
+    for (var i = 0; i < list.length; i += 400) {
+      final batch = FirebaseFirestore.instance.batch();
+      for (final q in list.skip(i).take(400)) {
+        batch.set(ref.collection('mcq_questions').doc(q.id), q.toMap());
+      }
+      await batch.commit();
     }
-    await batch.commit();
     return list.length;
   }
 

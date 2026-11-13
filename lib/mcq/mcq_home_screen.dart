@@ -6,6 +6,7 @@ import '../language_manager.dart';
 import '../widgets/skeleton.dart';
 import 'mcq_service.dart';
 import 'mcq_test_screen.dart';
+import 'pdf_import_screen.dart';
 import 'mistake_book_screen.dart';
 import 'mistake_book_service.dart';
 
@@ -360,6 +361,21 @@ class _McqImportSheetState extends State<McqImportSheet> {
           children: [
             Text(trx('Add questions', 'প্রশ্ন যোগ করুন'),
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              onPressed: _busy
+                  ? null
+                  : () async {
+                      final nav = Navigator.of(context);
+                      final n = await nav.push<int>(MaterialPageRoute(
+                        builder: (_) => PdfImportScreen(subjects: widget.subjects, initialSubject: _subjectName),
+                      ));
+                      if (n != null && n > 0 && mounted) nav.pop(n);
+                    },
+              icon: const Icon(Icons.picture_as_pdf_rounded),
+              label: Text(trx('Add questions from a PDF', 'PDF থেকে প্রশ্ন যোগ করুন')),
+              style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 48)),
+            ),
             const SizedBox(height: 12),
             SegmentedButton<bool>(
               segments: [
