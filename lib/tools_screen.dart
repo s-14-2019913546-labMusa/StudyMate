@@ -27,6 +27,7 @@ import 'multi_sheet_manager_screen.dart';
 import 'notifications_hub_screen.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'tools/tool_arrange_screen.dart';
 import 'mcq/mcq_home_screen.dart';
 import 'mcq/mistake_book_screen.dart';
 import 'daily_review_screen.dart';
@@ -160,12 +161,14 @@ class _ToolsScreenState extends State<ToolsScreen> {
   // ---------- পিন করা ও সম্প্রতি ব্যবহৃত টুল ----------
   static const _prefPinned = 'tools_pinned_v1';
   static const _prefRecent = 'tools_recent_v1';
+  static const _prefLayout = 'tools_layout_v1';
   static const int _maxRecent = 6;
 
   final TextEditingController _searchController = TextEditingController();
   String _query = '';
   List<String> _pinned = [];
   List<String> _recent = [];
+  List<ToolSection>? _layout; // ব্যবহারকারীর নিজের সাজানো ক্রম (null = অ্যাপের ক্রম)
 
   Future<void> _loadToolPrefs() async {
     try {
@@ -174,6 +177,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
       setState(() {
         _pinned = prefs.getStringList(_prefPinned) ?? [];
         _recent = prefs.getStringList(_prefRecent) ?? [];
+        _layout = decodeToolLayout(prefs.getString(_prefLayout));
       });
     } catch (_) {}
   }
@@ -183,6 +187,23 @@ class _ToolsScreenState extends State<ToolsScreen> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setStringList(_prefPinned, _pinned);
       await prefs.setStringList(_prefRecent, _recent);
+    } catch (_) {}
+  }
+
+  Future<void> _openArrange() async {
+    final result = await Navigator.push<ToolArrangeResult>(
+      context,
+      MaterialPageRoute(builder: (_) => ToolArrangeScreen(categories: _buildCategories())),
+    );
+    if (result == null || !mounted) return;
+    setState(() => _layout = result.reset ? null : result.layout);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (result.reset) {
+        await prefs.remove(_prefLayout);
+      } else {
+        await prefs.setString(_prefLayout, encodeToolLayout(result.layout));
+      }
     } catch (_) {}
   }
 
@@ -250,59 +271,65 @@ class _ToolsScreenState extends State<ToolsScreen> {
                 _openTool(tool);
               },
             ),
+            ListTile(
+              leading: const Icon(Icons.swap_vert_rounded),
+              title: Text(trx('Arrange tools', 'টুল সাজান')),
+              onTap: () {
+                Navigator.pop(ctx);
+                _openArrange();
+              },
+            ),
           ],
         ),
       ),
     );
   }
 
-  List<Map<String, dynamic>> _buildCategories() {
+  /// অ্যাপের নিজের সাজানো ক্রম (গুরুত্ব অনুযায়ী)। ব্যবহারকারী "সাজান" দিয়ে বদলালে applyToolLayout সেটা বসায়।
+  List<Map<String, dynamic>> _defaultCategories() {
     return [
       {
         'name': 'Study Tools',
         'icon': Icons.school_rounded,
         'tools': [
-          {'title': 'MCQ Practice', 'icon': Icons.quiz_rounded, 'color': const Color(0xFF16A34A), 'action': 'mcq'},
-          {'title': 'Mistake Book', 'icon': Icons.menu_book_rounded, 'color': Colors.red, 'action': 'mistakes'},
-          {'title': "Today's Revision", 'icon': Icons.psychology_rounded, 'color': const Color(0xFF8B5CF6), 'action': 'review'},
-          {'title': 'Photo to Note', 'icon': Icons.document_scanner_rounded, 'color': Colors.cyan.shade700, 'action': 'photo_note', 'requiresInternet': true},
-          {'title': 'Calculator', 'icon': Icons.calculate_rounded, 'color': Colors.blueAccent, 'action': 'calc'},
           {'title': 'Pomodoro', 'icon': Icons.timer_rounded, 'color': Colors.redAccent, 'action': 'pomodoro'},
-          {'title': 'Stopwatch', 'icon': Icons.timer_outlined, 'color': Colors.deepOrangeAccent, 'action': 'stopwatch'},
           {'title': 'Notes', 'icon': Icons.note_alt_rounded, 'color': Colors.amber.shade600, 'action': 'notes'},
-          {'title': 'PDF Reader', 'icon': Icons.picture_as_pdf_rounded, 'color': Colors.redAccent, 'action': 'pdf_reader'},
-          {'title': 'Daily Diary', 'icon': Icons.book_rounded, 'color': Colors.brown, 'action': 'daily_diary'},
-          {'title': '1-4-7 Revision', 'icon': Icons.published_with_changes_rounded, 'color': Colors.indigo, 'action': 'revision_147'},
           {'title': 'Flashcards', 'icon': Icons.style_rounded, 'color': Colors.purpleAccent, 'action': 'flash'},
-          {'title': 'Task History', 'icon': Icons.history_rounded, 'color': Colors.blueGrey, 'action': 'task_history'},
-          {'title': 'Daily News', 'icon': Icons.article_rounded, 'color': Colors.blueGrey, 'action': 'news', 'requiresInternet': true},
-          {'title': 'Dictionary', 'icon': Icons.menu_book_rounded, 'color': Colors.orangeAccent, 'action': 'dict', 'requiresInternet': true},
+          {'title': '1-4-7 Revision', 'icon': Icons.published_with_changes_rounded, 'color': Colors.indigo, 'action': 'revision_147'},
           {'title': 'Study Map', 'icon': Icons.folder_copy_rounded, 'color': Colors.teal, 'action': 'study_folders'},
           {'title': 'Countdown', 'icon': Icons.event_note_rounded, 'color': const Color(0xFF6366F1), 'action': 'countdown'},
+          {'title': 'PDF Reader', 'icon': Icons.picture_as_pdf_rounded, 'color': Colors.redAccent, 'action': 'pdf_reader'},
+          {'title': 'Photo to Note', 'icon': Icons.document_scanner_rounded, 'color': Colors.cyan.shade700, 'action': 'photo_note', 'requiresInternet': true},
+          {'title': 'Task History', 'icon': Icons.history_rounded, 'color': Colors.blueGrey, 'action': 'task_history'},
           // Calendar এখন শুধু হোমের তারিখে চাপলে খোলে (একই জিনিসের দুই জায়গা বাদ)
           {'title': 'My Study Sheets', 'icon': Icons.folder_special_rounded, 'color': const Color(0xFF6366F1), 'action': 'multi_sheet', 'requiresInternet': true},
+          {'title': 'Calculator', 'icon': Icons.calculate_rounded, 'color': Colors.blueAccent, 'action': 'calc'},
+          {'title': 'Stopwatch', 'icon': Icons.timer_outlined, 'color': Colors.deepOrangeAccent, 'action': 'stopwatch'},
+          {'title': 'Dictionary', 'icon': Icons.menu_book_rounded, 'color': Colors.orangeAccent, 'action': 'dict', 'requiresInternet': true},
+          {'title': 'Daily Diary', 'icon': Icons.book_rounded, 'color': Colors.brown, 'action': 'daily_diary'},
+          {'title': 'Daily News', 'icon': Icons.article_rounded, 'color': Colors.blueGrey, 'action': 'news', 'requiresInternet': true},
         ]
       },
       {
         'name': 'Focus',
         'icon': Icons.bolt_rounded,
         'tools': [
-          {'title': 'Islamic Life', 'icon': Icons.mosque_rounded, 'color': Colors.teal, 'action': 'islamic', 'requiresInternet': true},
-          {'title': 'Breathing Exercise', 'icon': Icons.air_rounded, 'color': Colors.lightBlueAccent, 'action': 'breath'},
           {'title': 'Focus Music', 'icon': Icons.headphones_rounded, 'color': Colors.teal, 'action': 'music'},
+          {'title': 'Breathing Exercise', 'icon': Icons.air_rounded, 'color': Colors.lightBlueAccent, 'action': 'breath'},
+          {'title': 'Islamic Life', 'icon': Icons.mosque_rounded, 'color': Colors.teal, 'action': 'islamic', 'requiresInternet': true},
         ]
       },
       {
         'name': 'Collaborative Studying',
         'icon': Icons.people_rounded,
         'tools': [
+          {'title': 'Study Analytics', 'icon': Icons.analytics_rounded, 'color': Colors.teal, 'action': 'analytics'},
+          {'title': 'Weekly Report', 'icon': Icons.bar_chart_rounded, 'color': Colors.deepPurple, 'action': 'weekly_report'},
           {'title': 'Social Hub', 'icon': Icons.people_alt_rounded, 'color': Colors.blueAccent, 'action': 'social_hub', 'requiresInternet': true},
           {'title': 'Study Room', 'icon': Icons.video_camera_front_rounded, 'color': Colors.deepPurpleAccent, 'action': 'study_room', 'requiresInternet': true},
+          {'title': 'Q&A Forum', 'icon': Icons.forum_rounded, 'color': Colors.indigo, 'action': 'forum', 'requiresInternet': true},
           {'title': 'Partner Tasks', 'icon': Icons.group_add_rounded, 'color': Colors.green, 'action': 'partner_tasks', 'requiresInternet': true},
           {'title': 'Web Study', 'icon': Icons.bookmarks_rounded, 'color': Colors.blue, 'action': 'bookmarks', 'requiresInternet': true},
-          {'title': 'Study Analytics', 'icon': Icons.analytics_rounded, 'color': Colors.teal, 'action': 'analytics'},
-          {'title': 'Q&A Forum', 'icon': Icons.forum_rounded, 'color': Colors.indigo, 'action': 'forum', 'requiresInternet': true},
-          {'title': 'Weekly Report', 'icon': Icons.bar_chart_rounded, 'color': Colors.deepPurple, 'action': 'weekly_report'},
           // Notifications এখন শুধু হোমের 🔔 আইকনে
         ]
       },
@@ -310,13 +337,25 @@ class _ToolsScreenState extends State<ToolsScreen> {
         'name': 'Well-being & Utilities',
         'icon': Icons.favorite_rounded,
         'tools': [
-          {'title': 'Mood Tracker', 'icon': Icons.mood_rounded, 'color': Colors.pinkAccent, 'action': 'mood'},
           {'title': 'Sleep Tracker', 'icon': Icons.bedtime_rounded, 'color': Colors.indigoAccent, 'action': 'sleep'},
+          {'title': 'Mood Tracker', 'icon': Icons.mood_rounded, 'color': Colors.pinkAccent, 'action': 'mood'},
           {'title': 'Theme', 'icon': Icons.palette_rounded, 'color': Colors.amber, 'action': 'theme'},
+        ]
+      },
+      {
+        // মালিকের কথামতো MCQ-র টুলগুলো তালিকার একেবারে শেষে
+        'name': 'MCQ & Revision',
+        'icon': Icons.quiz_rounded,
+        'tools': [
+          {'title': 'MCQ Practice', 'icon': Icons.quiz_rounded, 'color': const Color(0xFF16A34A), 'action': 'mcq'},
+          {'title': 'Mistake Book', 'icon': Icons.menu_book_rounded, 'color': Colors.red, 'action': 'mistakes'},
+          {'title': "Today's Revision", 'icon': Icons.psychology_rounded, 'color': const Color(0xFF8B5CF6), 'action': 'review'},
         ]
       },
     ];
   }
+
+  List<Map<String, dynamic>> _buildCategories() => applyToolLayout(_defaultCategories(), _layout);
 
   void _openTool(Map<String, dynamic> tool) {
     final action = tool['action'] as String;
@@ -555,12 +594,23 @@ class _ToolsScreenState extends State<ToolsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Study Tools'.tr(),
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: scheme.primary,
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Study Tools'.tr(),
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: scheme.primary,
+                        ),
                   ),
+                ),
+                TextButton.icon(
+                  onPressed: _openArrange,
+                  icon: const Icon(Icons.swap_vert_rounded, size: 20),
+                  label: Text(trx('Arrange', 'সাজান')),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
 
@@ -617,7 +667,8 @@ class _ToolsScreenState extends State<ToolsScreen> {
                 Padding(
                   padding: const EdgeInsets.only(top: 10),
                   child: Text(
-                    trx('Tip: long-press any tool to pin it here ⭐', 'টিপস: যেকোনো টুল লম্বা করে চেপে ধরে উপরে পিন করুন ⭐'),
+                    trx('Tip: long-press any tool to pin it here ⭐. Tap "Arrange" to change the order.',
+                        'টিপস: যেকোনো টুল লম্বা করে চেপে ধরে উপরে পিন করুন ⭐। ক্রম বদলাতে "সাজান" চাপুন।'),
                     style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
                   ),
                 ),
@@ -630,7 +681,8 @@ class _ToolsScreenState extends State<ToolsScreen> {
               const SizedBox(height: 12),
               _buildWeeklyRoutineButton(context),
 
-              for (final category in categories) ...[
+              for (final category in categories)
+                if ((category['tools'] as List).isNotEmpty) ...[
                 _buildSectionHeader(category['icon'] as IconData, (category['name'] as String).tr()),
                 _buildToolGrid(category['tools'] as List<Map<String, dynamic>>),
               ],

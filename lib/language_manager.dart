@@ -307,6 +307,7 @@ class LanguageManager extends ChangeNotifier {
     'MCQ Practice': 'MCQ প্র্যাকটিস',
     'Mistake Book': 'ভুলের খাতা',
     "Today's Revision": 'আজকের রিভিশন',
+    'MCQ & Revision': 'MCQ ও রিভিশন',
     'Photo to Note': 'ছবি থেকে নোট',
     'Q&A Forum': 'প্রশ্ন-উত্তর ফোরাম',
     'Weekly Report': 'সাপ্তাহিক রিপোর্ট',

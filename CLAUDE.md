@@ -87,3 +87,7 @@
 - `bijoy_converter.dart`: SutonnyMJ/Bijoy → Unicode (auto-detected, toggle in review) and fixes visual-order kars (ি/ে/ৈ before the consonant) in Unicode PDFs.
 - `McqService.saveCustom` now commits in chunks of 400 (Firestore 500 limit). Saved questions have `source: 'pdf'`.
 - Tests: `test/pdf_mcq_parser_test.dart`. Not yet tried on the phone or with a real question-bank PDF (none in the project folder yet).
+
+## Tools order (13 Nov 2026)
+- Default order in `_defaultCategories()` (`tools_screen.dart`) is by importance; new last section "MCQ & Revision" (MCQ Practice, Mistake Book, Today's Revision).
+- Users rearrange via Tools → "সাজান" (or long-press a tool → "টুল সাজান"): `lib/tools/tool_arrange_screen.dart`, drag tools (also across sections), ↑↓ moves sections, "আগের মতো" resets. Saved in SharedPreferences `tools_layout_v1`; `applyToolLayout` appends new tools to their default section. Empty sections are hidden. Test: `test/tool_layout_test.dart`.
