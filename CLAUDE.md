@@ -51,6 +51,11 @@
 - ~170 snackbar/error messages now follow the chosen language.
 - Firestore offline persistence was already on (`main.dart`); task cards now share one cached folder list instead of one read per card.
 
+## Project cleanup (13 Nov 2026)
+- Removed from repo: `scripts/` (old one-off scripts + raw docx), `linux/`, `macos/`, `windows/`, stray `git` file, unused `joishtho_*.png`. **`ios/` kept on purpose** — he wants an iPhone version later (needs an iOS app in Firebase + `flutterfire configure`, and a Mac to build).
+- PC: old outer `StudyMate App/.git`, unused `StudyMate App/Android SDK`, empty files and logs went to the Recycle Bin. Real Android SDK: `C:\Users\MSI\AppData\Local\Android\Sdk`; Flutter SDK: `E:\development\Appss\flutter`.
+- Built APKs go to `E:\development\StudyMate App\releases\` (outside git). README.md describes layout, release steps, git workflow.
+
 ## Open questions / still to do
 - Firestore rules: confirm writes are allowed for `users/{uid}` fields `streak`, `weeklyXp`, `weeklyXpWeek` and `users/{uid}/notes/{id}/versions`.
 
