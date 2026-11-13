@@ -97,3 +97,10 @@
 - Timer runs off an end timestamp (correct after background). Once a focus session has started, leaving the app >10 s kills the tree even while paused; finishing within the grace still counts. Back button mid-focus asks first; leaving kills the tree. Distractions are counted only when a tree dies from leaving (not on a safe return, not on Reset).
 - Long break (15 min) after every 4th focus of the day (`pomodoro_cycles_<date>` in SharedPreferences), dots show progress.
 - All text in Pomodoro, Stopwatch, Breathing, Focus Music, Focus tab, Weekly Report follows the app language via `trx()`; `LanguageManager.toBnDigits` for Bengali numbers.
+
+## Chat speed (13 Nov 2026)
+- `chat_screen.dart`: messages stream created once in initState with `.limit(30)`, +30 when scrolling to the top; chat doc listened once (`_chatSub`) instead of an outer StreamBuilder that recreated the message stream; unread reset only when unread > 0; sending doesn't wait for the server between writes and uses cached participants.
+- `conversations_screen.dart`: StreamZip (waited for both streams → list froze) replaced by a combineLatest-style controller.
+- `user_profile_cache.dart`: names/photos fetched in batches of 30 and cached 2 min; used by chat list, Social Hub friends, group details.
+- Leaderboard no longer streams the whole `users` collection: All Time = top 100 by `totalXP` + top 50 by `streak`; This Week = `weeklyXpWeek == week` ordered by `weeklyXp` (needs composite index, see `docs/firestore-index-leaderboard.md`; falls back without it); Friends = whereIn chunks. One-time load with pull-to-refresh.
+- Chat images/avatars use `cached_network_image`.

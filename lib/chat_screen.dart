@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:io';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -47,20 +49,74 @@ class _ChatScreenState extends State<ChatScreen> {
   String _mentionQuery = '';
   List<Map<String, dynamic>> _groupMembers = [];
 
+  // ---- দ্রুত লোডের জন্য: শুধু শেষের মেসেজগুলো, উপরে স্ক্রল করলে আরও ----
+  static const int _pageSize = 30;
+  int _limit = _pageSize;
+  bool _hasMore = true;
+  bool _loadingMore = false;
+  late Stream<QuerySnapshot> _messagesStream;
+  List<QueryDocumentSnapshot>? _lastDocs; // নতুন পাতা আসার সময় পুরনোগুলো দেখাতে থাকি (স্পিনার নয়)
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _chatSub;
+  Map<String, dynamic> _chatData = {};
+  Future<DocumentSnapshot>? _receiverFuture;
+  bool _markingRead = false;
+
+  DocumentReference<Map<String, dynamic>> get _chatRef =>
+      FirebaseFirestore.instance.collection('chats').doc(widget.chatId);
+
   @override
   void initState() {
     super.initState();
+    _messagesStream = _buildMessagesStream();
+    // চ্যাটের তথ্য (থিম, ব্লক, না-পড়া) একবারই শোনা হয়; এতে মেসেজের তালিকা আর নতুন করে লোড হয় না
+    _chatSub = _chatRef.snapshots().listen((snap) {
+      final d = snap.data() ?? {};
+      if (!mounted) return;
+      setState(() => _chatData = d);
+      _markReadIfNeeded(d);
+    }, onError: (e) => debugPrint('chat doc error: $e'));
+    if (widget.receiverId != null) {
+      _receiverFuture = FirebaseFirestore.instance.collection('users').doc(widget.receiverId).get();
+    }
     // Ensure chat document exists for one-on-one chats
     if (!widget.isGroupChat && widget.receiverId != null) {
       _ensureChatDocumentExists();
-    } else {
-      _markAsRead();
     }
-    
+
     if (widget.isGroupChat) {
       _fetchGroupMembers();
     }
     _messageController.addListener(_onTextChanged);
+    _scrollController.addListener(_onScroll);
+  }
+
+  Stream<QuerySnapshot> _buildMessagesStream() => _chatRef
+      .collection('messages')
+      .orderBy('timestamp', descending: true)
+      .limit(_limit)
+      .snapshots();
+
+  // তালিকা উল্টো (নতুন নিচে), তাই উপরে পৌঁছানো মানে maxScrollExtent
+  void _onScroll() {
+    if (!_scrollController.hasClients || !_hasMore || _loadingMore) return;
+    final pos = _scrollController.position;
+    if (pos.pixels >= pos.maxScrollExtent - 300) {
+      setState(() {
+        _loadingMore = true;
+        _limit += _pageSize;
+        _messagesStream = _buildMessagesStream();
+      });
+    }
+  }
+
+  /// সত্যিই না-পড়া মেসেজ থাকলে তবেই সার্ভারে লেখা
+  void _markReadIfNeeded(Map<String, dynamic> d) {
+    final uid = _currentUser?.uid;
+    if (uid == null || _markingRead) return;
+    final unread = ((d['unreadCount'] as Map?)?[uid] as num?) ?? 0;
+    if (unread <= 0) return;
+    _markingRead = true;
+    _chatRef.update({'unreadCount.$uid': 0}).catchError((e) => debugPrint('mark read: $e')).whenComplete(() => _markingRead = false);
   }
 
   Future<void> _fetchGroupMembers() async {
@@ -69,14 +125,20 @@ class _ChatScreenState extends State<ChatScreen> {
       if (chatDoc.exists) {
         final participants = List<String>.from(chatDoc.data()?['participants'] ?? []);
         List<Map<String, dynamic>> members = [];
-        // Fetch up to 30 members individually (avoid whereIn 10 item limit)
-        for (String pId in participants.take(30)) {
-          final uDoc = await FirebaseFirestore.instance.collection('users').doc(pId).get();
-          if (uDoc.exists) {
+        // একজন একজন করে নয়: ৩০ জন করে একসাথে, সব ভাগ একই সময়ে
+        final chunks = <List<String>>[
+          for (var i = 0; i < participants.length; i += 30) participants.skip(i).take(30).toList()
+        ];
+        final snaps = await Future.wait(chunks.map((ids) => FirebaseFirestore.instance
+            .collection('users')
+            .where(FieldPath.documentId, whereIn: ids)
+            .get()));
+        for (final snap in snaps) {
+          for (final uDoc in snap.docs) {
             members.add({
               'uid': uDoc.id,
-              'name': uDoc.data()?['displayName'] ?? 'Study Buddy',
-              'photoUrl': uDoc.data()?['photoUrl'] ?? '',
+              'name': uDoc.data()['displayName'] ?? 'Study Buddy',
+              'photoUrl': uDoc.data()['photoUrl'] ?? '',
             });
           }
         }
@@ -103,7 +165,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
     final textBeforeCursor = text.substring(0, selection.baseOffset);
     final lastAtSignIndex = textBeforeCursor.lastIndexOf('@');
-    
+
     if (lastAtSignIndex != -1) {
       if (lastAtSignIndex == 0 || textBeforeCursor[lastAtSignIndex - 1] == ' ' || textBeforeCursor[lastAtSignIndex - 1] == '\n') {
         final query = textBeforeCursor.substring(lastAtSignIndex + 1);
@@ -128,12 +190,12 @@ class _ChatScreenState extends State<ChatScreen> {
     final selection = _messageController.selection;
     final textBeforeCursor = text.substring(0, selection.baseOffset);
     final textAfterCursor = text.substring(selection.baseOffset);
-    
+
     final lastAtSignIndex = textBeforeCursor.lastIndexOf('@');
     if (lastAtSignIndex != -1) {
       final newTextBefore = textBeforeCursor.substring(0, lastAtSignIndex);
       final mentionText = '@$name ';
-      
+
       _messageController.value = TextEditingValue(
         text: newTextBefore + mentionText + textAfterCursor,
         selection: TextSelection.collapsed(offset: newTextBefore.length + mentionText.length),
@@ -156,28 +218,21 @@ class _ChatScreenState extends State<ChatScreen> {
         'unreadCount': {_currentUser.uid: 0, widget.receiverId!: 0},
       });
     }
-    _markAsRead();
   }
 
   @override
   void dispose() {
+    _chatSub?.cancel();
+    _scrollController.removeListener(_onScroll);
     _messageController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
 
-  void _markAsRead() {
-    if (_currentUser != null) {
-      FirebaseFirestore.instance.collection('chats').doc(widget.chatId).update({
-        'unreadCount.${_currentUser.uid}': 0,
-      });
-    }
-  }
-
   Future<void> _editMessageInFirestore(String msgId, String newContent) async {
     if (_currentUser == null) return;
     final chatRef = FirebaseFirestore.instance.collection('chats').doc(widget.chatId);
-    
+
     await chatRef.collection('messages').doc(msgId).update({
       'content': newContent,
       'isEdited': true,
@@ -220,7 +275,9 @@ class _ChatScreenState extends State<ChatScreen> {
       replyData['replyToType'] = _replyingToMessage!['type'];
     }
 
-    await chatRef.collection('messages').add({
+    // সার্ভারের উত্তরের জন্য বসে না থেকে সাথে সাথে পরের কাজ (Firestore লেখাগুলো ক্রমেই পাঠায়)
+    final writes = <Future>[];
+    writes.add(chatRef.collection('messages').add({
       'senderId': _currentUser.uid,
       'senderName': _currentUser.displayName ?? 'User',
       'content': content,
@@ -229,7 +286,7 @@ class _ChatScreenState extends State<ChatScreen> {
       'fileSize': fileSize,
       'timestamp': FieldValue.serverTimestamp(),
       ...replyData,
-    });
+    }));
 
     if (mounted) {
       setState(() {
@@ -238,8 +295,11 @@ class _ChatScreenState extends State<ChatScreen> {
     }
 
     // Update last message and unread counts for all participants
-    final chatDoc = await chatRef.get();
-    final participants = List<String>.from(chatDoc.data()?['participants'] ?? []);
+    var participants = List<String>.from(_chatData['participants'] ?? []);
+    if (participants.isEmpty) {
+      final chatDoc = await chatRef.get();
+      participants = List<String>.from(chatDoc.data()?['participants'] ?? []);
+    }
     final unreadUpdates = <String, dynamic>{};
     for (var pId in participants) {
       if (pId != _currentUser.uid) {
@@ -247,11 +307,12 @@ class _ChatScreenState extends State<ChatScreen> {
       }
     }
 
-    await chatRef.update({
+    writes.add(chatRef.update({
       'lastMessage': type == 'image' ? '📷 Photo' : (type == 'file' ? '📄 File' : content),
       'lastMessageTimestamp': FieldValue.serverTimestamp(),
       ...unreadUpdates,
-    });
+    }));
+    await Future.wait(writes);
   }
 
   Future<void> _pickAndUploadFile({bool pickImage = true, ImageSource source = ImageSource.gallery}) async {
@@ -341,13 +402,8 @@ class _ChatScreenState extends State<ChatScreen> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    return StreamBuilder<DocumentSnapshot>(
-      stream: FirebaseFirestore.instance.collection('chats').doc(widget.chatId).snapshots(),
-      builder: (context, chatSnap) {
-        Map<String, dynamic> chatData = {};
-        if (chatSnap.hasData && chatSnap.data!.exists) {
-          chatData = chatSnap.data!.data() as Map<String, dynamic>;
-        }
+    final Map<String, dynamic> chatData = _chatData;
+    {
 
         final themeName = chatData['theme'] as String? ?? 'default';
         final nicknames = chatData['nicknames'] as Map<String, dynamic>? ?? {};
@@ -394,30 +450,35 @@ class _ChatScreenState extends State<ChatScreen> {
               children: [
                 Expanded(
                   child: StreamBuilder<QuerySnapshot>(
-                    stream: FirebaseFirestore.instance
-                        .collection('chats')
-                        .doc(widget.chatId)
-                        .collection('messages')
-                        .orderBy('timestamp', descending: true)
-                        .snapshots(),
+                    stream: _messagesStream,
                     builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
+                      // নতুন পাতার stream চালু হওয়ার মুহূর্তে পুরনো ডেটা আসে (waiting); তখন হিসাব বদলাই না
+                      if (snapshot.hasData && snapshot.connectionState == ConnectionState.active) {
+                        _lastDocs = snapshot.data!.docs;
+                        _hasMore = _lastDocs!.length >= _limit;
+                        _loadingMore = false;
+                      }
+                      final messages = _lastDocs;
+                      if (messages == null) {
                         return const Center(child: CircularProgressIndicator());
                       }
-                      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                        return const Center(child: Text('Say hello! 👋'));
+                      if (messages.isEmpty) {
+                        return Center(child: Text(trx('Say hello! 👋', 'হ্যালো বলুন! 👋')));
                       }
-
-                      final messages = snapshot.data!.docs;
-
-                      WidgetsBinding.instance.addPostFrameCallback((_) => _markAsRead());
 
                       return ListView.builder(
                         controller: _scrollController,
                         reverse: true,
                         padding: const EdgeInsets.all(8.0),
-                        itemCount: messages.length,
+                        itemCount: messages.length + (_hasMore ? 1 : 0),
                         itemBuilder: (context, index) {
+                          if (index == messages.length) {
+                            // সবচেয়ে উপরে: আগের মেসেজ আসছে
+                            return const Padding(
+                              padding: EdgeInsets.all(12),
+                              child: Center(child: SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2))),
+                            );
+                          }
                           final message = messages[index];
                           final data = message.data() as Map<String, dynamic>;
                           final isMe = data['senderId'] == _currentUser?.uid;
@@ -428,7 +489,7 @@ class _ChatScreenState extends State<ChatScreen> {
                           if (isSystemMessage) {
                             return _SystemMessageBubble(message: data['content'] ?? '');
                           }
-                          
+
                           final receiverUnread = (!widget.isGroupChat && widget.receiverId != null)
                               ? (chatData['unreadCount']?[widget.receiverId] ?? 0)
                               : 0;
@@ -475,7 +536,6 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
         );
       }
-    );
   }
 
   Widget _buildMentionList() {
@@ -512,7 +572,7 @@ class _ChatScreenState extends State<ChatScreen> {
           return ListTile(
             leading: CircleAvatar(
               radius: 14,
-              backgroundImage: photoUrl.isNotEmpty ? NetworkImage(photoUrl) : null,
+              backgroundImage: photoUrl.isNotEmpty ? CachedNetworkImageProvider(photoUrl) : null,
               child: photoUrl.isEmpty ? const Icon(Icons.person, size: 14) : null,
             ),
             title: Text(member['name'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
@@ -526,9 +586,7 @@ class _ChatScreenState extends State<ChatScreen> {
   // AppBar for One-on-One Chat
   Widget _buildOneOnOneAppBarTitle(BuildContext context, String displayName) {
     return FutureBuilder<DocumentSnapshot>(
-      future: widget.receiverId != null
-          ? FirebaseFirestore.instance.collection('users').doc(widget.receiverId).get()
-          : null,
+      future: _receiverFuture, // একবারই আনা হয়, প্রতিবার নয়
       builder: (context, userSnapshot) {
         String photoUrl = '';
         Color statusColor = Colors.red;
@@ -554,7 +612,7 @@ class _ChatScreenState extends State<ChatScreen> {
         ImageProvider? avatarImage;
         if (photoUrl.isNotEmpty) {
           avatarImage = photoUrl.startsWith('http')
-              ? NetworkImage(photoUrl)
+              ? CachedNetworkImageProvider(photoUrl)
               : FileImage(File(photoUrl)) as ImageProvider;
         }
 
@@ -608,11 +666,9 @@ class _ChatScreenState extends State<ChatScreen> {
 
   // AppBar for Group Chat
   Widget _buildGroupAppBarTitle(BuildContext context) {
-    return StreamBuilder<DocumentSnapshot>(
-      stream: FirebaseFirestore.instance.collection('chats').doc(widget.chatId).snapshots(),
-      builder: (context, snapshot) {
-        final groupData = snapshot.hasData ? snapshot.data!.data() as Map<String, dynamic>? : null;
-        final groupPhotoUrl = groupData?['groupPhotoUrl'] as String?;
+    final groupData = _chatData;
+    {
+        final groupPhotoUrl = groupData['groupPhotoUrl'] as String?;
 
         return GestureDetector(
           onTap: () {
@@ -630,7 +686,7 @@ class _ChatScreenState extends State<ChatScreen> {
             children: [
               CircleAvatar(
                 radius: 20,
-                backgroundImage: groupPhotoUrl != null ? NetworkImage(groupPhotoUrl) : null,
+                backgroundImage: groupPhotoUrl != null ? CachedNetworkImageProvider(groupPhotoUrl) : null,
                 child: groupPhotoUrl == null ? const Icon(Icons.groups_rounded, size: 20) : null,
               ),
               const SizedBox(width: 12),
@@ -638,14 +694,13 @@ class _ChatScreenState extends State<ChatScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(widget.chatName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                  const Text('Tap for group info', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  Text(trx('Tap for group info', 'গ্রুপের তথ্য দেখতে চাপুন'), style: const TextStyle(fontSize: 12, color: Colors.grey)),
                 ],
               ),
             ],
           ),
         );
-      },
-    );
+      }
   }
 
   Widget _buildEditPreview() {
@@ -777,7 +832,7 @@ class _ChatScreenState extends State<ChatScreen> {
         child: SafeArea(
           child: Center(
             child: Text(
-              isMutedByMe 
+              isMutedByMe
                   ? 'You have muted this chat. Enable messages in settings to chat.'.tr()
                   : 'Messages are disabled for this chat.'.tr(),
               style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.bold, fontSize: 13),
@@ -915,8 +970,8 @@ class _MessageBubble extends StatelessWidget {
       return isMe ? themeData.colorScheme.primary : themeData.cardColor;
     }
     if (!isMe) {
-      return themeData.brightness == Brightness.dark 
-          ? Colors.black.withValues(alpha: 0.4) 
+      return themeData.brightness == Brightness.dark
+          ? Colors.black.withValues(alpha: 0.4)
           : Colors.white.withValues(alpha: 0.7);
     }
     switch (themeName) {
@@ -1162,7 +1217,7 @@ class _MessageBubble extends StatelessWidget {
                             Text(
                               '(${'Edited'.tr()})',
                               style: TextStyle(
-                                fontSize: 9, 
+                                fontSize: 9,
                                 color: textColor.withValues(alpha: 0.7),
                                 fontStyle: FontStyle.italic,
                               ),
@@ -1254,12 +1309,15 @@ class _MessageBubble extends StatelessWidget {
           onTap: () => _showFullScreenImage(context, content),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(8),
-            child: Image.network(
-              content,
-              loadingBuilder: (context, child, progress) {
-                return progress == null ? child : const CircularProgressIndicator();
-              },
-              errorBuilder: (context, error, stack) => const Icon(Icons.broken_image),
+            // একবার নামলে ফোনে জমা থাকে, পরেরবার আর ডাউনলোড হয় না
+            child: CachedNetworkImage(
+              imageUrl: content,
+              placeholder: (context, url) => const SizedBox(
+                width: 160,
+                height: 120,
+                child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+              ),
+              errorWidget: (context, url, error) => const Icon(Icons.broken_image),
             ),
           ),
         );
@@ -1321,7 +1379,7 @@ class _MessageBubble extends StatelessWidget {
           appBar: AppBar(backgroundColor: Colors.black, elevation: 0),
           body: Center(
             child: InteractiveViewer(
-              child: Image.network(imageUrl),
+              child: CachedNetworkImage(imageUrl: imageUrl),
             ),
           ),
         ),

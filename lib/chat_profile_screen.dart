@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -199,7 +200,7 @@ class _ChatProfileScreenState extends State<ChatProfileScreen> {
     ImageProvider? avatarImage;
     if (photoUrl != null && photoUrl.isNotEmpty) {
       avatarImage = photoUrl.startsWith('http')
-          ? NetworkImage(photoUrl)
+          ? CachedNetworkImageProvider(photoUrl)
           : FileImage(File(photoUrl)) as ImageProvider;
     }
 

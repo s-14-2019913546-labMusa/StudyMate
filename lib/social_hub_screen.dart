@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -9,6 +10,7 @@ import 'task_details_screen.dart';
 import 'gamification_service.dart';
 import 'language_manager.dart';
 import 'conversations_screen.dart';
+import 'user_profile_cache.dart';
 
 // ==========================================
 // Social Hub Screen
@@ -77,7 +79,7 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
   // ফায়ারবেসে ফ্রেন্ড রিকুয়েস্ট পাঠানোর লজিক
   Future<void> _sendFriendRequest(String targetUserId) async {
     if (currentUser == null) return;
-    
+
     // Target User এর ফ্রেন্ডস কালেকশনে রিকুয়েস্ট পাঠানো হচ্ছে
     await FirebaseFirestore.instance.collection('users').doc(targetUserId).collection('friends').doc(currentUser!.uid).set({
       'status': 'pending',
@@ -274,10 +276,10 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
                                   ),
                                 );
                               }
-                              
+
                               final relationData = friendSnap.data!.data() as Map<String, dynamic>;
                               final status = relationData['status'] ?? '';
-                              
+
                               if (status == 'accepted') {
                                 return OutlinedButton.icon(
                                   onPressed: null,
@@ -313,7 +315,7 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
                                   ],
                                 );
                               }
-                              
+
                               return ElevatedButton.icon(
                                 onPressed: () => _sendFriendRequest(userId),
                                 icon: const Icon(Icons.person_add_alt_1_rounded, size: 16),
@@ -349,6 +351,7 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
         }
 
         final docs = snapshot.data!.docs;
+        UserProfileCache.prefetch(docs.map((d) => d.id));
         final pendingRequests = docs.where((d) => (d.data() as Map<String, dynamic>)['status'] == 'pending').toList();
         final friends = docs.where((d) => (d.data() as Map<String, dynamic>)['status'] == 'accepted').toList();
 
@@ -360,16 +363,17 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
               const SizedBox(height: 8),
               ...pendingRequests.map((req) {
                 final requesterId = req.id;
-                return FutureBuilder<DocumentSnapshot>(
-                  future: FirebaseFirestore.instance.collection('users').doc(requesterId).get(),
+                return FutureBuilder<Map<String, dynamic>>(
+                  future: UserProfileCache.get(requesterId),
+                  initialData: UserProfileCache.peek(requesterId),
                   builder: (ctx, userSnap) {
                     if (!userSnap.hasData) return const SizedBox.shrink();
-                    final userData = userSnap.data!.data() as Map<String, dynamic>? ?? {};
+                    final userData = userSnap.data ?? const <String, dynamic>{};
                     final photoUrl = userData['photoUrl'] as String?;
                     ImageProvider? avatarImage;
                     if (photoUrl != null && photoUrl.isNotEmpty) {
                       avatarImage = photoUrl.startsWith('http')
-                          ? NetworkImage(photoUrl)
+                          ? CachedNetworkImageProvider(photoUrl)
                           : FileImage(File(photoUrl)) as ImageProvider;
                     }
 
@@ -444,22 +448,23 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
               }),
               const Divider(height: 32),
             ],
-            
+
             const Text('My Friends', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.grey)),
             const SizedBox(height: 8),
             if (friends.isEmpty) const Text('You have no friends on your list yet.'),
             ...friends.map((friendDoc) {
               final friendId = friendDoc.id;
-              return FutureBuilder<DocumentSnapshot>(
-                future: FirebaseFirestore.instance.collection('users').doc(friendId).get(),
+              return FutureBuilder<Map<String, dynamic>>(
+                future: UserProfileCache.get(friendId),
+                initialData: UserProfileCache.peek(friendId),
                 builder: (ctx, userSnap) {
                   if (!userSnap.hasData) return const ListTile(title: Text('Loading...'));
-                  final userData = userSnap.data!.data() as Map<String, dynamic>? ?? {};
+                  final userData = userSnap.data ?? const <String, dynamic>{};
                   final photoUrl = userData['photoUrl'] as String?;
                   ImageProvider? avatarImage;
                   if (photoUrl != null && photoUrl.isNotEmpty) {
                     avatarImage = photoUrl.startsWith('http')
-                        ? NetworkImage(photoUrl)
+                        ? CachedNetworkImageProvider(photoUrl)
                         : FileImage(File(photoUrl)) as ImageProvider;
                   }
                   return ListTile(
@@ -708,11 +713,12 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
                             final friendId = friendIds[index];
                             final isSelected = selectedFriendIds.contains(friendId);
 
-                            return FutureBuilder<DocumentSnapshot>(
-                              future: FirebaseFirestore.instance.collection('users').doc(friendId).get(),
+                            return FutureBuilder<Map<String, dynamic>>(
+                              future: UserProfileCache.get(friendId),
+                              initialData: UserProfileCache.peek(friendId),
                               builder: (context, userSnap) {
                                 if (!userSnap.hasData) return const SizedBox.shrink();
-                                final userData = userSnap.data!.data() as Map<String, dynamic>? ?? {};
+                                final userData = userSnap.data ?? const <String, dynamic>{};
                                 final name = userData['displayName'] ?? 'Study Buddy';
                                 final email = userData['email'] ?? '';
 
@@ -876,73 +882,110 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
     );
   }
 
-  Widget _buildGlobalLeaderboard() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection('users').snapshots(),
+  // লিডারবোর্ড একবার আনা হয় (live নয়), নিচে টেনে রিফ্রেশ করা যায়। কোন বোতাম চাপা তা দিয়ে মনে রাখা।
+  Future<List<Map<String, dynamic>>>? _lbFuture;
+  String? _lbKey;
+  static const int _lbSize = 50;
+
+  Future<List<Map<String, dynamic>>> _leaderboardFuture({bool refresh = false}) {
+    final key = '$_leaderboardPeriod|$_leaderboardFriendsOnly';
+    if (!refresh && _lbFuture != null && _lbKey == key) return _lbFuture!;
+    _lbKey = key;
+    return _lbFuture = (_leaderboardFriendsOnly ? _loadFriendsLeaderboard() : _loadGlobalLeaderboard()).then(_sortLeaderboard);
+  }
+
+  List<Map<String, dynamic>> _sortLeaderboard(List<Map<String, dynamic>> users) {
+    if (_leaderboardPeriod == 'weekly') {
+      users.sort((a, b) => ((b['weeklyXp'] as int) + (b['weeklyStreak'] as int) * 5)
+          .compareTo((a['weeklyXp'] as int) + (a['weeklyStreak'] as int) * 5));
+    } else {
+      users.sort((a, b) => (b['score'] as int).compareTo(a['score'] as int));
+    }
+    return users.take(_lbSize).toList();
+  }
+
+  /// আগে অ্যাপের সব ব্যবহারকারীর পুরো ডেটা live নামত (ফ্রি সীমা দ্রুত শেষ হওয়ার ঝুঁকি)।
+  /// এখন শুধু সেরা কয়েকজন: XP-তে সেরা ১০০ + streak-এ সেরা ৫০ (স্কোর দুটো মিলিয়ে)।
+  Future<List<Map<String, dynamic>>> _loadGlobalLeaderboard() async {
+    final users = FirebaseFirestore.instance.collection('users');
+    final byId = <String, Map<String, dynamic>>{};
+    if (_leaderboardPeriod == 'weekly') {
+      final week = GamificationService.currentWeekKey();
+      QuerySnapshot snap;
+      try {
+        // দ্রুত পথ: Firebase console-এ (weeklyXpWeek, weeklyXp) index লাগে
+        snap = await users.where('weeklyXpWeek', isEqualTo: week).orderBy('weeklyXp', descending: true).limit(100).get();
+      } catch (e) {
+        debugPrint('weekly leaderboard index missing, fallback: $e');
+        snap = await users.where('weeklyXpWeek', isEqualTo: week).limit(200).get();
+      }
+      for (final d in snap.docs) {
+        byId[d.id] = _leaderboardEntry(d);
+      }
+    } else {
+      final results = await Future.wait([
+        users.orderBy('totalXP', descending: true).limit(100).get(),
+        users.orderBy('streak', descending: true).limit(50).get(),
+      ]);
+      for (final snap in results) {
+        for (final d in snap.docs) {
+          byId[d.id] = _leaderboardEntry(d);
+        }
+      }
+    }
+    return byId.values.toList();
+  }
+
+  /// শুধু নিজের আর বন্ধুদের ডেটা (৩০ জন করে একসাথে)
+  Future<List<Map<String, dynamic>>> _loadFriendsLeaderboard() async {
+    if (currentUser == null) return [];
+    final friendSnap = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(currentUser!.uid)
+        .collection('friends')
+        .where('status', isEqualTo: 'accepted')
+        .get();
+    final ids = [currentUser!.uid, ...friendSnap.docs.map((d) => d.id)];
+    final snaps = await Future.wait([
+      for (var i = 0; i < ids.length; i += 30)
+        FirebaseFirestore.instance.collection('users').where(FieldPath.documentId, whereIn: ids.skip(i).take(30).toList()).get()
+    ]);
+    return [for (final snap in snaps) for (final d in snap.docs) _leaderboardEntry(d)];
+  }
+
+  Widget _buildGlobalLeaderboard() => _buildLeaderboardBody();
+  Widget _buildFriendsLeaderboard() => _buildLeaderboardBody();
+
+  Widget _buildLeaderboardBody() {
+    if (currentUser == null) return const SizedBox.shrink();
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _leaderboardFuture(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return const Center(child: Text('No leaderboard data yet.'));
+        if (snapshot.hasError) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(trx('Could not load the leaderboard. Pull down to try again.', 'লিডারবোর্ড আনা যায়নি। নিচে টেনে আবার চেষ্টা করুন।'),
+                  textAlign: TextAlign.center),
+            ),
+          );
         }
-
-        final users = snapshot.data!.docs.map((doc) {
-          return _leaderboardEntry(doc);
-        }).toList();
-
-        if (_leaderboardPeriod == 'weekly') {
-          users.sort((a, b) => ((b['weeklyXp'] as int) + (b['weeklyStreak'] as int) * 5)
-              .compareTo((a['weeklyXp'] as int) + (a['weeklyStreak'] as int) * 5));
-        } else {
-          users.sort((a, b) => (b['score'] as int).compareTo(a['score'] as int));
-        }
-
-        return _buildLeaderboardList(users);
-      },
-    );
-  }
-
-  Widget _buildFriendsLeaderboard() {
-    if (currentUser == null) return const SizedBox.shrink();
-    return FutureBuilder<QuerySnapshot>(
-      future: FirebaseFirestore.instance
-          .collection('users')
-          .doc(currentUser!.uid)
-          .collection('friends')
-          .where('status', isEqualTo: 'accepted')
-          .get(),
-      builder: (context, friendSnap) {
-        if (!friendSnap.hasData) return const Center(child: CircularProgressIndicator());
-        final friendIds = [currentUser!.uid, ...friendSnap.data!.docs.map((d) => d.id)];
-
-        return StreamBuilder<QuerySnapshot>(
-          stream: FirebaseFirestore.instance.collection('users').snapshots(),
-          builder: (context, snapshot) {
-            if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-
-            final users = snapshot.data!.docs
-                .where((doc) => friendIds.contains(doc.id))
-                .map((doc) {
-              return _leaderboardEntry(doc);
-            }).toList();
-
-            if (_leaderboardPeriod == 'weekly') {
-              users.sort((a, b) => ((b['weeklyXp'] as int) + (b['weeklyStreak'] as int) * 5)
-                  .compareTo((a['weeklyXp'] as int) + (a['weeklyStreak'] as int) * 5));
-            } else {
-              users.sort((a, b) => (b['score'] as int).compareTo(a['score'] as int));
-            }
-
-            return _buildLeaderboardList(users);
+        return RefreshIndicator(
+          onRefresh: () async {
+            setState(() => _leaderboardFuture(refresh: true));
+            await _lbFuture;
           },
+          child: _buildLeaderboardList(snapshot.data ?? []),
         );
       },
     );
   }
 
   /// Leaderboard row from a user document (XP field = totalXP, streak saved by GamificationService)
-  Map<String, dynamic> _leaderboardEntry(QueryDocumentSnapshot doc) {
+  Map<String, dynamic> _leaderboardEntry(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     final int xp = ((data['totalXP'] ?? data['xp'] ?? 0) as num).toInt();
 
@@ -975,6 +1018,7 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
       return const Center(child: Text('No data yet.', style: TextStyle(color: Colors.grey)));
     }
     return ListView.builder(
+      physics: const AlwaysScrollableScrollPhysics(), // ছোট তালিকাতেও টেনে রিফ্রেশ
       padding: const EdgeInsets.all(12),
       itemCount: users.length,
       itemBuilder: (context, index) {
@@ -1113,15 +1157,16 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Profile Header
-          FutureBuilder<DocumentSnapshot>(
-            future: FirebaseFirestore.instance.collection('users').doc(widget.friendId).get(),
+          FutureBuilder<Map<String, dynamic>>(
+            future: UserProfileCache.get(widget.friendId),
+            initialData: UserProfileCache.peek(widget.friendId),
             builder: (context, userSnap) {
-              final userData = userSnap.data?.data() as Map<String, dynamic>? ?? {};
+              final userData = userSnap.data ?? const <String, dynamic>{};
               final photoUrl = userData['photoUrl'] as String?;
               ImageProvider? avatarImage;
               if (photoUrl != null && photoUrl.isNotEmpty) {
                 avatarImage = photoUrl.startsWith('http')
-                    ? NetworkImage(photoUrl)
+                    ? CachedNetworkImageProvider(photoUrl)
                     : FileImage(File(photoUrl)) as ImageProvider;
               }
               return Container(
@@ -1207,7 +1252,7 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
               ],
             ),
           ),
-          
+
           // Friend's Tasks for the selected day
           Expanded(
             child: StreamBuilder<DocumentSnapshot>(
@@ -1221,7 +1266,7 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
                 if (relationSnap.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
-                
+
                 bool isFriend = false;
                 if (relationSnap.hasData && relationSnap.data!.exists) {
                   final data = relationSnap.data!.data() as Map<String, dynamic>?;
@@ -1229,7 +1274,7 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
                     isFriend = true;
                   }
                 }
-                
+
                 if (!isFriend) {
                   return Center(
                     child: Padding(
@@ -1273,7 +1318,7 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
                     }
 
                     DailyRoutine routine = DailyRoutine.fromMap(snapshot.data!.data() as Map<String, dynamic>, snapshot.data!.id);
-                    
+
                     if (routine.tasks.isEmpty) {
                       return const Center(child: Text('No tasks available.'));
                     }
@@ -1283,7 +1328,7 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
                       itemCount: routine.tasks.length,
                       itemBuilder: (context, index) {
                         final task = routine.tasks[index];
-                        
+
                         final isCompleted = task.isCompleted || task.status == 'completed';
                         final fromElapsed = task.totalDurationMinutes > 0
                             ? (task.elapsedSeconds / (task.totalDurationMinutes * 60))
@@ -1320,7 +1365,7 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
                         }
 
                         String displayTitle = task.isPrivate ? 'Private Task'.tr() : (task.subject ?? task.title);
-                        
+
                         String timeText = '';
                         if (task.startTime != null && task.endTime != null) {
                           timeText = '${DateFormat('h:mm a').format(task.startTime!)} - ${DateFormat('h:mm a').format(task.endTime!)}';
@@ -1560,11 +1605,11 @@ class _FriendDetailsScreenState extends State<FriendDetailsScreen> {
     if (confirm == true && mounted) {
       final currentUser = FirebaseAuth.instance.currentUser;
       if (currentUser == null) return;
-      
+
       try {
         await FirebaseFirestore.instance.collection('users').doc(currentUser.uid).collection('friends').doc(widget.friendId).delete();
         await FirebaseFirestore.instance.collection('users').doc(widget.friendId).collection('friends').doc(currentUser.uid).delete();
-        
+
         if (mounted) {
           // Go back from details screen and refresh previous screens
           Navigator.of(context).pop(); // Pops FriendDetailsScreen
@@ -1602,7 +1647,7 @@ class _FriendDetailsScreenState extends State<FriendDetailsScreen> {
     ImageProvider? avatarImage;
     if (photoUrl != null && photoUrl.isNotEmpty) {
       avatarImage = photoUrl.startsWith('http')
-          ? NetworkImage(photoUrl)
+          ? CachedNetworkImageProvider(photoUrl)
           : FileImage(File(photoUrl)) as ImageProvider;
     }
 

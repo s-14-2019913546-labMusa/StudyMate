@@ -1,11 +1,12 @@
 import 'dart:async';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:async/async.dart'; // StreamZip ব্যবহারের জন্য ইমপোর্ট করা হলো
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'chat_screen.dart';
 import 'bot_chat_screen.dart';
+import 'user_profile_cache.dart';
 
 class ConversationsScreen extends StatefulWidget {
   final bool isEmbedded;
@@ -49,9 +50,38 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
         .where('status', isEqualTo: 'accepted')
         .snapshots();
 
-    return StreamZip([chatsStream, friendsStream]).map((results) {
-      final chatDocs = results[0].docs;
-      final friendDocs = results[1].docs;
+    // আগে StreamZip ছিল: দুটো stream-ই নতুন খবর না দিলে তালিকা বদলাত না, তাই নতুন মেসেজ এলেও
+    // তালিকা আটকে থাকত। এখন যেকোনো একটা বদলালেই সাথে সাথে নতুন তালিকা (combineLatest)।
+    QuerySnapshot? lastChats, lastFriends;
+    StreamSubscription? subA, subB;
+    late final StreamController<List<dynamic>> controller;
+    void emit() {
+      if (lastChats != null && lastFriends != null) controller.add(_combine(lastChats!, lastFriends!));
+    }
+
+    controller = StreamController<List<dynamic>>(
+      onListen: () {
+        subA = chatsStream.listen((s) {
+          lastChats = s;
+          emit();
+        }, onError: controller.addError);
+        subB = friendsStream.listen((s) {
+          lastFriends = s;
+          emit();
+        }, onError: controller.addError);
+      },
+      onCancel: () async {
+        await subA?.cancel();
+        await subB?.cancel();
+      },
+    );
+    return controller.stream;
+  }
+
+  List<dynamic> _combine(QuerySnapshot chatsSnap, QuerySnapshot friendsSnap) {
+    {
+      final chatDocs = chatsSnap.docs;
+      final friendDocs = friendsSnap.docs;
 
       final chatParticipantIds = <String>{};
       for (var chatDoc in chatDocs) {
@@ -69,8 +99,10 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
       List<dynamic> combinedList = [];
       combinedList.addAll(chatDocs);
       combinedList.addAll(friendsWithoutChats);
+      // সব নাম/ছবি একসাথে আগেই আনা (একটা একটা করে নয়)
+      UserProfileCache.prefetch([...chatParticipantIds, ...friendsWithoutChats.map((d) => d.id)]);
       return combinedList;
-    });
+    }
   }
 
   Widget _buildBotTile(BuildContext context) {
@@ -252,19 +284,19 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
     return ListTile(
       onLongPress: () => _togglePinChat(chatId, isPinned),
       leading: CircleAvatar(
-        backgroundImage: groupPhotoUrl != null ? NetworkImage(groupPhotoUrl) : null,
+        backgroundImage: groupPhotoUrl != null ? CachedNetworkImageProvider(groupPhotoUrl) : null,
         child: groupPhotoUrl == null ? const Icon(Icons.groups_rounded) : null,
       ),
       title: Text(
-        groupName, 
+        groupName,
         style: TextStyle(
           fontWeight: isUnread ? FontWeight.w900 : FontWeight.bold,
           color: isUnread ? Theme.of(context).colorScheme.primary : null,
         )
       ),
       subtitle: Text(
-        lastMessage, 
-        maxLines: 1, 
+        lastMessage,
+        maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
           fontWeight: isUnread ? FontWeight.bold : FontWeight.normal,
@@ -316,14 +348,12 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
 
     if (otherUserId.isEmpty) return const SizedBox.shrink();
 
-    return FutureBuilder<DocumentSnapshot>(
-      future: FirebaseFirestore.instance.collection('users').doc(otherUserId).get(),
+    return FutureBuilder<Map<String, dynamic>>(
+      future: UserProfileCache.get(otherUserId),
+      initialData: UserProfileCache.peek(otherUserId),
       builder: (context, userSnapshot) {
-        if (!userSnapshot.hasData) {
-          return const ListTile(title: Text('Loading chat...'));
-        }
-
-        final userData = userSnapshot.data!.data() as Map<String, dynamic>? ?? {};
+        // নাম না এলেও শেষ মেসেজসহ সারিটা সাথে সাথে দেখাই
+        final userData = userSnapshot.data ?? const <String, dynamic>{};
         final nicknames = chatData['nicknames'] as Map<String, dynamic>? ?? {};
         final receiverNickname = nicknames[otherUserId] as String?;
         final receiverName = receiverNickname ?? (userData['displayName'] ?? 'Study Buddy');
@@ -353,15 +383,15 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
             ],
           ),
           title: Text(
-            receiverName, 
+            receiverName,
             style: TextStyle(
               fontWeight: isUnread ? FontWeight.w900 : FontWeight.bold,
               color: isUnread ? Theme.of(context).colorScheme.primary : null,
             )
           ),
           subtitle: Text(
-            lastMessage, 
-            maxLines: 1, 
+            lastMessage,
+            maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontWeight: isUnread ? FontWeight.bold : FontWeight.normal,
@@ -388,14 +418,11 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
   }
 
   Widget _buildFriendTile(BuildContext context, String friendId) {
-    return FutureBuilder<DocumentSnapshot>(
-      future: FirebaseFirestore.instance.collection('users').doc(friendId).get(),
+    return FutureBuilder<Map<String, dynamic>>(
+      future: UserProfileCache.get(friendId),
+      initialData: UserProfileCache.peek(friendId),
       builder: (context, userSnapshot) {
-        if (!userSnapshot.hasData) {
-          return const ListTile(title: Text('Loading friend...'));
-        }
-
-        final userData = userSnapshot.data!.data() as Map<String, dynamic>? ?? {};
+        final userData = userSnapshot.data ?? const <String, dynamic>{};
         final friendName = userData['displayName'] ?? 'Study Buddy';
         final statusColor = _getStatusColor(userData);
 
@@ -444,9 +471,9 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         Text(
-          timeString, 
+          timeString,
           style: TextStyle(
-            color: unreadCount > 0 ? Theme.of(context).colorScheme.primary : Colors.grey, 
+            color: unreadCount > 0 ? Theme.of(context).colorScheme.primary : Colors.grey,
             fontSize: 12,
             fontWeight: unreadCount > 0 ? FontWeight.bold : FontWeight.normal,
           ),

@@ -1,6 +1,7 @@
 import 'group_challenge_card.dart';
 import 'dart:io';
 import 'language_manager.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -8,6 +9,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'chat_theme_manager.dart';
 import 'social_hub_screen.dart';
+import 'user_profile_cache.dart';
 
 class GroupDetailsScreen extends StatefulWidget {
   final String groupId;
@@ -201,11 +203,12 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
                         itemCount: nonMembers.length,
                         itemBuilder: (context, index) {
                           final friendId = nonMembers[index];
-                          return FutureBuilder<DocumentSnapshot>(
-                            future: FirebaseFirestore.instance.collection('users').doc(friendId).get(),
+                          return FutureBuilder<Map<String, dynamic>>(
+                            future: UserProfileCache.get(friendId),
+                            initialData: UserProfileCache.peek(friendId),
                             builder: (context, userSnap) {
                               if (!userSnap.hasData) return const SizedBox.shrink();
-                              final userData = userSnap.data!.data() as Map<String, dynamic>? ?? {};
+                              final userData = userSnap.data ?? const <String, dynamic>{};
                               final name = userData['displayName'] ?? 'Study Buddy';
                               final email = userData['email'] ?? '';
 
@@ -504,7 +507,7 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
                             CircleAvatar(
                               radius: 44,
                               backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.1),
-                              backgroundImage: data['groupPhotoUrl'] != null ? NetworkImage(data['groupPhotoUrl']) : null,
+                              backgroundImage: data['groupPhotoUrl'] != null ? CachedNetworkImageProvider(data['groupPhotoUrl']) : null,
                               child: _isUploading
                                   ? const CircularProgressIndicator()
                                   : (data['groupPhotoUrl'] == null
@@ -627,15 +630,17 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
                   physics: const NeverScrollableScrollPhysics(),
                   itemCount: participants.length,
                   itemBuilder: (context, index) {
+                    if (index == 0) UserProfileCache.prefetch(participants.cast<String>()); // সবাইকে একসাথে
                     final memberId = participants[index];
                     final isMemberAdmin = admins.contains(memberId);
                     final isMe = memberId == currentUser!.uid;
 
-                    return FutureBuilder<DocumentSnapshot>(
-                      future: FirebaseFirestore.instance.collection('users').doc(memberId).get(),
+                    return FutureBuilder<Map<String, dynamic>>(
+                      future: UserProfileCache.get(memberId),
+                      initialData: UserProfileCache.peek(memberId),
                       builder: (ctx, userSnap) {
                         if (!userSnap.hasData) return const SizedBox.shrink();
-                        final userData = userSnap.data!.data() as Map<String, dynamic>? ?? {};
+                        final userData = userSnap.data ?? const <String, dynamic>{};
                         final name = userData['displayName'] ?? 'Study Buddy';
                         final lastSeen = (userData['lastSeen'] as Timestamp?)?.toDate();
                         Color statusColor = Colors.red;
