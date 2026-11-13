@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_compass/flutter_compass.dart';
 import 'package:geolocator/geolocator.dart';
 import 'dart:math' as math;
+import 'language_manager.dart' show trx;
 
 class QiblaCompassScreen extends StatefulWidget {
   const QiblaCompassScreen({super.key});
@@ -110,7 +111,7 @@ class _QiblaCompassScreenState extends State<QiblaCompassScreen> {
     return Scaffold(
       backgroundColor: primaryBg,
       appBar: AppBar(
-        title: const Text('Qibla Compass', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+        title: Text(trx('Qibla Compass', 'কিবলা কম্পাস'), style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
         backgroundColor: Colors.transparent,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
@@ -134,7 +135,7 @@ class _QiblaCompassScreenState extends State<QiblaCompassScreen> {
                       stream: FlutterCompass.events,
                       builder: (context, snapshot) {
                         if (snapshot.hasError) {
-                          return const Center(child: Text("Error reading compass sensor", style: TextStyle(color: Colors.white)));
+                          return Center(child: Text(trx('Error reading compass sensor', 'কম্পাস সেন্সর পড়া যাচ্ছে না'), style: TextStyle(color: Colors.white)));
                         }
                         if (snapshot.connectionState == ConnectionState.waiting) {
                           return const Center(child: CircularProgressIndicator(color: goldAccent));
@@ -143,9 +144,8 @@ class _QiblaCompassScreenState extends State<QiblaCompassScreen> {
                         double? direction = snapshot.data?.heading;
 
                         if (direction == null) {
-                          return const Center(
-                            child: Text(
-                              "Device does not have compass sensors.",
+                          return Center(
+                            child: Text(trx('Device does not have compass sensors.', 'এই ফোনে কম্পাস সেন্সর নেই।'),
                               style: TextStyle(color: Colors.white),
                               textAlign: TextAlign.center,
                             ),
@@ -260,8 +260,7 @@ class _QiblaCompassScreenState extends State<QiblaCompassScreen> {
                           const Icon(Icons.info_outline_rounded, color: goldAccent, size: 20),
                           const SizedBox(width: 12),
                           Expanded(
-                            child: Text(
-                              "Keep your device flat and away from electromagnetic interference or metal objects.",
+                            child: Text(trx('Keep your device flat and away from electromagnetic interference or metal objects.', 'ফোন সমান করে ধরুন, ধাতব জিনিস ও চুম্বক থেকে দূরে রাখুন।'),
                               style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12, height: 1.4),
                             ),
                           ),

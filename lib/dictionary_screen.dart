@@ -227,7 +227,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> with SingleTickerPr
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        title: const Text('Bilingual Dictionary', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(trx('Bilingual Dictionary', 'দ্বিভাষিক অভিধান'), style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.transparent,
         elevation: 0,
         bottom: TabBar(
@@ -299,8 +299,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> with SingleTickerPr
 
           // Suggestion list when empty
           if (_searchResult == null && !_isLoading) ...[
-            Text(
-              'Suggestions',
+            Text(trx('Suggestions', 'পরামর্শ'),
               style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
@@ -320,14 +319,14 @@ class _DictionaryScreenState extends State<DictionaryScreen> with SingleTickerPr
           ],
 
           if (_isLoading)
-            const Padding(
+            Padding(
               padding: EdgeInsets.symmetric(vertical: 60),
               child: Center(
                 child: Column(
                   children: [
                     CircularProgressIndicator(),
                     SizedBox(height: 16),
-                    Text('Searching and translating...', style: TextStyle(color: Colors.grey)),
+                    Text(trx('Searching and translating...', 'খোঁজা ও অনুবাদ হচ্ছে...'), style: TextStyle(color: Colors.grey)),
                   ],
                 ),
               ),
@@ -382,8 +381,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> with SingleTickerPr
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Weekly Revision Reminder!',
+                Text(trx('Weekly Revision Reminder!', 'সাপ্তাহিক রিভিশনের কথা মনে করিয়ে দিচ্ছি!'),
                   style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
                 ),
                 Text(
@@ -504,8 +502,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> with SingleTickerPr
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'উদাহরণ বাক্য (Example):',
+                    Text(trx('Example:', 'উদাহরণ বাক্য:'),
                       style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurfaceVariant),
                     ),
                     const SizedBox(height: 4),
@@ -523,8 +520,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> with SingleTickerPr
 
                 if (synonyms.isNotEmpty) ...[
                   const SizedBox(height: 20),
-                  Text(
-                    'সমার্থক শব্দ (Synonyms):',
+                  Text(trx('Synonyms:', 'সমার্থক শব্দ:'),
                     style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurfaceVariant),
                   ),
                   const SizedBox(height: 8),
@@ -579,13 +575,13 @@ class _DictionaryScreenState extends State<DictionaryScreen> with SingleTickerPr
     }
 
     if (_groupedFavorites.isEmpty) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.favorite_border_rounded, size: 64, color: Colors.grey),
             SizedBox(height: 16),
-            Text('No favorite words yet. Search and tap (+) to add!', style: TextStyle(color: Colors.grey)),
+            Text(trx('No favorite words yet. Search and tap (+) to add!', 'এখনো প্রিয় শব্দ নেই। খুঁজে (+) চাপলে যোগ হবে!'), style: TextStyle(color: Colors.grey)),
           ],
         ),
       );
@@ -621,7 +617,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> with SingleTickerPr
               ElevatedButton.icon(
                 onPressed: () => _openSlideshowDialog(dateStr, words),
                 icon: const Icon(Icons.play_circle_fill_rounded),
-                label: const Text('Show Words slideshow'),
+                label: Text(trx('Show Words slideshow', 'শব্দের স্লাইডশো')),
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size(double.infinity, 44),
                   backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
@@ -758,17 +754,17 @@ class _DictionaryScreenState extends State<DictionaryScreen> with SingleTickerPr
                       onPressed: index > 0
                           ? () => setDialogState(() => index--)
                           : null,
-                      child: const Text('Back'),
+                      child: Text(trx('Back', 'পেছনে')),
                     ),
                     TextButton(
                       onPressed: () => Navigator.pop(ctx),
-                      child: const Text('Close'),
+                      child: Text(trx('Close', 'বন্ধ')),
                     ),
                     TextButton(
                       onPressed: index < words.length - 1
                           ? () => setDialogState(() => index++)
                           : null,
-                      child: const Text('Next'),
+                      child: Text(trx('Next', 'পরেরটি')),
                     ),
                   ],
                 ),
@@ -790,7 +786,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> with SingleTickerPr
     });
 
     if (allWords.isEmpty) {
-      return const Center(
+      return Center(
         child: Padding(
           padding: EdgeInsets.all(24),
           child: Column(
@@ -798,12 +794,10 @@ class _DictionaryScreenState extends State<DictionaryScreen> with SingleTickerPr
             children: [
               Icon(Icons.psychology_outlined, size: 64, color: Colors.grey),
               SizedBox(height: 16),
-              Text(
-                'No words to memorize yet.',
+              Text(trx('No words to memorize yet.', 'মুখস্থ করার মতো শব্দ এখনো নেই।'),
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
-              Text(
-                'Add words to Favorites to start active recall memorizing session.',
+              Text(trx('Add words to Favorites to start active recall memorizing session.', 'মুখস্থ সেশন শুরু করতে আগে শব্দ প্রিয় তালিকায় যোগ করুন।'),
                 style: TextStyle(color: Colors.grey),
                 textAlign: TextAlign.center,
               ),
@@ -826,7 +820,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> with SingleTickerPr
           ElevatedButton.icon(
             onPressed: () => _startMemorizingSession(allWords),
             icon: const Icon(Icons.flash_on_rounded, size: 28),
-            label: const Text('Start Active Recall Session', style: TextStyle(fontSize: 18)),
+            label: Text(trx('Start Active Recall Session', 'মুখস্থ সেশন শুরু করুন'), style: TextStyle(fontSize: 18)),
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 20),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -835,14 +829,13 @@ class _DictionaryScreenState extends State<DictionaryScreen> with SingleTickerPr
           const SizedBox(height: 24),
 
           // Graded word folders grouped by day
-          Text(
-            'Saved Graded Words',
+          Text(trx('Saved Graded Words', 'সেভ করা শব্দ (সহজ/কঠিন)'),
             style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
 
           if (_groupedFavorites.keys.isEmpty)
-            const Text('No graded lists yet.', style: TextStyle(color: Colors.grey))
+            Text(trx('No graded lists yet.', 'এখনো কোনো তালিকা নেই।'), style: TextStyle(color: Colors.grey))
           else
             ..._groupedFavorites.keys.map((dateStr) {
               final dayWords = _groupedFavorites[dateStr]!;
@@ -877,7 +870,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> with SingleTickerPr
                                 child: Column(
                                   children: [
                                     Text('${easyList.length}', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.green)),
-                                    const Text('Easy Words', style: TextStyle(fontSize: 12, color: Colors.green, fontWeight: FontWeight.bold)),
+                                    Text(trx('Easy Words', 'সহজ শব্দ'), style: TextStyle(fontSize: 12, color: Colors.green, fontWeight: FontWeight.bold)),
                                   ],
                                 ),
                               ),
@@ -896,7 +889,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> with SingleTickerPr
                                 child: Column(
                                   children: [
                                     Text('${hardList.length}', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.red)),
-                                    const Text('Hard Words', style: TextStyle(fontSize: 12, color: Colors.red, fontWeight: FontWeight.bold)),
+                                    Text(trx('Hard Words', 'কঠিন শব্দ'), style: TextStyle(fontSize: 12, color: Colors.red, fontWeight: FontWeight.bold)),
                                   ],
                                 ),
                               ),
@@ -926,8 +919,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> with SingleTickerPr
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            const Text(
-              'Memorizing Summary',
+            Text(trx('Memorizing Summary', 'মুখস্থের সারাংশ'),
               style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
@@ -935,8 +927,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> with SingleTickerPr
               '$gradedCount / ${allWords.length}',
               style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold),
             ),
-            const Text(
-              'Words Memorized',
+            Text(trx('Words Memorized', 'মুখস্থ হওয়া শব্দ'),
               style: TextStyle(color: Colors.white70, fontSize: 13),
             ),
             const Divider(height: 24, color: Colors.white24),
@@ -1083,8 +1074,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> with SingleTickerPr
                                   ],
                                 ),
                                 const Spacer(),
-                                const Text(
-                                  'Tap card to reveal details',
+                                Text(trx('Tap card to reveal details', 'বিস্তারিত দেখতে কার্ডে চাপুন'),
                                   style: TextStyle(color: Colors.white38, fontSize: 13),
                                 ),
                               ] else ...[
@@ -1165,7 +1155,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> with SingleTickerPr
                                   padding: const EdgeInsets.symmetric(vertical: 18),
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                                 ),
-                                child: const Text('Easy (সহজ)', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                                child: Text(trx('Easy', 'সহজ'), style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
                               ),
                             ),
                             const SizedBox(width: 16),
@@ -1190,15 +1180,14 @@ class _DictionaryScreenState extends State<DictionaryScreen> with SingleTickerPr
                                   padding: const EdgeInsets.symmetric(vertical: 18),
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                                 ),
-                                child: const Text('Hard (কঠিন)', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                                child: Text(trx('Hard', 'কঠিন'), style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
                               ),
                             ),
                           ],
                         )
                       else
-                        const Center(
-                          child: Text(
-                            'Please tap the card to verify answer first.',
+                        Center(
+                          child: Text(trx('Please tap the card to verify answer first.', 'আগে কার্ডে চেপে উত্তর দেখে নিন।'),
                             style: TextStyle(color: Colors.white54, fontSize: 13),
                           ),
                         ),

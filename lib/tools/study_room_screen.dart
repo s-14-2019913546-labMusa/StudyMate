@@ -53,6 +53,7 @@ import '../multi_sheet_manager_screen.dart';
 import '../notifications_hub_screen.dart';
 import '../widgets/sound_picker_widget.dart';
 import '../tools_screen.dart';
+import '../widgets/avatar_image.dart';
 
 // ==========================================
 // 7. Study Room Screen (একসাথে পড়া)
@@ -368,9 +369,9 @@ class _StudyRoomScreenState extends State<StudyRoomScreen> {
                           future: FirebaseFirestore.instance.collection('users').doc(fId).get(),
                           builder: (ctx, userSnap) {
                             if (!userSnap.hasData) {
-                              return const ListTile(
+                              return ListTile(
                                 leading: CircleAvatar(child: Icon(Icons.person)),
-                                title: Text('Loading Buddy...'),
+                                title: Text(trx('Loading Buddy...', 'সঙ্গীর তথ্য আসছে...')),
                               );
                             }
 
@@ -379,9 +380,7 @@ class _StudyRoomScreenState extends State<StudyRoomScreen> {
                             final photoUrl = userData['photoUrl'] as String?;
                             ImageProvider? avatarImage;
                             if (photoUrl != null && photoUrl.isNotEmpty) {
-                              avatarImage = photoUrl.startsWith('http')
-                                  ? NetworkImage(photoUrl)
-                                  : FileImage(File(photoUrl)) as ImageProvider;
+                              avatarImage = avatarImageProvider(photoUrl);
                             }
 
                             return ListTile(
@@ -492,8 +491,8 @@ class _StudyRoomScreenState extends State<StudyRoomScreen> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Study Partner Room')),
-        body: const Center(child: Text('Please log in to access Study Partner Rooms.')),
+        appBar: AppBar(title: Text(trx('Study Partner Room', 'স্টাডি রুম'))),
+        body: Center(child: Text(trx('Please log in to access Study Partner Rooms.', 'স্টাডি রুমে যেতে লগইন করুন।'))),
       );
     }
 

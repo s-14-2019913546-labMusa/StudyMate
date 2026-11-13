@@ -295,13 +295,11 @@ class _QuranReaderScreenState extends State<QuranReaderScreen>
                           ),
                         ),
                         const SizedBox(height: 14),
-                        const Text(
-                          'পারা নির্বাচন করুন',
+                        Text(trx('Choose a Para', 'পারা নির্বাচন করুন'),
                           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
                         ),
                         const SizedBox(height: 4),
-                        const Text(
-                          '৩০টি পারা • প্রতি পারায় ২০ পৃষ্ঠা',
+                        Text(trx('30 Paras • 20 pages each', '৩০টি পারা • প্রতি পারায় ২০ পৃষ্ঠা'),
                           style: TextStyle(color: Colors.white54, fontSize: 12),
                         ),
                         const SizedBox(height: 12),
@@ -400,7 +398,7 @@ class _QuranReaderScreenState extends State<QuranReaderScreen>
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF162D24),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('পৃষ্ঠায় যান',
+        title: Text(trx('Go to page', 'পৃষ্ঠায় যান'),
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         content: TextField(
           controller: ctrl,
@@ -428,7 +426,7 @@ class _QuranReaderScreenState extends State<QuranReaderScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('বাতিল', style: TextStyle(color: Colors.white54)),
+            child: Text(trx('Cancel', 'বাতিল'), style: TextStyle(color: Colors.white54)),
           ),
           ElevatedButton(
             onPressed: () {
@@ -452,7 +450,7 @@ class _QuranReaderScreenState extends State<QuranReaderScreen>
               backgroundColor: goldAccent,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
-            child: const Text('যাও',
+            child: Text(trx('Go', 'যাও'),
                 style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
           ),
         ],
@@ -718,14 +716,14 @@ class _QuranReaderScreenState extends State<QuranReaderScreen>
                   ),
                 ),
                 const SizedBox(height: 18),
-                const Text('হাফেজি কুরআন সেটিংস',
+                Text(trx('Hafezi Quran settings', 'হাফেজি কুরআন সেটিংস'),
                     style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
                     textAlign: TextAlign.center),
                 const SizedBox(height: 16),
                 Row(children: [
                   const Icon(Icons.format_size_rounded, color: goldAccent, size: 20),
                   const SizedBox(width: 12),
-                  const Text('আরবি লেখার সাইজ', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                  Text(trx('Arabic text size', 'আরবি লেখার সাইজ'), style: TextStyle(color: Colors.white70, fontSize: 14)),
                   const Spacer(),
                   Text('${_pageArabicFontSize.toInt()} px',
                       style: const TextStyle(color: goldAccent, fontWeight: FontWeight.bold, fontSize: 14)),
@@ -741,7 +739,7 @@ class _QuranReaderScreenState extends State<QuranReaderScreen>
                   },
                 ),
                 SwitchListTile(
-                  title: const Text('অনুবাদ দেখুন', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                  title: Text(trx('Show translation', 'অনুবাদ দেখুন'), style: TextStyle(color: Colors.white70, fontSize: 14)),
                   value: _showPageTranslation,
                   activeThumbColor: goldAccent,
                   contentPadding: EdgeInsets.zero,
@@ -769,7 +767,7 @@ class _QuranReaderScreenState extends State<QuranReaderScreen>
     return Scaffold(
       backgroundColor: primaryBg,
       appBar: AppBar(
-        title: const Text('পবিত্র কুরআন শরীফ',
+        title: Text(trx('The Holy Quran', 'পবিত্র কুরআন শরীফ'),
             style: TextStyle(fontWeight: FontWeight.bold, color: textLight)),
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -836,7 +834,7 @@ class _QuranReaderScreenState extends State<QuranReaderScreen>
                   child: ElevatedButton.icon(
                     onPressed: _downloadAllSurahs,
                     icon: const Icon(Icons.download_for_offline_rounded, color: Colors.black, size: 18),
-                    label: const Text('সব সুরা অফলাইনে ডাউনলোড করুন (১১৪টি)',
+                    label: Text(trx('Download all surahs for offline (114)', 'সব সুরা অফলাইনে ডাউনলোড করুন (১১৪টি)'),
                         style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 13)),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: goldAccent,
@@ -1063,8 +1061,8 @@ class _QuranReaderScreenState extends State<QuranReaderScreen>
                     children: [
                       const Icon(Icons.wifi_off_rounded, color: Colors.orangeAccent, size: 14),
                       const SizedBox(width: 8),
-                      const Expanded(
-                        child: Text('এই পৃষ্ঠাটি ক্যাশে নেই। ডাউনলোড করুন।',
+                      Expanded(
+                        child: Text(trx('This page isn\'t saved yet. Download it.', 'এই পৃষ্ঠাটি ক্যাশে নেই। ডাউনলোড করুন।'),
                             style: TextStyle(color: Colors.white60, fontSize: 11)),
                       ),
                       TextButton(
@@ -1072,7 +1070,7 @@ class _QuranReaderScreenState extends State<QuranReaderScreen>
                         style: TextButton.styleFrom(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                             minimumSize: Size.zero),
-                        child: const Text('পৃষ্ঠা ডাউনলোড',
+                        child: Text(trx('Download page', 'পৃষ্ঠা ডাউনলোড'),
                             style: TextStyle(color: goldAccent, fontSize: 11, fontWeight: FontWeight.bold)),
                       ),
                       TextButton(
@@ -1080,7 +1078,7 @@ class _QuranReaderScreenState extends State<QuranReaderScreen>
                         style: TextButton.styleFrom(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                             minimumSize: Size.zero),
-                        child: const Text('সব ডাউনলোড',
+                        child: Text(trx('Download all', 'সব ডাউনলোড'),
                             style: TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.bold)),
                       ),
                     ],
@@ -1119,7 +1117,7 @@ class _QuranReaderScreenState extends State<QuranReaderScreen>
                                     Text('পৃষ্ঠা $pageNum লোড করা যায়নি', style: const TextStyle(color: Colors.white70, fontSize: 13)),
                                     TextButton(
                                       onPressed: () => _loadSinglePage(pageNum),
-                                      child: const Text('আবার চেষ্টা করুন', style: TextStyle(color: goldAccent)),
+                                      child: Text(trx('Try again', 'আবার চেষ্টা করুন'), style: TextStyle(color: goldAccent)),
                                     ),
                                   ],
                                 ),
@@ -1129,7 +1127,7 @@ class _QuranReaderScreenState extends State<QuranReaderScreen>
                           return Container(
                             height: 120,
                             alignment: Alignment.center,
-                            child: const Column(
+                            child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 SizedBox(
@@ -1137,7 +1135,7 @@ class _QuranReaderScreenState extends State<QuranReaderScreen>
                                   child: CircularProgressIndicator(color: goldAccent, strokeWidth: 2),
                                 ),
                                 SizedBox(height: 10),
-                                Text('পৃষ্ঠা লোড হচ্ছে...', style: TextStyle(color: Colors.white38, fontSize: 12)),
+                                Text(trx('Loading page...', 'পৃষ্ঠা লোড হচ্ছে...'), style: TextStyle(color: Colors.white38, fontSize: 12)),
                               ],
                             ),
                           );

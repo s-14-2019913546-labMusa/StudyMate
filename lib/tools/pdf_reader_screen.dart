@@ -189,8 +189,7 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                                   style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                                 ),
                                 const SizedBox(height: 8),
-                                Text(
-                                  'Import Handnotes, Books or Lecture PDFs to study inside StudyMate.',
+                                Text(trx('Import Handnotes, Books or Lecture PDFs to study inside StudyMate.', 'হ্যান্ডনোট, বই বা লেকচারের PDF এনে StudyMate-এর ভেতরেই পড়ুন।'),
                                   textAlign: TextAlign.center,
                                   style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
                                 ),
@@ -198,7 +197,7 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                                 ElevatedButton.icon(
                                   onPressed: _pickPdf,
                                   icon: const Icon(Icons.add_to_photos_rounded),
-                                  label: const Text('Import Document'),
+                                  label: Text(trx('Import Document', 'ফাইল আনুন')),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: theme.colorScheme.primary,
                                     foregroundColor: Colors.white,
@@ -462,7 +461,7 @@ class _InAppPdfViewerScreenState extends State<InAppPdfViewerScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('🔖 বুকমার্ক করা পেজ', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text(trx('🔖 Bookmarked pages', '🔖 বুকমার্ক করা পেজ'), style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
             Flexible(
               child: ListView.builder(

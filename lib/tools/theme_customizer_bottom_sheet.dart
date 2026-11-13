@@ -174,15 +174,13 @@ class ThemeCustomizerBottomSheet extends StatelessWidget {
                   children: [
                     Icon(Icons.palette_rounded, color: theme.colorScheme.primary, size: 28),
                     const SizedBox(width: 8),
-                    Text(
-                      'Premium Theme Customizer',
+                    Text(trx('Theme Customizer', 'থিম বদলান'),
                       style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  'Select a custom theme to personalize your study environment.',
+                Text(trx('Select a custom theme to personalize your study environment.', 'নিজের পছন্দের থিম বেছে নিন।'),
                   textAlign: TextAlign.center,
                   style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontSize: 13),
                 ),
@@ -285,8 +283,7 @@ class ThemeCustomizerBottomSheet extends StatelessWidget {
                   children: [
                     Icon(Icons.font_download_rounded, color: theme.colorScheme.primary, size: 24),
                     const SizedBox(width: 8),
-                    Text(
-                      'App Font Style',
+                    Text(trx('App Font Style', 'অ্যাপের ফন্ট'),
                       style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                     ),
                   ],
@@ -340,8 +337,7 @@ class ThemeCustomizerBottomSheet extends StatelessWidget {
                   children: [
                     Icon(Icons.dashboard_customize_rounded, color: theme.colorScheme.primary, size: 24),
                     const SizedBox(width: 8),
-                    Text(
-                      'App Layout Style',
+                    Text(trx('App Layout Style', 'অ্যাপের লেআউট'),
                       style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                     ),
                   ],

@@ -449,7 +449,7 @@ class _SleepTrackerScreenState extends State<SleepTrackerScreen> with SingleTick
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text('Sleep Tracker', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(trx('Sleep Tracker', 'ঘুমের হিসাব'), style: TextStyle(fontWeight: FontWeight.bold)),
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: Theme.of(context).colorScheme.primary,
@@ -478,9 +478,9 @@ class _SleepTrackerScreenState extends State<SleepTrackerScreen> with SingleTick
           children: [
             const Icon(Icons.nightlight_round, size: 80, color: Colors.amberAccent),
             const SizedBox(height: 24),
-            const Text('Good Night!', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white)),
+            Text(trx('Good Night!', 'শুভ রাত্রি!'), style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white)),
             const SizedBox(height: 8),
-            const Text('Sleep timer is running...', style: TextStyle(color: Colors.white70)),
+            Text(trx('Sleep timer is running...', 'ঘুমের টাইমার চলছে...'), style: TextStyle(color: Colors.white70)),
             const SizedBox(height: 40),
             Text(
               _formatDuration(duration),
@@ -490,7 +490,7 @@ class _SleepTrackerScreenState extends State<SleepTrackerScreen> with SingleTick
             ElevatedButton.icon(
               onPressed: _stopSleepAndSave,
               icon: const Icon(Icons.stop_circle_rounded),
-              label: const Text('Wake Up Now (Stop)'),
+              label: Text(trx('Wake Up Now (Stop)', 'এখন উঠেছি (বন্ধ)')),
               style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16)),
             ),
           ],
@@ -505,9 +505,9 @@ class _SleepTrackerScreenState extends State<SleepTrackerScreen> with SingleTick
         children: [
           const Icon(Icons.bedtime_rounded, size: 80, color: Colors.indigoAccent),
           const SizedBox(height: 24),
-          Text('Set Your Sleep Schedule', textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary)),
+          Text(trx('Set Your Sleep Schedule', 'ঘুমের সময় ঠিক করুন'), textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary)),
           const SizedBox(height: 8),
-          const Text('The alarm will ring at the morning time and snooze every 5 minutes if not turned off.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
+          Text(trx('The alarm will ring at the morning time and snooze every 5 minutes if not turned off.', 'সকালের সময়ে অ্যালার্ম বাজবে, বন্ধ না করলে প্রতি ৫ মিনিট পর আবার বাজবে।'), textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
           const SizedBox(height: 40),
           
           Row(
@@ -529,7 +529,7 @@ class _SleepTrackerScreenState extends State<SleepTrackerScreen> with SingleTick
           ElevatedButton.icon(
             onPressed: _saveSettings,
             icon: const Icon(Icons.save_rounded),
-            label: const Text('Save Time', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            label: Text(trx('Save Time', 'সময় সেভ'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             style: ElevatedButton.styleFrom(
                padding: const EdgeInsets.symmetric(vertical: 14),
                backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
@@ -564,8 +564,7 @@ class _SleepTrackerScreenState extends State<SleepTrackerScreen> with SingleTick
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
-                                'Morning Alarm Sound',
+                              Text(trx('Morning Alarm Sound', 'সকালের অ্যালার্মের সুর'),
                                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                               ),
                               const SizedBox(height: 8),
@@ -607,17 +606,15 @@ class _SleepTrackerScreenState extends State<SleepTrackerScreen> with SingleTick
                           child: const Icon(Icons.repeat_rounded, color: Colors.indigo),
                         ),
                         const SizedBox(width: 14),
-                        const Expanded(
+                        Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                'Alarm Repeat',
+                              Text(trx('Alarm Repeat', 'অ্যালার্ম কতবার'),
                                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                               ),
                               SizedBox(height: 2),
-                              Text(
-                                'অ্যালার্ম পুনরাবৃত্তি',
+                              Text(trx('Alarm repeat', 'অ্যালার্ম পুনরাবৃত্তি'),
                                 style: TextStyle(color: Colors.grey, fontSize: 12),
                               ),
                             ],
@@ -636,12 +633,12 @@ class _SleepTrackerScreenState extends State<SleepTrackerScreen> with SingleTick
                               await prefs.setString('sleepAlarmRepeatCount', val);
                             }
                           },
-                          items: const [
-                            DropdownMenuItem(value: 'loop', child: Text('Loop Continuously')),
-                            DropdownMenuItem(value: '1', child: Text('1 Time')),
-                            DropdownMenuItem(value: '2', child: Text('2 Times')),
-                            DropdownMenuItem(value: '3', child: Text('3 Times')),
-                            DropdownMenuItem(value: '4', child: Text('4 Times')),
+                          items: [
+                            DropdownMenuItem(value: 'loop', child: Text(trx('Loop Continuously', 'বন্ধ না করা পর্যন্ত'))),
+                            DropdownMenuItem(value: '1', child: Text(trx('1 Time', '১ বার'))),
+                            DropdownMenuItem(value: '2', child: Text(trx('2 Times', '২ বার'))),
+                            DropdownMenuItem(value: '3', child: Text(trx('3 Times', '৩ বার'))),
+                            DropdownMenuItem(value: '4', child: Text(trx('4 Times', '৪ বার'))),
                           ],
                         ),
                       ],
@@ -656,7 +653,7 @@ class _SleepTrackerScreenState extends State<SleepTrackerScreen> with SingleTick
           ElevatedButton.icon(
             onPressed: _startSleep,
             icon: const Icon(Icons.bed_rounded, size: 28),
-            label: const Text('Go to Sleep', style: TextStyle(fontSize: 18)),
+            label: Text(trx('Go to Sleep', 'ঘুমাতে যান'), style: TextStyle(fontSize: 18)),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.indigo,
               padding: const EdgeInsets.symmetric(vertical: 20),
@@ -806,7 +803,7 @@ class _SleepTrackerScreenState extends State<SleepTrackerScreen> with SingleTick
   }
 
   Widget _buildHistoryTab() {
-    if (currentUser == null || _sleepHistoryStream == null) return const Center(child: Text("Please log in to view sleep history."));
+    if (currentUser == null || _sleepHistoryStream == null) return Center(child: Text(trx('Please log in to view sleep history.', 'ঘুমের ইতিহাস দেখতে লগইন করুন।')));
 
     return StreamBuilder<QuerySnapshot>(
       stream: _sleepHistoryStream,

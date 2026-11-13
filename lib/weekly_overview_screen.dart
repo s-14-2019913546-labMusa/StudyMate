@@ -202,7 +202,7 @@ class _WeeklyOverviewScreenState extends State<WeeklyOverviewScreen> with Single
 
   Widget _buildDayTabContent(String day) {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return const Center(child: Text("User not logged in"));
+    if (user == null) return Center(child: Text(trx('User not logged in', 'লগইন করা নেই')));
 
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance

@@ -147,7 +147,7 @@ class _Revision147ScreenState extends State<Revision147Screen> with SingleTicker
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        title: const Text('1-4-7 Spaced Revision', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(trx('1-4-7 Spaced Revision', '১-৪-৭ রিভিশন'), style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.transparent,
         elevation: 0,
         iconTheme: IconThemeData(color: isDark ? Colors.white : Colors.black87),
@@ -229,8 +229,7 @@ class _Revision147ScreenState extends State<Revision147Screen> with SingleTicker
               onTap: () => _selectDate(context),
               child: Column(
                 children: [
-                  Text(
-                    'Reference Date',
+                  Text(trx('Reference Date', 'যে তারিখ ধরে'),
                     style: TextStyle(
                       fontSize: 12, 
                       fontWeight: FontWeight.w600, 
@@ -372,8 +371,7 @@ class _Revision147ScreenState extends State<Revision147Screen> with SingleTicker
               children: [
                 const CircularProgressIndicator(),
                 const SizedBox(height: 16),
-                Text(
-                  'টাস্ক খোঁজা হচ্ছে...',
+                Text(trx('Looking for tasks...', 'টাস্ক খোঁজা হচ্ছে...'),
                   style: TextStyle(color: Colors.grey.shade500, fontSize: 14),
                 ),
               ],
@@ -388,7 +386,7 @@ class _Revision147ScreenState extends State<Revision147Screen> with SingleTicker
               children: [
                 const Icon(Icons.wifi_off_rounded, size: 48, color: Colors.redAccent),
                 const SizedBox(height: 12),
-                Text('ডেটা লোড করতে সমস্যা হয়েছে।', style: TextStyle(color: Colors.grey.shade600)),
+                Text(trx('Could not load data.', 'ডেটা লোড করতে সমস্যা হয়েছে।'), style: TextStyle(color: Colors.grey.shade600)),
               ],
             ),
           );
@@ -517,8 +515,7 @@ class _Revision147ScreenState extends State<Revision147Screen> with SingleTicker
               child: const Icon(Icons.menu_book_rounded, size: 64, color: Colors.indigo),
             ),
             const SizedBox(height: 16),
-            const Text(
-              'No Study Tasks Found',
+            Text(trx('No Study Tasks Found', 'কোনো পড়ার টাস্ক পাওয়া যায়নি'),
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),

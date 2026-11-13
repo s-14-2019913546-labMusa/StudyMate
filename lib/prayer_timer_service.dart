@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'main.dart'; // for navigatorKey
 import 'local_notification_service.dart';
+import 'language_manager.dart' show trx;
 
 class PrayerTimerService {
   static final PrayerTimerService _instance = PrayerTimerService._internal();
@@ -120,7 +121,7 @@ class PrayerTimerService {
           children: [
             const Icon(Icons.mosque, color: Colors.green, size: 28),
             const SizedBox(width: 8),
-            const Text('সালাতের ওয়াক্ত', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+            Text(trx('Prayer time', 'সালাতের ওয়াক্ত'), style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
           ],
         ),
         content: Text(
@@ -144,7 +145,7 @@ class PrayerTimerService {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
               ),
-              child: const Text('ঠিক আছে', style: TextStyle(color: Colors.white, fontSize: 16)),
+              child: Text(trx('OK', 'ঠিক আছে'), style: TextStyle(color: Colors.white, fontSize: 16)),
             ),
           ),
         ],

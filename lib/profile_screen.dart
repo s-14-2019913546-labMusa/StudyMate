@@ -20,6 +20,7 @@ import 'ai_service.dart';
 import 'app_entry.dart';
 import 'nightly_summary_service.dart';
 import 'onboarding_screen.dart';
+import 'widgets/avatar_image.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -153,10 +154,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   CircleAvatar(
                     radius: 50,
                     backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-                    backgroundImage: _photoUrl != null && _photoUrl!.isNotEmpty
-                        ? (_photoUrl!.startsWith('http') ? NetworkImage(_photoUrl!) : FileImage(File(_photoUrl!)) as ImageProvider)
-                        : null,
-                    child: (_photoUrl == null || _photoUrl!.isEmpty)
+                    backgroundImage: avatarImageProvider(_photoUrl),
+                    child: avatarImageProvider(_photoUrl) == null
                         ? Text(
                             _user?.displayName?.isNotEmpty == true
                                 ? _user!.displayName!.substring(0, 1).toUpperCase()
@@ -826,9 +825,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         status = error == null ? '✅ Key কাজ করছে!' : '❌ কাজ করছে না: $error';
                       });
                     },
-              child: const Text('Test'),
+              child: Text(trx('Test', 'পরীক্ষা')),
             ),
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            TextButton(onPressed: () => Navigator.pop(ctx), child: Text(trx('Cancel', 'বাতিল'))),
             ElevatedButton(
               onPressed: () async {
                 final key = controller.text.trim();
@@ -840,7 +839,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   );
                 }
               },
-              child: const Text('Save'),
+              child: Text(trx('Save', 'সেভ')),
             ),
           ],
         ),

@@ -7,6 +7,8 @@ import 'package:intl/intl.dart';
 import 'chat_screen.dart';
 import 'bot_chat_screen.dart';
 import 'user_profile_cache.dart';
+import 'widgets/avatar_image.dart';
+import 'language_manager.dart' show trx;
 
 class ConversationsScreen extends StatefulWidget {
   final bool isEmbedded;
@@ -158,8 +160,7 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
             ),
           ],
         ),
-        subtitle: Text(
-          '🤖 স্মার্ট স্টাডি অ্যাসিস্ট্যান্ট (কুইজ, রুটিন ও স্টাডি গাইড)',
+        subtitle: Text(trx('🤖 Smart study assistant (quiz, routine & study guide)', '🤖 স্মার্ট স্টাডি অ্যাসিস্ট্যান্ট (কুইজ, রুটিন ও স্টাডি গাইড)'),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
@@ -182,8 +183,8 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
   Widget build(BuildContext context) {
     if (currentUser == null) {
       return widget.isEmbedded
-          ? const Center(child: Text('Please log in to see conversations.'))
-          : const Scaffold(body: Center(child: Text('Please log in to see conversations.')));
+          ? Center(child: Text(trx('Please log in to see conversations.', 'চ্যাট দেখতে লগইন করুন।')))
+          : Scaffold(body: Center(child: Text(trx('Please log in to see conversations.', 'চ্যাট দেখতে লগইন করুন।'))));
     }
 
     final bodyContent = StreamBuilder<List<dynamic>>(
@@ -256,7 +257,7 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Conversations', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(trx('Conversations', 'চ্যাট'), style: TextStyle(fontWeight: FontWeight.bold)),
       ),
       body: bodyContent,
     );
@@ -366,7 +367,10 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
           onLongPress: () => _togglePinChat(chatId, isPinned),
           leading: Stack(
             children: [
-              const CircleAvatar(child: Icon(Icons.person)),
+              Builder(builder: (_) {
+                final img = avatarImageProvider(userData['photoUrl'] as String?);
+                return CircleAvatar(backgroundImage: img, child: img == null ? const Icon(Icons.person) : null);
+              }),
               Positioned(
                 bottom: 0,
                 right: 0,
@@ -429,7 +433,10 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
         return ListTile(
           leading: Stack(
             children: [
-              const CircleAvatar(child: Icon(Icons.person_outline)),
+              Builder(builder: (_) {
+                final img = avatarImageProvider(userData['photoUrl'] as String?);
+                return CircleAvatar(backgroundImage: img, child: img == null ? const Icon(Icons.person_outline) : null);
+              }),
               Positioned(
                 bottom: 0,
                 right: 0,
@@ -446,7 +453,7 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
             ],
           ),
           title: Text(friendName, style: const TextStyle(fontWeight: FontWeight.w500)),
-          subtitle: const Text('Tap to start a conversation', style: TextStyle(color: Colors.grey)),
+          subtitle: Text(trx('Tap to start a conversation', 'চ্যাট শুরু করতে চাপুন'), style: TextStyle(color: Colors.grey)),
           onTap: () {
             Navigator.push(
               context,

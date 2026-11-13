@@ -762,7 +762,7 @@ class _StudyFolderDetailsScreenState extends State<StudyFolderDetailsScreen> wit
         }
 
         if (!snapshot.hasData || !snapshot.data!.exists || snapshot.data!.data() == null) {
-          return const Center(child: Text('Folder not found'));
+          return Center(child: Text(trx('Folder not found', 'ফোল্ডার পাওয়া যায়নি')));
         }
 
         final data = snapshot.data!.data() as Map<String, dynamic>;

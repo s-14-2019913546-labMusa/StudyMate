@@ -97,7 +97,7 @@ class _NewsReaderScreenState extends State<NewsReaderScreen> with SingleTickerPr
   }
 
   Widget _buildNewsList(List<RssFeedItem> items) {
-    if (items.isEmpty) return const Center(child: Text("No news available from this source."));
+    if (items.isEmpty) return Center(child: Text(trx('No news available from this source.', 'এই উৎস থেকে কোনো খবর নেই।')));
     return ListView.builder(
       padding: const EdgeInsets.only(bottom: 16),
       itemCount: items.length > 30 ? 30 : items.length, // Limit to 30 per feed
@@ -162,7 +162,7 @@ class _NewsReaderScreenState extends State<NewsReaderScreen> with SingleTickerPr
   }
 
   Widget _buildMyBookmarksTab() {
-    if (currentUser == null) return const Center(child: Text("Please log in to use bookmarks."));
+    if (currentUser == null) return Center(child: Text(trx('Please log in to use bookmarks.', 'বুকমার্ক ব্যবহার করতে লগইন করুন।')));
 
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance.collection('users').doc(currentUser!.uid).collection('custom_news_feeds').snapshots(),
@@ -177,7 +177,7 @@ class _NewsReaderScreenState extends State<NewsReaderScreen> with SingleTickerPr
               child: ElevatedButton.icon(
                 onPressed: () => _showAddFeedDialog(),
                 icon: const Icon(Icons.add),
-                label: const Text('Add Custom RSS Feed'),
+                label: Text(trx('Add Custom RSS Feed', 'নিজের RSS ফিড যোগ')),
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size(double.infinity, 50),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))
@@ -209,7 +209,7 @@ class _NewsReaderScreenState extends State<NewsReaderScreen> with SingleTickerPr
                                 return const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()));
                               }
                               final items = futureSnapshot.data ?? [];
-                              if (items.isEmpty) return const Padding(padding: EdgeInsets.all(16), child: Text("Could not load feed. Check URL."));
+                              if (items.isEmpty) return Padding(padding: EdgeInsets.all(16), child: Text(trx('Could not load feed. Check URL.', 'ফিড লোড হয়নি। লিংকটি দেখুন।')));
                               
                               return SizedBox(
                                 height: 350,
@@ -224,7 +224,7 @@ class _NewsReaderScreenState extends State<NewsReaderScreen> with SingleTickerPr
                                 FirebaseFirestore.instance.collection('users').doc(currentUser!.uid).collection('custom_news_feeds').doc(docId).delete();
                               },
                               icon: const Icon(Icons.delete, color: Colors.red),
-                              label: const Text('Delete Feed', style: TextStyle(color: Colors.red)),
+                              label: Text(trx('Delete Feed', 'ফিড মুছুন'), style: TextStyle(color: Colors.red)),
                             ),
                           ),
                         ],
@@ -246,7 +246,7 @@ class _NewsReaderScreenState extends State<NewsReaderScreen> with SingleTickerPr
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Add RSS Feed'),
+        title: Text(trx('Add RSS Feed', 'RSS ফিড যোগ')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -256,7 +256,7 @@ class _NewsReaderScreenState extends State<NewsReaderScreen> with SingleTickerPr
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(trx('Cancel', 'বাতিল'))),
           ElevatedButton(
             onPressed: () async {
               if (nameCtrl.text.isNotEmpty && urlCtrl.text.isNotEmpty) {
@@ -277,7 +277,7 @@ class _NewsReaderScreenState extends State<NewsReaderScreen> with SingleTickerPr
                 }
               }
             },
-            child: const Text('Save'),
+            child: Text(trx('Save', 'সেভ')),
           ),
         ],
       ),
@@ -288,7 +288,7 @@ class _NewsReaderScreenState extends State<NewsReaderScreen> with SingleTickerPr
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Daily News', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(trx('Daily News', 'দৈনিক খবর'), style: TextStyle(fontWeight: FontWeight.bold)),
         bottom: TabBar(
           controller: _tabController,
           tabs: const [

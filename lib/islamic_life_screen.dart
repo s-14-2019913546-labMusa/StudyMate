@@ -341,16 +341,14 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              'ইসলামিক নোটিফিকেশন',
+                            Text(trx('Islamic notifications', 'ইসলামিক নোটিফিকেশন'),
                               style: TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 16,
                               ),
                             ),
-                            Text(
-                              'শুধুমাত্র এখান থেকে নিয়ন্ত্রণ করা যাবে',
+                            Text(trx('Controlled only from here', 'শুধুমাত্র এখান থেকে নিয়ন্ত্রণ করা যাবে'),
                               style: TextStyle(
                                 color: Colors.white54,
                                 fontSize: 11,
@@ -422,8 +420,7 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text(
-                                'সালাত অ্যালার্ম সাউন্ড',
+                              Text(trx('Salah alarm sound', 'সালাত অ্যালার্ম সাউন্ড'),
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontSize: 13,
@@ -475,8 +472,7 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                           ),
                           const SizedBox(width: 10),
                           Expanded(
-                            child: Text(
-                              'এই সেটিংসগুলো গলোবাল অ্যাপ সেটিংস থেকে আলাদা এবং শুধুমাত্র ইসলামিক লাইফ সেকশন থেকেই নিয়ন্ত্রণ করা যাবে।',
+                            child: Text(trx('These settings are separate from the app\'s general settings and can only be changed in Islamic Life.', 'এই সেটিংসগুলো অ্যাপের সাধারণ সেটিংস থেকে আলাদা এবং শুধুমাত্র ইসলামিক লাইফ সেকশন থেকেই নিয়ন্ত্রণ করা যাবে।'),
                               style: TextStyle(
                                 color: Colors.white38,
                                 fontSize: 11,
@@ -750,8 +746,7 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                 SoundPlayer.stopAlarm();
                 Navigator.of(ctx).pop();
               },
-              child: Text(
-                "ঠিক আছে",
+              child: Text(trx('OK', 'ঠিক আছে'),
                 style: TextStyle(
                   color: accentColor,
                   fontWeight: FontWeight.bold,
@@ -1008,8 +1003,7 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
     return Scaffold(
       backgroundColor: primaryBg,
       appBar: AppBar(
-        title: const Text(
-          'Islamic Life & Prayer Times',
+        title: Text(trx('Islamic Life & Prayer Times', 'ইসলামিক লাইফ ও নামাজের সময়'),
           style: TextStyle(fontWeight: FontWeight.bold, color: textLight),
         ),
         backgroundColor: Colors.transparent,
@@ -1647,8 +1641,7 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                                     fontSize: 14,
                                   ),
                                 ),
-                                Text(
-                                  'Qibla Direction',
+                                Text(trx('Qibla Direction', 'কিবলার দিক'),
                                   style: TextStyle(
                                     color: Colors.white38,
                                     fontSize: 11,
@@ -1701,8 +1694,7 @@ class _IslamicLifeScreenState extends State<IslamicLifeScreen> {
                                     fontSize: 14,
                                   ),
                                 ),
-                                Text(
-                                  'Tasbeeh Counter',
+                                Text(trx('Tasbeeh Counter', 'তসবিহ কাউন্টার'),
                                   style: TextStyle(
                                     color: Colors.white38,
                                     fontSize: 11,

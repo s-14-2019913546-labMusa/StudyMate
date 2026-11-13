@@ -87,7 +87,7 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Rename Group'),
+          title: Text(trx('Rename Group', 'গ্রুপের নাম বদলান')),
           content: TextField(
             controller: _nameController,
             decoration: const InputDecoration(
@@ -98,7 +98,7 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
+              child: Text(trx('Cancel', 'বাতিল')),
             ),
             ElevatedButton(
               onPressed: () {
@@ -107,7 +107,7 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
                   Navigator.pop(context, text);
                 }
               },
-              child: const Text('Save'),
+              child: Text(trx('Save', 'সেভ')),
             ),
           ],
         );
@@ -164,12 +164,12 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
         showDialog(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: const Text('Add Members'),
-            content: const Text('All your friends are already in this group!'),
+            title: Text(trx('Add Members', 'সদস্য যোগ')),
+            content: Text(trx('All your friends are already in this group!', 'আপনার সব বন্ধু আগেই এই গ্রুপে আছে!')),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('OK'),
+                child: Text(trx('OK', 'ঠিক আছে')),
               )
             ],
           ),
@@ -193,8 +193,7 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Add Friends to Group',
+                    Text(trx('Add Friends to Group', 'গ্রুপে বন্ধু যোগ করুন'),
                       style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 16),
@@ -224,7 +223,7 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
                                     Navigator.pop(ctx);
                                     await _executeAddMember(friendId, name);
                                   },
-                                  child: const Text('Add'),
+                                  child: Text(trx('Add', 'যোগ')),
                                 ),
                               );
                             },
@@ -312,12 +311,12 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+            child: Text(trx('Cancel', 'বাতিল')),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Remove', style: TextStyle(color: Colors.white)),
+            child: Text(trx('Remove', 'সরান'), style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -359,17 +358,17 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
     final bool? confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Leave Group?'),
-        content: const Text('Are you sure you want to leave this group? You will no longer receive messages.'),
+        title: Text(trx('Leave Group?', 'গ্রুপ ছাড়বেন?')),
+        content: Text(trx('Are you sure you want to leave this group? You will no longer receive messages.', 'গ্রুপ ছাড়লে আর মেসেজ পাবেন না। নিশ্চিত?')),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+            child: Text(trx('Cancel', 'বাতিল')),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Leave', style: TextStyle(color: Colors.white)),
+            child: Text(trx('Leave', 'ছাড়ুন'), style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -461,7 +460,7 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     if (currentUser == null) {
-      return const Scaffold(body: Center(child: Text('Please login first')));
+      return Scaffold(body: Center(child: Text(trx('Please login first', 'আগে লগইন করুন'))));
     }
 
     final theme = Theme.of(context);
@@ -473,7 +472,7 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
           return const Scaffold(body: Center(child: CircularProgressIndicator()));
         }
         if (!snapshot.hasData || !snapshot.data!.exists) {
-          return const Scaffold(body: Center(child: Text('Group does not exist or has been deleted.')));
+          return Scaffold(body: Center(child: Text(trx('Group does not exist or has been deleted.', 'গ্রুপটি নেই বা মুছে ফেলা হয়েছে।'))));
         }
 
         final data = snapshot.data!.data() as Map<String, dynamic>;
@@ -487,7 +486,7 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
           appBar: AppBar(
             backgroundColor: theme.colorScheme.surface,
             elevation: 0,
-            title: const Text('Group Options', style: TextStyle(fontWeight: FontWeight.bold)),
+            title: Text(trx('Group Options', 'গ্রুপ অপশন'), style: TextStyle(fontWeight: FontWeight.bold)),
           ),
           body: SingleChildScrollView(
             child: Column(
@@ -573,15 +572,15 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
                 // Group Settings
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Text('Group Settings', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: theme.colorScheme.primary)),
+                  child: Text(trx('Group Settings', 'গ্রুপ সেটিংস'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: theme.colorScheme.primary)),
                 ),
                 ListTile(
                   leading: CircleAvatar(
                     backgroundColor: theme.colorScheme.secondary.withValues(alpha: 0.1),
                     child: Icon(Icons.palette_rounded, color: theme.colorScheme.secondary),
                   ),
-                  title: const Text('Group Theme', style: TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: const Text('Change chat background for everyone'),
+                  title: Text(trx('Group Theme', 'গ্রুপ থিম'), style: TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: Text(trx('Change chat background for everyone', 'সবার জন্য চ্যাটের ব্যাকগ্রাউন্ড বদলান')),
                   trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
                   onTap: () => ChatThemeManager.showThemeSelector(context, data['theme'] ?? 'default', _updateTheme),
                 ),
@@ -591,15 +590,15 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
                 if (isAdmin) ...[
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: Text('Admin Tools', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: theme.colorScheme.primary)),
+                    child: Text(trx('Admin Tools', 'অ্যাডমিন টুল'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: theme.colorScheme.primary)),
                   ),
                   ListTile(
                     leading: CircleAvatar(
                       backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.1),
                       child: Icon(Icons.person_add_rounded, color: theme.colorScheme.primary),
                     ),
-                    title: const Text('Add Members', style: TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle: const Text('Invite your friends to this group'),
+                    title: Text(trx('Add Members', 'সদস্য যোগ'), style: TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: Text(trx('Invite your friends to this group', 'বন্ধুদের এই গ্রুপে আনুন')),
                     trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
                     onTap: () => _addMembers(participants),
                   ),
@@ -612,8 +611,7 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        'Group Members',
+                      Text(trx('Group Members', 'গ্রুপের সদস্য'),
                         style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                       ),
                       Text(
@@ -716,8 +714,7 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
                                     color: theme.colorScheme.primary.withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
-                                  child: Text(
-                                    'Admin',
+                                  child: Text(trx('Admin', 'অ্যাডমিন'),
                                     style: TextStyle(
                                       color: theme.colorScheme.primary,
                                       fontSize: 10,
@@ -737,13 +734,13 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
                                   },
                                   itemBuilder: (context) => [
                                     if (!isMemberAdmin)
-                                      const PopupMenuItem(
+                                      PopupMenuItem(
                                         value: 'make_admin',
-                                        child: Text('Make Admin'),
+                                        child: Text(trx('Make Admin', 'অ্যাডমিন বানান')),
                                       ),
-                                    const PopupMenuItem(
+                                    PopupMenuItem(
                                       value: 'remove',
-                                      child: Text('Remove from Group', style: TextStyle(color: Colors.red)),
+                                      child: Text(trx('Remove from Group', 'গ্রুপ থেকে সরান'), style: TextStyle(color: Colors.red)),
                                     ),
                                   ],
                                 ),
@@ -763,7 +760,7 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
                   child: ElevatedButton.icon(
                     onPressed: () => _leaveGroup(participants, admins),
                     icon: const Icon(Icons.logout_rounded, color: Colors.white),
-                    label: const Text('Leave Group', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                    label: Text(trx('Leave Group', 'গ্রুপ ছাড়ুন'), style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: theme.colorScheme.error,
                       minimumSize: const Size(double.infinity, 50),

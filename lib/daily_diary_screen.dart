@@ -236,16 +236,16 @@ class _DailyDiaryScreenState extends State<DailyDiaryScreen> with SingleTickerPr
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('Diary Settings', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                    Text(trx('Diary Settings', 'ডায়েরি সেটিংস'), style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 16),
                     ListTile(
-                      title: const Text('Font Size'),
+                      title: Text(trx('Font Size', 'লেখার সাইজ')),
                       trailing: DropdownButton<double>(
                         value: _fontSize,
-                        items: const [
-                          DropdownMenuItem(value: 14.0, child: Text('Small')),
-                          DropdownMenuItem(value: 18.0, child: Text('Medium')),
-                          DropdownMenuItem(value: 24.0, child: Text('Large')),
+                        items: [
+                          DropdownMenuItem(value: 14.0, child: Text(trx('Small', 'ছোট'))),
+                          DropdownMenuItem(value: 18.0, child: Text(trx('Medium', 'মাঝারি'))),
+                          DropdownMenuItem(value: 24.0, child: Text(trx('Large', 'বড়'))),
                         ],
                         onChanged: (v) {
                           if (v != null) {
@@ -257,11 +257,11 @@ class _DailyDiaryScreenState extends State<DailyDiaryScreen> with SingleTickerPr
                       ),
                     ),
                     ListTile(
-                      title: const Text('Font Style'),
+                      title: Text(trx('Font Style', 'ফন্ট')),
                       trailing: DropdownButton<String>(
                         value: _fontFamily,
-                        items: const [
-                          DropdownMenuItem(value: 'System', child: Text('System')),
+                        items: [
+                          DropdownMenuItem(value: 'System', child: Text(trx('System', 'সিস্টেম'))),
                           DropdownMenuItem(value: 'Tiro Bangla', child: Text('Tiro Bangla')),
                           DropdownMenuItem(value: 'Anek Bangla', child: Text('Anek Bangla')),
                           DropdownMenuItem(value: 'Lora', child: Text('Lora')),
@@ -276,20 +276,20 @@ class _DailyDiaryScreenState extends State<DailyDiaryScreen> with SingleTickerPr
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Text('Background Theme', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+                    Text(trx('Background Theme', 'ব্যাকগ্রাউন্ড থিম'), style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
                     const SizedBox(height: 12),
                     _buildThemeSelector(setModalState),
                     const Divider(),
                     ListTile(
-                      title: const Text('Custom Background Image'),
+                      title: Text(trx('Custom Background Image', 'নিজের ব্যাকগ্রাউন্ড ছবি')),
                       trailing: ElevatedButton(
                         onPressed: () => _pickImage(setModalState),
-                        child: const Text('Pick Image'),
+                        child: Text(trx('Pick Image', 'ছবি বাছুন')),
                       ),
                     ),
                     if (_bgImageBase64 != null || _bgTheme != 'Classic Diary') ...[
                       ListTile(
-                        title: const Text('Image Opacity'),
+                        title: Text(trx('Image Opacity', 'ছবির স্বচ্ছতা')),
                         subtitle: Slider(
                           value: _bgOpacity,
                           min: 0.05,
@@ -449,7 +449,7 @@ class _DailyDiaryScreenState extends State<DailyDiaryScreen> with SingleTickerPr
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Daily Diary'),
+        title: Text(trx('Daily Diary', 'দৈনিক ডায়েরি')),
         actions: [
           IconButton(
             icon: const Icon(Icons.settings_rounded),
@@ -692,7 +692,7 @@ class _DailyDiaryScreenState extends State<DailyDiaryScreen> with SingleTickerPr
   }
 
   Widget _buildOldPages() {
-    if (_uid == null) return const Center(child: Text('User not logged in'));
+    if (_uid == null) return Center(child: Text(trx('User not logged in', 'লগইন করা নেই')));
     
     return Column(
       children: [
@@ -703,12 +703,12 @@ class _DailyDiaryScreenState extends State<DailyDiaryScreen> with SingleTickerPr
             children: [
               OutlinedButton.icon(
                 icon: const Icon(Icons.picture_as_pdf_rounded, color: Colors.red),
-                label: const Text('1 Week PDF'),
+                label: Text(trx('1 Week PDF', '১ সপ্তাহের PDF')),
                 onPressed: () => _downloadPDF(7),
               ),
               OutlinedButton.icon(
                 icon: const Icon(Icons.picture_as_pdf_rounded, color: Colors.red),
-                label: const Text('1 Month PDF'),
+                label: Text(trx('1 Month PDF', '১ মাসের PDF')),
                 onPressed: () => _downloadPDF(30),
               ),
             ],
@@ -725,7 +725,7 @@ class _DailyDiaryScreenState extends State<DailyDiaryScreen> with SingleTickerPr
                 .snapshots(),
             builder: (context, snapshot) {
               if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-              if (snapshot.data!.docs.isEmpty) return const Center(child: Text('No entries found.'));
+              if (snapshot.data!.docs.isEmpty) return Center(child: Text(trx('No entries found.', 'কোনো লেখা পাওয়া যায়নি।')));
               
               return ListView.builder(
                 itemCount: snapshot.data!.docs.length,
@@ -754,7 +754,7 @@ class _DailyDiaryScreenState extends State<DailyDiaryScreen> with SingleTickerPr
                             children: [
                               TextButton.icon(
                                 icon: const Icon(Icons.edit_rounded, color: Colors.blue),
-                                label: const Text('Edit', style: TextStyle(color: Colors.blue)),
+                                label: Text(trx('Edit', 'এডিট'), style: TextStyle(color: Colors.blue)),
                                 onPressed: () {
                                   setState(() {
                                     _diaryController.text = content;
@@ -773,7 +773,7 @@ class _DailyDiaryScreenState extends State<DailyDiaryScreen> with SingleTickerPr
                               const SizedBox(width: 16),
                               TextButton.icon(
                                 icon: const Icon(Icons.delete_outline, color: Colors.red),
-                                label: const Text('Delete', style: TextStyle(color: Colors.red)),
+                                label: Text(trx('Delete', 'মুছুন'), style: TextStyle(color: Colors.red)),
                                 onPressed: () => _confirmDelete(doc.id),
                               ),
                             ],
@@ -863,16 +863,16 @@ class _DailyDiaryScreenState extends State<DailyDiaryScreen> with SingleTickerPr
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Entry'),
-        content: const Text('Are you sure you want to delete this diary entry?'),
+        title: Text(trx('Delete Entry', 'লেখাটি মুছবেন?')),
+        content: Text(trx('Are you sure you want to delete this diary entry?', 'এই ডায়েরি লেখাটি কি মুছে ফেলবেন?')),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(trx('Cancel', 'বাতিল')),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            child: Text(trx('Delete', 'মুছুন'), style: TextStyle(color: Colors.red)),
           ),
         ],
       ),

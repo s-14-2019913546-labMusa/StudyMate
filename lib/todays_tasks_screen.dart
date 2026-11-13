@@ -37,8 +37,7 @@ class _TodaysTasksScreenState extends State<TodaysTasksScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          "Today's Tasks",
+        title: Text(trx('Today\'s Tasks', 'আজকের টাস্ক'),
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.bold,
                 color: Theme.of(context).colorScheme.onSurface,
@@ -63,8 +62,7 @@ class _TodaysTasksScreenState extends State<TodaysTasksScreen> {
       backgroundColor: Theme.of(context).colorScheme.surface,
       body: _tasks.isEmpty
           ? Center(
-              child: Text(
-                "No tasks for today.",
+              child: Text(trx('No tasks for today.', 'আজ কোনো টাস্ক নেই।'),
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),

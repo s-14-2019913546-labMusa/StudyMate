@@ -150,19 +150,18 @@ class _GoogleSheetSyncScreenState extends State<GoogleSheetSyncScreen> {
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
-          children: const [
+          children: [
             Icon(Icons.table_chart, color: Colors.green),
             SizedBox(width: 8),
-            Text('Sheet Column Format'),
+            Text(trx('Sheet Column Format', 'শিটের কলাম ফরম্যাট')),
           ],
         ),
         content: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
-            children: const [
-              Text(
-                'Create a Google Sheet with these column headers (English or Bangla):',
+            children: [
+              Text(trx('Create a Google Sheet with these column headers (English or Bangla):', 'এই কলাম নামগুলো দিয়ে একটি Google Sheet বানান (ইংরেজি বা বাংলা):'),
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
               ),
               SizedBox(height: 12),
@@ -174,8 +173,7 @@ class _GoogleSheetSyncScreenState extends State<GoogleSheetSyncScreen> {
               _ColumnDescItem(name: 'Category / ক্যাটাগরি', desc: 'e.g. Study, Revision, Exam'),
               _ColumnDescItem(name: 'Notes / নোট', desc: 'e.g. Exercise 9.1 to 9.5'),
               SizedBox(height: 12),
-              Text(
-                'Important: In Google Sheets, click "Share" and select "Anyone with the link can view" so StudyMate can read it.',
+              Text(trx('Important: In Google Sheets, click "Share" and select "Anyone with the link can view" so StudyMate can read it.', 'জরুরি: Google Sheets-এ "Share" চেপে "Anyone with the link can view" দিন, তাহলে StudyMate পড়তে পারবে।'),
                 style: TextStyle(fontSize: 12, color: Colors.grey),
               ),
             ],
@@ -184,7 +182,7 @@ class _GoogleSheetSyncScreenState extends State<GoogleSheetSyncScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Got it'),
+            child: Text(trx('Got it', 'বুঝেছি')),
           ),
         ],
       ),
@@ -198,7 +196,7 @@ class _GoogleSheetSyncScreenState extends State<GoogleSheetSyncScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Google Sheets Routine Sync'),
+        title: Text(trx('Google Sheets Routine Sync', 'Google Sheet থেকে রুটিন')),
         elevation: 0,
         actions: [
           IconButton(
@@ -247,9 +245,8 @@ class _GoogleSheetSyncScreenState extends State<GoogleSheetSyncScreen> {
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
-                        Text(
-                          'Auto-Sync from Google Drive',
+                      children: [
+                        Text(trx('Auto-Sync from Google Drive', 'Google Drive থেকে সিঙ্ক'),
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 18,
@@ -257,8 +254,7 @@ class _GoogleSheetSyncScreenState extends State<GoogleSheetSyncScreen> {
                           ),
                         ),
                         SizedBox(height: 4),
-                        Text(
-                          'Write your routine on Google Sheets from PC or phone, and sync to StudyMate with 1 click!',
+                        Text(trx('Write your routine on Google Sheets from PC or phone, and sync to StudyMate with 1 click!', 'পিসি বা ফোনে Google Sheet-এ রুটিন লিখুন, এক চাপে StudyMate-এ চলে আসবে!'),
                           style: TextStyle(color: Colors.white70, fontSize: 13),
                         ),
                       ],
@@ -271,8 +267,7 @@ class _GoogleSheetSyncScreenState extends State<GoogleSheetSyncScreen> {
             const SizedBox(height: 24),
 
             // Sheet URL Input Section
-            Text(
-              'Google Sheet Link',
+            Text(trx('Google Sheet Link', 'Google Sheet লিংক'),
               style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
@@ -300,7 +295,7 @@ class _GoogleSheetSyncScreenState extends State<GoogleSheetSyncScreen> {
               children: [
                 OutlinedButton.icon(
                   icon: const Icon(Icons.visibility_rounded, size: 18),
-                  label: const Text('Try Sample Routine'),
+                  label: Text(trx('Try Sample Routine', 'নমুনা রুটিন দেখুন')),
                   onPressed: _loadSampleData,
                   style: OutlinedButton.styleFrom(
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -309,7 +304,7 @@ class _GoogleSheetSyncScreenState extends State<GoogleSheetSyncScreen> {
                 const Spacer(),
                 TextButton.icon(
                   icon: const Icon(Icons.help_outline, size: 18),
-                  label: const Text('Column Format'),
+                  label: Text(trx('Column Format', 'কলাম ফরম্যাট')),
                   onPressed: _showTemplateInfoDialog,
                 ),
               ],
@@ -323,7 +318,7 @@ class _GoogleSheetSyncScreenState extends State<GoogleSheetSyncScreen> {
               child: SwitchListTile(
                 value: _replaceExisting,
                 onChanged: (val) => setState(() => _replaceExisting = val),
-                title: const Text('Replace existing tasks for the day'),
+                title: Text(trx('Replace existing tasks for the day', 'ওই দিনের আগের টাস্ক বদলে দিন')),
                 subtitle: Text(
                   _replaceExisting
                       ? 'Replaces current tasks for matching dates'
@@ -412,7 +407,7 @@ class _GoogleSheetSyncScreenState extends State<GoogleSheetSyncScreen> {
                   ),
                   TextButton.icon(
                     icon: const Icon(Icons.check_rounded),
-                    label: const Text('Import to Routine'),
+                    label: Text(trx('Import to Routine', 'রুটিনে যোগ করুন')),
                     style: TextButton.styleFrom(
                       foregroundColor: const Color(0xFF10B981),
                       textStyle: const TextStyle(fontWeight: FontWeight.bold),
@@ -544,8 +539,7 @@ class _GoogleSheetSyncScreenState extends State<GoogleSheetSyncScreen> {
                                   color: Colors.green.withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(6),
                                 ),
-                                child: const Text(
-                                  'সম্পন্ন',
+                                child: Text(trx('Done', 'সম্পন্ন'),
                                   style: TextStyle(
                                     color: Colors.green,
                                     fontSize: 11,

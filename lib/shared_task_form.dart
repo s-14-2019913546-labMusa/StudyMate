@@ -319,8 +319,7 @@ class _SharedTaskFormState extends State<SharedTaskForm> {
                               color: _entryMode == 1 ? Colors.white : onSurfaceColor.withValues(alpha: 0.7),
                             ),
                             const SizedBox(width: 6),
-                            Text(
-                              'গুগল শিট থেকে',
+                            Text(trx('From Google Sheet', 'গুগল শিট থেকে'),
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 13,
@@ -397,7 +396,7 @@ class _SharedTaskFormState extends State<SharedTaskForm> {
                             ),
                             child: _isLoadingSyllabus
                                 ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                                : const Text('Sync', style: TextStyle(fontSize: 12)),
+                                : Text(trx('Sync', 'সিঙ্ক'), style: TextStyle(fontSize: 12)),
                           ),
                         ],
                       ),

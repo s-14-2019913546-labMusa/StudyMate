@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'language_manager.dart' show trx;
 
 class TasbeehCounterScreen extends StatefulWidget {
   const TasbeehCounterScreen({super.key});
@@ -58,7 +59,7 @@ class _TasbeehCounterScreenState extends State<TasbeehCounterScreen> {
     return Scaffold(
       backgroundColor: primaryBg,
       appBar: AppBar(
-        title: const Text('Tasbeeh Counter', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+        title: Text(trx('Tasbeeh Counter', 'তসবিহ কাউন্টার'), style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
         backgroundColor: Colors.transparent,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
@@ -222,8 +223,7 @@ class _TasbeehCounterScreenState extends State<TasbeehCounterScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'আজকের মোট তসবিহ count',
+                  Text(trx('Today\'s total tasbeeh', 'আজকের মোট তসবিহ'),
                     style: TextStyle(color: Colors.white70, fontSize: 14),
                   ),
                   Text(

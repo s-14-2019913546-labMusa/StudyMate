@@ -50,7 +50,7 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
     final theme = Theme.of(context);
 
     if (currentUser == null) {
-      return const Scaffold(body: Center(child: Text("Please log in first")));
+      return Scaffold(body: Center(child: Text(trx('Please log in first', 'আগে লগইন করুন'))));
     }
 
     return Scaffold(
@@ -88,9 +88,9 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
                 children: [
                   Icon(Icons.notifications_none_rounded, size: 64, color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5)),
                   const SizedBox(height: 16),
-                  const Text('All caught up!', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  Text(trx('All caught up!', 'সব দেখা হয়ে গেছে!'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                   const SizedBox(height: 8),
-                  const Text('No notifications received today.', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                  Text(trx('No notifications received today.', 'আজ কোনো নোটিফিকেশন আসেনি।'), style: TextStyle(color: Colors.grey, fontSize: 13)),
                 ],
               ),
             );
@@ -118,9 +118,9 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
                 children: [
                   Icon(Icons.notifications_none_rounded, size: 64, color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5)),
                   const SizedBox(height: 16),
-                  const Text('All caught up!', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  Text(trx('All caught up!', 'সব দেখা হয়ে গেছে!'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                   const SizedBox(height: 8),
-                  const Text('No notifications received today.', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                  Text(trx('No notifications received today.', 'আজ কোনো নোটিফিকেশন আসেনি।'), style: TextStyle(color: Colors.grey, fontSize: 13)),
                 ],
               ),
             );
@@ -210,7 +210,7 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
                                   );
                                 },
                                 icon: const Icon(Icons.snooze_rounded, size: 16),
-                                label: const Text('Snooze 1h', style: TextStyle(fontSize: 11)),
+                                label: Text(trx('Snooze 1h', '১ ঘণ্টা পরে'), style: TextStyle(fontSize: 11)),
                               ),
                               const SizedBox(width: 8),
                             ],
@@ -224,7 +224,7 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
                                   backgroundColor: theme.colorScheme.primary,
                                   foregroundColor: Colors.white,
                                 ),
-                                child: const Text('Dismiss', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                child: Text(trx('Dismiss', 'বাদ দিন'), style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                               ),
                           ],
                         ),

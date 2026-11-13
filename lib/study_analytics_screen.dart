@@ -283,7 +283,7 @@ class _StudyAnalyticsScreenState extends State<StudyAnalyticsScreen> {
     
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Study Analytics', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(trx('Study Analytics', 'পড়ার বিশ্লেষণ'), style: TextStyle(fontWeight: FontWeight.bold)),
         elevation: 0,
         backgroundColor: Colors.transparent,
         foregroundColor: Theme.of(context).colorScheme.onSurface,
@@ -478,7 +478,7 @@ class _StudyAnalyticsScreenState extends State<StudyAnalyticsScreen> {
                       ],
                     ),
                     child: _monthlyTrendMinutes.isEmpty
-                        ? const Center(child: Text('Not enough data'))
+                        ? Center(child: Text(trx('Not enough data', 'যথেষ্ট তথ্য নেই')))
                         : LineChart(
                             LineChartData(
                               gridData: const FlGridData(show: false),

@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'firebase_options.dart';
+import 'gamification_service.dart';
 
 /// নোটিফিকেশনের "▶ Start" / "✓ Complete" বাটন চাপলে অ্যাপ না খুলেই টাস্ক আপডেট করে।
 /// এটা ব্যাকগ্রাউন্ড isolate থেকেও চলে, তাই নিজে Firebase চালু করে নেয়।
@@ -62,6 +63,7 @@ class TaskNotificationActions {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setInt(startedAtKey(taskId), DateTime.now().millisecondsSinceEpoch);
       } else if (actionId == actionComplete) {
+        if (t['status'] == 'completed' || t['isCompleted'] == true) return; // XP দুবার নয়
         final prefs = await SharedPreferences.getInstance();
         final startedAt = prefs.getInt(startedAtKey(taskId));
         int elapsed = (t['elapsedSeconds'] as num?)?.toInt() ?? 0;
@@ -77,6 +79,10 @@ class TaskNotificationActions {
       }
       tasks[i] = t;
       await ref.update({'tasks': tasks});
+      if (actionId == actionComplete) {
+        // অ্যাপের ভেতরে Complete চাপার মতোই XP (+১০) ও ব্যাজ
+        await GamificationService.awardXP(GamificationService.xpTaskComplete, reason: 'task_complete');
+      }
       log('Task $taskId updated from notification: $actionId');
     } catch (e) {
       log('Task notification action failed: $e');

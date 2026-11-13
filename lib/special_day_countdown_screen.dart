@@ -216,7 +216,7 @@ class _SpecialDayCountdownScreenState extends State<SpecialDayCountdownScreen> {
                     autofocus: true,
                   ),
                   const SizedBox(height: 16),
-                  const Text('রঙ বাছুন', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  Text(trx('Pick a color', 'রঙ বাছুন'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 10,
@@ -242,7 +242,7 @@ class _SpecialDayCountdownScreenState extends State<SpecialDayCountdownScreen> {
                     }).toList(),
                   ),
                   const SizedBox(height: 16),
-                  const Text('আইকন বাছুন', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  Text(trx('Pick an icon', 'আইকন বাছুন'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 10,
@@ -274,7 +274,7 @@ class _SpecialDayCountdownScreenState extends State<SpecialDayCountdownScreen> {
                     children: [
                       TextButton(
                         onPressed: () => Navigator.pop(ctx, false),
-                        child: const Text('বাতিল'),
+                        child: Text(trx('Cancel', 'বাতিল')),
                       ),
                       const SizedBox(width: 8),
                       ElevatedButton(
@@ -322,14 +322,14 @@ class _SpecialDayCountdownScreenState extends State<SpecialDayCountdownScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('ফোল্ডার মুছুন', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(trx('Delete folder', 'ফোল্ডার মুছুন'), style: TextStyle(fontWeight: FontWeight.bold)),
         content: Text('"${folder.name}" ফোল্ডার এবং এর সকল এন্ট্রি মুছে যাবে। নিশ্চিত?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('বাতিল')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(trx('Cancel', 'বাতিল'))),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
-            child: const Text('মুছুন'),
+            child: Text(trx('Delete', 'মুছুন')),
           ),
         ],
       ),
@@ -348,7 +348,7 @@ class _SpecialDayCountdownScreenState extends State<SpecialDayCountdownScreen> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     if (_user == null) {
-      return const Scaffold(body: Center(child: Text('লগইন প্রয়োজন')));
+      return Scaffold(body: Center(child: Text(trx('Login required', 'লগইন প্রয়োজন'))));
     }
 
     return Scaffold(
@@ -391,9 +391,8 @@ class _SpecialDayCountdownScreenState extends State<SpecialDayCountdownScreen> {
                               child: const Icon(Icons.event_note_rounded, color: Colors.white, size: 24),
                             ),
                             const SizedBox(width: 12),
-                            const Expanded(
-                              child: Text(
-                                'Special Day Countdown',
+                            Expanded(
+                              child: Text(trx('Special Day Countdown', 'বিশেষ দিনের কাউন্টডাউন'),
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontSize: 22,
@@ -404,8 +403,7 @@ class _SpecialDayCountdownScreenState extends State<SpecialDayCountdownScreen> {
                           ],
                         ),
                         const SizedBox(height: 8),
-                        Text(
-                          'ডেডলাইন ট্র্যাক করুন, সুযোগ মিস করবেন না',
+                        Text(trx('Track deadlines, don\'t miss a chance', 'ডেডলাইন ট্র্যাক করুন, সুযোগ মিস করবেন না'),
                           style: TextStyle(
                             color: Colors.white.withValues(alpha: 0.85),
                             fontSize: 13,
@@ -462,7 +460,7 @@ class _SpecialDayCountdownScreenState extends State<SpecialDayCountdownScreen> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showAddFolderDialog,
         icon: const Icon(Icons.create_new_folder_rounded),
-        label: const Text('নতুন ফোল্ডার', style: TextStyle(fontWeight: FontWeight.bold)),
+        label: Text(trx('New folder', 'নতুন ফোল্ডার'), style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: const Color(0xFF6366F1),
         foregroundColor: Colors.white,
       ),
@@ -611,13 +609,13 @@ class _SpecialDayCountdownScreenState extends State<SpecialDayCountdownScreen> {
                   if (val == 'delete') _deleteFolder(folder);
                 },
                 itemBuilder: (ctx) => [
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'edit',
-                    child: Row(children: [Icon(Icons.edit_rounded, size: 18), SizedBox(width: 8), Text('সম্পাদনা করুন')]),
+                    child: Row(children: [Icon(Icons.edit_rounded, size: 18), SizedBox(width: 8), Text(trx('Edit', 'সম্পাদনা করুন'))]),
                   ),
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'delete',
-                    child: Row(children: [Icon(Icons.delete_rounded, size: 18, color: Colors.red), SizedBox(width: 8), Text('মুছুন', style: TextStyle(color: Colors.red))]),
+                    child: Row(children: [Icon(Icons.delete_rounded, size: 18, color: Colors.red), SizedBox(width: 8), Text(trx('Delete', 'মুছুন'), style: TextStyle(color: Colors.red))]),
                   ),
                 ],
               ),
@@ -632,7 +630,7 @@ class _SpecialDayCountdownScreenState extends State<SpecialDayCountdownScreen> {
     return StreamBuilder<QuerySnapshot>(
       stream: _foldersRef.doc(folder.id).collection('entries').snapshots(),
       builder: (ctx, snap) {
-        if (!snap.hasData) return const Text('লোড হচ্ছে...', style: TextStyle(fontSize: 12));
+        if (!snap.hasData) return Text(trx('Loading...', 'লোড হচ্ছে...'), style: TextStyle(fontSize: 12));
         final entries = snap.data!.docs
             .map((d) => CountdownEntry.fromMap(d.data() as Map<String, dynamic>, d.id))
             .toList();
@@ -691,14 +689,14 @@ class _SpecialDayCountdownScreenState extends State<SpecialDayCountdownScreen> {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(color: Colors.green.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(20)),
-        child: const Text('Applied ✓', style: TextStyle(color: Colors.green, fontSize: 11, fontWeight: FontWeight.bold)),
+        child: Text(trx('Applied ✓', 'আবেদন করা ✓'), style: TextStyle(color: Colors.green, fontSize: 11, fontWeight: FontWeight.bold)),
       );
     }
     if (entry.isExpired) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(color: Colors.grey.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(20)),
-        child: const Text('Expired', style: TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold)),
+        child: Text(trx('Expired', 'সময় শেষ'), style: TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold)),
       );
     }
     final days = entry.daysUntilDeadline;
@@ -1024,8 +1022,7 @@ class _CountdownFolderDetailScreenState extends State<CountdownFolderDetailScree
                                 children: [
                                   const Icon(Icons.lock_rounded, color: Colors.amber, size: 18),
                                   const SizedBox(width: 8),
-                                  const Text(
-                                    'গোপন নোট (পাসওয়ার্ড / আইডি / গুরুত্বপূর্ণ তথ্য)',
+                                  Text(trx('Private note (password / ID / important info)', 'গোপন নোট (পাসওয়ার্ড / আইডি / গুরুত্বপূর্ণ তথ্য)'),
                                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                                   ),
                                 ],
@@ -1057,7 +1054,7 @@ class _CountdownFolderDetailScreenState extends State<CountdownFolderDetailScree
                             const SizedBox(width: 8),
                             const Icon(Icons.push_pin_rounded, size: 18),
                             const SizedBox(width: 6),
-                            const Text('উপরে পিন করুন', style: TextStyle(fontWeight: FontWeight.w600)),
+                            Text(trx('Pin to top', 'উপরে পিন করুন'), style: TextStyle(fontWeight: FontWeight.w600)),
                           ],
                         ),
                         const SizedBox(height: 16),
@@ -1143,14 +1140,14 @@ class _CountdownFolderDetailScreenState extends State<CountdownFolderDetailScree
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('এন্ট্রি মুছুন?', style: TextStyle(fontWeight: FontWeight.bold)),
-        content: const Text('এই এন্ট্রিটি স্থায়ীভাবে মুছে যাবে।'),
+        title: Text(trx('Delete entry?', 'এন্ট্রি মুছুন?'), style: TextStyle(fontWeight: FontWeight.bold)),
+        content: Text(trx('This entry will be deleted permanently.', 'এই এন্ট্রিটি স্থায়ীভাবে মুছে যাবে।')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('বাতিল')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(trx('Cancel', 'বাতিল'))),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
-            child: const Text('মুছুন'),
+            child: Text(trx('Delete', 'মুছুন')),
           ),
         ],
       ),
@@ -1240,7 +1237,7 @@ class _CountdownFolderDetailScreenState extends State<CountdownFolderDetailScree
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showAddEntryDialog(),
         icon: const Icon(Icons.add_rounded),
-        label: const Text('নতুন এন্ট্রি', style: TextStyle(fontWeight: FontWeight.bold)),
+        label: Text(trx('New entry', 'নতুন এন্ট্রি'), style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: widget.folder.color,
         foregroundColor: Colors.white,
       ),
@@ -1407,7 +1404,7 @@ class _CountdownFolderDetailScreenState extends State<CountdownFolderDetailScree
                     children: [
                       const Icon(Icons.lock_rounded, size: 12, color: Colors.amber),
                       const SizedBox(width: 4),
-                      const Text('গোপন নোট সেভ আছে', style: TextStyle(fontSize: 11, color: Colors.amber, fontWeight: FontWeight.bold)),
+                      Text(trx('Private note saved', 'গোপন নোট সেভ আছে'), style: TextStyle(fontSize: 11, color: Colors.amber, fontWeight: FontWeight.bold)),
                     ],
                   ),
                 ),
@@ -1598,9 +1595,8 @@ class _EntryPreviewSheetState extends State<EntryPreviewSheet> {
                             children: [
                               const Icon(Icons.lock_rounded, color: Colors.amber, size: 20),
                               const SizedBox(width: 8),
-                              const Expanded(
-                                child: Text(
-                                  'গোপন নোট',
+                              Expanded(
+                                child: Text(trx('Private note', 'গোপন নোট'),
                                   style: TextStyle(fontWeight: FontWeight.bold, color: Colors.amber),
                                 ),
                               ),
@@ -1648,7 +1644,7 @@ class _EntryPreviewSheetState extends State<EntryPreviewSheet> {
                             widget.onEdit!();
                           },
                           icon: const Icon(Icons.edit_rounded, size: 18),
-                          label: const Text('সম্পাদনা'),
+                          label: Text(trx('Edit', 'সম্পাদনা')),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: folder.color,
                             side: BorderSide(color: folder.color),
@@ -1666,7 +1662,7 @@ class _EntryPreviewSheetState extends State<EntryPreviewSheet> {
                             widget.onDelete!();
                           },
                           icon: const Icon(Icons.delete_outline_rounded, size: 18),
-                          label: const Text('মুছুন'),
+                          label: Text(trx('Delete', 'মুছুন')),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: Colors.red,
                             side: const BorderSide(color: Colors.red),

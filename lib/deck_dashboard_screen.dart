@@ -3,6 +3,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'flashcard_study_screen.dart';
+import 'language_manager.dart' show trx;
 
 class DeckDashboardScreen extends StatelessWidget {
   final String deckId;
@@ -65,15 +66,14 @@ class DeckDashboardScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
-                'Deck Progress',
+              Text(trx('Deck Progress', 'ডেকের অগ্রগতি'),
                 style: GoogleFonts.poppins(color: Colors.white70, fontSize: 16),
               ),
               const SizedBox(height: 24),
               SizedBox(
                 height: 200,
                 child: total == 0 
-                  ? Center(child: Text('No cards in deck', style: TextStyle(color: Colors.white)))
+                  ? Center(child: Text(trx('No cards in deck', 'ডেকে কোনো কার্ড নেই'), style: TextStyle(color: Colors.white)))
                   : PieChart(
                   PieChartData(
                     sectionsSpace: 4,
@@ -139,8 +139,7 @@ class DeckDashboardScreen extends StatelessWidget {
                       const Icon(Icons.check_circle_rounded, color: Colors.greenAccent, size: 32),
                       const SizedBox(width: 16),
                       Expanded(
-                        child: Text(
-                          "You're all caught up for today! Come back tomorrow.",
+                        child: Text(trx('You\'re all caught up for today! Come back tomorrow.', 'আজকের সব রিভিশন শেষ! কাল আবার আসুন।'),
                           style: GoogleFonts.poppins(color: Colors.white, fontSize: 13),
                         ),
                       ),

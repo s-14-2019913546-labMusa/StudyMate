@@ -503,7 +503,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-        title: const Text('Calculator', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: Text(trx('Calculator', 'ক্যালকুলেটর'), style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.transparent, 
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),

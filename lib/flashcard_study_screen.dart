@@ -7,6 +7,7 @@ import 'gamification_service.dart';
 import 'package:flutter_card_swiper/flutter_card_swiper.dart';
 import 'package:confetti/confetti.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'language_manager.dart' show trx;
 
 class FlashcardStudyScreen extends StatefulWidget {
   final String deckId;
@@ -156,9 +157,9 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen> {
   @override
   Widget build(BuildContext context) {
     if (widget.cards.isEmpty) {
-      return const Scaffold(
+      return Scaffold(
         backgroundColor: Color(0xFF0F172A),
-        body: Center(child: Text('No cards in this deck.', style: TextStyle(color: Colors.white))),
+        body: Center(child: Text(trx('No cards in this deck.', 'এই ডেকে কোনো কার্ড নেই।'), style: TextStyle(color: Colors.white))),
       );
     }
 
@@ -232,8 +233,7 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen> {
         ),
         const SizedBox(height: 20),
         
-        const Text(
-          'Swipe Right = Easy  |  Swipe Up = Medium  |  Swipe Left = Hard',
+        Text(trx('Swipe Right = Easy  |  Swipe Up = Medium  |  Swipe Left = Hard', 'ডানে = সহজ  |  উপরে = মাঝারি  |  বামে = কঠিন'),
           textAlign: TextAlign.center,
           style: TextStyle(color: Colors.white38, fontSize: 11),
         ),
@@ -311,8 +311,7 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen> {
             ),
           ),
           const SizedBox(height: 32),
-          Text(
-            'Well Done!',
+          Text(trx('Well Done!', 'দারুণ!'),
             style: GoogleFonts.poppins(
               color: Colors.white,
               fontSize: 28,
@@ -321,8 +320,7 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen> {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),
-          const Text(
-            'You completed your study session for this deck.',
+          Text(trx('You completed your study session for this deck.', 'এই ডেকের পড়া শেষ করেছেন।'),
             style: TextStyle(color: Colors.white60, fontSize: 15),
             textAlign: TextAlign.center,
           ),
@@ -339,8 +337,7 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Session Summary',
+                Text(trx('Session Summary', 'সেশনের সারাংশ'),
                   style: GoogleFonts.poppins(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
@@ -366,16 +363,14 @@ class _FlashcardStudyScreenState extends State<FlashcardStudyScreen> {
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             ),
-            child: Text(
-              'Study Again',
+            child: Text(trx('Study Again', 'আবার পড়ুন'),
               style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 16),
             ),
           ),
           const SizedBox(height: 12),
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Back to Decks',
+            child: Text(trx('Back to Decks', 'ডেক তালিকায় ফিরুন'),
               style: GoogleFonts.poppins(color: Colors.white60, fontWeight: FontWeight.bold),
             ),
           ),
@@ -547,8 +542,7 @@ class _SwipableFlashcardState extends State<SwipableFlashcard> {
             ),
           ),
           const Spacer(),
-          Text(
-            'Tap to flip card',
+          Text(trx('Tap to flip card', 'উল্টাতে কার্ডে চাপুন'),
             style: GoogleFonts.poppins(
               color: Colors.white30,
               fontSize: 12,

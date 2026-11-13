@@ -20,7 +20,7 @@ class _PopupsScreenState extends State<PopupsScreen> {
     final theme = Theme.of(context);
 
     if (currentUser == null) {
-      return const Scaffold(body: Center(child: Text("Please log in first")));
+      return Scaffold(body: Center(child: Text(trx('Please log in first', 'আগে লগইন করুন'))));
     }
 
     return Scaffold(
@@ -137,7 +137,7 @@ class _PopupsScreenState extends State<PopupsScreen> {
                                 backgroundColor: theme.colorScheme.secondary,
                                 foregroundColor: theme.colorScheme.onSecondary,
                               ),
-                              child: const Text('Dismiss', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                              child: Text(trx('Dismiss', 'বাদ দিন'), style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                             ),
                           ],
                         ),
@@ -160,9 +160,9 @@ class _PopupsScreenState extends State<PopupsScreen> {
         children: [
           Icon(Icons.chat_bubble_outline_rounded, size: 64, color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5)),
           const SizedBox(height: 16),
-          const Text('No Pop-ups', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          Text(trx('No Pop-ups', 'কোনো পপ-আপ নেই'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           const SizedBox(height: 8),
-          const Text('You have no missed pop-ups.', style: TextStyle(color: Colors.grey, fontSize: 13)),
+          Text(trx('You have no missed pop-ups.', 'মিস হওয়া কোনো পপ-আপ নেই।'), style: TextStyle(color: Colors.grey, fontSize: 13)),
         ],
       ),
     );

@@ -10,6 +10,7 @@ import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'google_sheet_syllabus_service.dart';
 import 'multi_sheet_manager_screen.dart';
+import 'language_manager.dart' show trx;
 
 class BotChatMessage {
   final String id;
@@ -1713,10 +1714,10 @@ class _BotChatScreenState extends State<BotChatScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('চ্যাট হিস্ট্রি মুছবেন?'),
+        title: Text(trx('Clear chat history?', 'চ্যাট হিস্ট্রি মুছবেন?')),
         content: const Text('বটের সাথে হওয়া সকল মেসেজ হিস্ট্রি মুছে ফেলা হবে।'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('না')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(trx('No', 'না'))),
           TextButton(
             onPressed: () async {
               Navigator.pop(ctx);
@@ -1735,7 +1736,7 @@ class _BotChatScreenState extends State<BotChatScreen> {
                 );
               });
             },
-            child: const Text('মুছে ফেলুন', style: TextStyle(color: Colors.red)),
+            child: Text(trx('Delete', 'মুছে ফেলুন'), style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -1791,8 +1792,7 @@ class _BotChatScreenState extends State<BotChatScreen> {
                     ),
                   ],
                 ),
-                Text(
-                  '🟢 স্মার্ট স্টাডি অ্যাসিস্ট্যান্ট (১০০% প্রস্তুত)',
+                Text(trx('🟢 Smart study assistant (ready)', '🟢 স্মার্ট স্টাডি অ্যাসিস্ট্যান্ট (১০০% প্রস্তুত)'),
                   style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withValues(alpha: 0.7)),
                 ),
               ],
@@ -1812,9 +1812,9 @@ class _BotChatScreenState extends State<BotChatScreen> {
               if (val == 'help') _sendHelpMenu();
             },
             itemBuilder: (context) => [
-              const PopupMenuItem(value: 'routine', child: Text('📊 রুটিন অ্যানালাইসিস')),
-              const PopupMenuItem(value: 'help', child: Text('কমান্ড তালিকা (/help)')),
-              const PopupMenuItem(value: 'clear', child: Text('চ্যাট মুছুন (/clear)')),
+              PopupMenuItem(value: 'routine', child: Text(trx('📊 Routine analysis', '📊 রুটিন অ্যানালাইসিস'))),
+              PopupMenuItem(value: 'help', child: Text(trx('Command list (/help)', 'কমান্ড তালিকা (/help)'))),
+              PopupMenuItem(value: 'clear', child: Text(trx('Clear chat (/clear)', 'চ্যাট মুছুন (/clear)'))),
             ],
           ),
         ],

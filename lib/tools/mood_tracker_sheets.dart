@@ -83,7 +83,7 @@ class _MoodTrackerBottomSheetState extends State<MoodTrackerBottomSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('How are you feeling?', textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary)),
+          Text(trx('How are you feeling?', 'কেমন লাগছে?'), textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary)),
           const SizedBox(height: 24),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -123,7 +123,7 @@ class _MoodTrackerBottomSheetState extends State<MoodTrackerBottomSheet> {
               showModalBottomSheet(context: context, isScrollControlled: true, useSafeArea: true, backgroundColor: Colors.transparent, builder: (_) => const MoodHistoryBottomSheet());
             },
             icon: const Icon(Icons.history_rounded),
-            label: const Text('View Mood History'),
+            label: Text(trx('View Mood History', 'মুডের ইতিহাস দেখুন')),
           ),
           const SizedBox(height: 24),
           ElevatedButton(
@@ -155,7 +155,7 @@ class _MoodTrackerBottomSheetState extends State<MoodTrackerBottomSheet> {
                 ScaffoldMessenger.of(context).showSnackBar( SnackBar(content: Text('Please log in first.'.tr())));
               }
             },
-            child: const Text('Save Mood'),
+            child: Text(trx('Save Mood', 'মুড সেভ')),
           ),
         ],
       ),
@@ -183,14 +183,14 @@ class MoodHistoryBottomSheet extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Mood History', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary)),
+              Text(trx('Mood History', 'মুডের ইতিহাস'), style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary)),
               IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
             ],
           ),
           const SizedBox(height: 16),
           Expanded(
             child: user == null
-                ? const Center(child: Text("Please log in to view history"))
+                ? Center(child: Text(trx('Please log in to view history', 'ইতিহাস দেখতে লগইন করুন')))
                 : StreamBuilder<QuerySnapshot>(
                     stream: FirebaseFirestore.instance
                         .collection('users')
@@ -203,7 +203,7 @@ class MoodHistoryBottomSheet extends StatelessWidget {
                         return const Center(child: CircularProgressIndicator());
                       }
                       if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                        return const Center(child: Text("No mood history yet.", style: TextStyle(color: Colors.grey)));
+                        return Center(child: Text(trx('No mood history yet.', 'এখনো কোনো মুড সেভ হয়নি।'), style: TextStyle(color: Colors.grey)));
                       }
 
                       // ডাটা গ্রুপিং লজিক (Today, Yesterday, বা Month অনুযায়ী)

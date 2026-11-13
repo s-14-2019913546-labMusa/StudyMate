@@ -11,6 +11,7 @@ import 'gamification_service.dart';
 import 'language_manager.dart';
 import 'conversations_screen.dart';
 import 'user_profile_cache.dart';
+import 'widgets/avatar_image.dart';
 
 // ==========================================
 // Social Hub Screen
@@ -177,7 +178,7 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.surface,
         elevation: 0,
-        title: const Text('Social Hub', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(trx('Social Hub', 'সোশ্যাল হাব'), style: TextStyle(fontWeight: FontWeight.bold)),
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: Theme.of(context).colorScheme.primary,
@@ -233,7 +234,7 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
         ),
         Expanded(
           child: _searchQuery.isEmpty
-              ? const Center(child: Text('Search for your study buddies!', style: TextStyle(color: Colors.grey)))
+              ? Center(child: Text(trx('Search for your study buddies!', 'পড়ার সঙ্গী খুঁজুন!'), style: TextStyle(color: Colors.grey)))
               : FutureBuilder<List<DocumentSnapshot>>(
                   future: _searchUsers(_searchQuery), // আপডেট করা কাস্টম সার্চ ফাংশন
                   builder: (context, snapshot) {
@@ -241,7 +242,7 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
                       return const Center(child: CircularProgressIndicator());
                     }
                     if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                      return const Center(child: Text('No users found.'));
+                      return Center(child: Text(trx('No users found.', 'কাউকে পাওয়া যায়নি।')));
                     }
 
                     final users = snapshot.data!;
@@ -270,7 +271,7 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
                                 return ElevatedButton.icon(
                                   onPressed: () => _sendFriendRequest(userId),
                                   icon: const Icon(Icons.person_add_alt_1_rounded, size: 16),
-                                  label: const Text('Add'),
+                                  label: Text(trx('Add', 'যোগ')),
                                   style: ElevatedButton.styleFrom(
                                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                   ),
@@ -284,7 +285,7 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
                                 return OutlinedButton.icon(
                                   onPressed: null,
                                   icon: const Icon(Icons.check_rounded, size: 16),
-                                  label: const Text('Friends'),
+                                  label: Text(trx('Friends', 'বন্ধু')),
                                   style: OutlinedButton.styleFrom(
                                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                   ),
@@ -293,7 +294,7 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
                                 return OutlinedButton.icon(
                                   onPressed: () => _cancelFriendRequest(userId),
                                   icon: const Icon(Icons.hourglass_empty_rounded, size: 16),
-                                  label: const Text('Request Sent'),
+                                  label: Text(trx('Request Sent', 'অনুরোধ পাঠানো হয়েছে')),
                                   style: OutlinedButton.styleFrom(
                                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                   ),
@@ -319,7 +320,7 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
                               return ElevatedButton.icon(
                                 onPressed: () => _sendFriendRequest(userId),
                                 icon: const Icon(Icons.person_add_alt_1_rounded, size: 16),
-                                label: const Text('Add'),
+                                label: Text(trx('Add', 'যোগ')),
                                 style: ElevatedButton.styleFrom(
                                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                 ),
@@ -338,7 +339,7 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
 
   // ==================== TAB 2: MY FRIENDS & REQUESTS ====================
   Widget _buildMyFriendsTab() {
-    if (currentUser == null) return const Center(child: Text("Please login first"));
+    if (currentUser == null) return Center(child: Text(trx('Please login first', 'আগে লগইন করুন')));
 
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance.collection('users').doc(currentUser!.uid).collection('friends').snapshots(),
@@ -347,7 +348,7 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
           return const Center(child: CircularProgressIndicator());
         }
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return const Center(child: Text('No friends yet. Start connecting!', style: TextStyle(color: Colors.grey)));
+          return Center(child: Text(trx('No friends yet. Start connecting!', 'এখনো বন্ধু নেই। খুঁজে যোগ করুন!'), style: TextStyle(color: Colors.grey)));
         }
 
         final docs = snapshot.data!.docs;
@@ -359,7 +360,7 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
           padding: const EdgeInsets.all(16),
           children: [
             if (pendingRequests.isNotEmpty) ...[
-              const Text('Friend Requests', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.grey)),
+              Text(trx('Friend Requests', 'বন্ধুত্বের অনুরোধ'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.grey)),
               const SizedBox(height: 8),
               ...pendingRequests.map((req) {
                 final requesterId = req.id;
@@ -372,9 +373,7 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
                     final photoUrl = userData['photoUrl'] as String?;
                     ImageProvider? avatarImage;
                     if (photoUrl != null && photoUrl.isNotEmpty) {
-                      avatarImage = photoUrl.startsWith('http')
-                          ? CachedNetworkImageProvider(photoUrl)
-                          : FileImage(File(photoUrl)) as ImageProvider;
+                      avatarImage = avatarImageProvider(photoUrl);
                     }
 
                     return Card(
@@ -449,23 +448,21 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
               const Divider(height: 32),
             ],
 
-            const Text('My Friends', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.grey)),
+            Text(trx('My Friends', 'আমার বন্ধুরা'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.grey)),
             const SizedBox(height: 8),
-            if (friends.isEmpty) const Text('You have no friends on your list yet.'),
+            if (friends.isEmpty) Text(trx('You have no friends on your list yet.', 'তালিকায় এখনো কোনো বন্ধু নেই।')),
             ...friends.map((friendDoc) {
               final friendId = friendDoc.id;
               return FutureBuilder<Map<String, dynamic>>(
                 future: UserProfileCache.get(friendId),
                 initialData: UserProfileCache.peek(friendId),
                 builder: (ctx, userSnap) {
-                  if (!userSnap.hasData) return const ListTile(title: Text('Loading...'));
+                  if (!userSnap.hasData) return ListTile(title: Text(trx('Loading...', 'লোড হচ্ছে...')));
                   final userData = userSnap.data ?? const <String, dynamic>{};
                   final photoUrl = userData['photoUrl'] as String?;
                   ImageProvider? avatarImage;
                   if (photoUrl != null && photoUrl.isNotEmpty) {
-                    avatarImage = photoUrl.startsWith('http')
-                        ? CachedNetworkImageProvider(photoUrl)
-                        : FileImage(File(photoUrl)) as ImageProvider;
+                    avatarImage = avatarImageProvider(photoUrl);
                   }
                   return ListTile(
                     contentPadding: EdgeInsets.zero,
@@ -474,7 +471,7 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
                       child: avatarImage == null ? const Icon(Icons.person) : null,
                     ),
                     title: Text(userData['displayName'] ?? 'Study Buddy', style: const TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle: const Text('Tap to view tasks'),
+                    subtitle: Text(trx('Tap to view tasks', 'টাস্ক দেখতে চাপুন')),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -519,7 +516,7 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
 
   // ==================== TAB 3: GROUPS ====================
   Widget _buildGroupsTab() {
-    if (currentUser == null) return const Center(child: Text("Please login first"));
+    if (currentUser == null) return Center(child: Text(trx('Please login first', 'আগে লগইন করুন')));
 
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
@@ -553,7 +550,7 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
               child: ElevatedButton.icon(
                 onPressed: _showCreateGroupDialog,
                 icon: const Icon(Icons.group_add_rounded),
-                label: const Text('Create New Group'),
+                label: Text(trx('Create New Group', 'নতুন গ্রুপ বানান')),
                 style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 48)),
               ),
             ),
@@ -615,14 +612,14 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
         children: [
           Icon(Icons.groups_rounded, size: 100, color: Colors.grey.shade300),
           const SizedBox(height: 16),
-          Text('My Groups', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+          Text(trx('My Groups', 'আমার গ্রুপ'), style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
-          const Text('Create study groups, share routines, and compete with your friends!', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
+          Text(trx('Create study groups, share routines, and compete with your friends!', 'স্টাডি গ্রুপ বানান, রুটিন শেয়ার করুন, বন্ধুদের সাথে প্রতিযোগিতা করুন!'), textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
           const SizedBox(height: 32),
           ElevatedButton.icon(
             onPressed: _showCreateGroupDialog,
             icon: const Icon(Icons.add),
-            label: const Text('Create New Group'),
+            label: Text(trx('Create New Group', 'নতুন গ্রুপ বানান')),
             style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50)),
           ),
         ],
@@ -651,12 +648,12 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
         showDialog(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: const Text('Create Group'),
-            content: const Text('You need to add some friends first to create a group! Go to "Find Friends" tab to add buddies.'),
+            title: Text(trx('Create Group', 'গ্রুপ বানান')),
+            content: Text(trx('You need to add some friends first to create a group! Go to "Find Friends" tab to add buddies.', 'গ্রুপ বানাতে আগে কিছু বন্ধু যোগ করুন! "Find Friends" ট্যাবে গিয়ে বন্ধু খুঁজুন।')),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('OK'),
+                child: Text(trx('OK', 'ঠিক আছে')),
               )
             ],
           ),
@@ -685,8 +682,7 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const Text(
-                        'Create Study Group',
+                      Text(trx('Create Study Group', 'স্টাডি গ্রুপ বানান'),
                         style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                         textAlign: TextAlign.center,
                       ),
@@ -701,8 +697,7 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
                         textCapitalization: TextCapitalization.words,
                       ),
                       const SizedBox(height: 16),
-                      const Text(
-                        'Select Friends to Add',
+                      Text(trx('Select Friends to Add', 'যাদের যোগ করবেন বাছুন'),
                         style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey),
                       ),
                       const SizedBox(height: 8),
@@ -765,7 +760,7 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
                           minimumSize: const Size(double.infinity, 50),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                         ),
-                        child: const Text('Create Group', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        child: Text(trx('Create Group', 'গ্রুপ বানান'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                       ),
                     ],
                   ),
@@ -838,7 +833,7 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
   }
 
   Widget _buildLeaderboardTab() {
-    if (currentUser == null) return const Center(child: Text("Please login first"));
+    if (currentUser == null) return Center(child: Text(trx('Please login first', 'আগে লগইন করুন')));
 
     return Column(
       children: [
@@ -850,9 +845,9 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
               // Weekly / All Time toggle
               Expanded(
                 child: SegmentedButton<String>(
-                  segments: const [
-                    ButtonSegment(value: 'allTime', label: Text('All Time'), icon: Icon(Icons.emoji_events_rounded, size: 16)),
-                    ButtonSegment(value: 'weekly', label: Text('This Week'), icon: Icon(Icons.calendar_today_rounded, size: 16)),
+                  segments: [
+                    ButtonSegment(value: 'allTime', label: Text(trx('All Time', 'সব সময়')), icon: Icon(Icons.emoji_events_rounded, size: 16)),
+                    ButtonSegment(value: 'weekly', label: Text(trx('This Week', 'এই সপ্তাহ')), icon: Icon(Icons.calendar_today_rounded, size: 16)),
                   ],
                   selected: {_leaderboardPeriod},
                   onSelectionChanged: (Set<String> s) => setState(() => _leaderboardPeriod = s.first),
@@ -862,7 +857,7 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
               const SizedBox(width: 8),
               // Friends Only toggle
               FilterChip(
-                label: const Text('Friends', style: TextStyle(fontSize: 12)),
+                label: Text(trx('Friends', 'বন্ধু'), style: TextStyle(fontSize: 12)),
                 selected: _leaderboardFriendsOnly,
                 onSelected: (val) => setState(() => _leaderboardFriendsOnly = val),
                 avatar: const Icon(Icons.people_rounded, size: 16),
@@ -1015,7 +1010,7 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
 
   Widget _buildLeaderboardList(List<Map<String, dynamic>> users) {
     if (users.isEmpty) {
-      return const Center(child: Text('No data yet.', style: TextStyle(color: Colors.grey)));
+      return Center(child: Text(trx('No data yet.', 'এখনো কোনো তথ্য নেই।'), style: TextStyle(color: Colors.grey)));
     }
     return ListView.builder(
       physics: const AlwaysScrollableScrollPhysics(), // ছোট তালিকাতেও টেনে রিফ্রেশ
@@ -1165,9 +1160,7 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
               final photoUrl = userData['photoUrl'] as String?;
               ImageProvider? avatarImage;
               if (photoUrl != null && photoUrl.isNotEmpty) {
-                avatarImage = photoUrl.startsWith('http')
-                    ? CachedNetworkImageProvider(photoUrl)
-                    : FileImage(File(photoUrl)) as ImageProvider;
+                avatarImage = avatarImageProvider(photoUrl);
               }
               return Container(
                 color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.05),
@@ -1196,7 +1189,7 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
                             )));
                           },
                           icon: const Icon(Icons.message_rounded),
-                          label: const Text('Send Message'),
+                          label: Text(trx('Send Message', 'মেসেজ পাঠান')),
                           style: ElevatedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                           ),
@@ -1208,7 +1201,7 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
                               friendName: widget.friendName)));
                           },
                           icon: const Icon(Icons.account_circle_rounded),
-                          label: const Text('View Profile'),
+                          label: Text(trx('View Profile', 'প্রোফাইল দেখুন')),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Theme.of(context).colorScheme.secondary.withValues(alpha: 0.1),
                             foregroundColor: Theme.of(context).colorScheme.secondary,
@@ -1228,7 +1221,7 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text("Tasks List", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                Text(trx('Tasks List', 'টাস্ক তালিকা'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
                 Row(
                   children: [
                     IconButton(
@@ -1320,7 +1313,7 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
                     DailyRoutine routine = DailyRoutine.fromMap(snapshot.data!.data() as Map<String, dynamic>, snapshot.data!.id);
 
                     if (routine.tasks.isEmpty) {
-                      return const Center(child: Text('No tasks available.'));
+                      return Center(child: Text(trx('No tasks available.', 'কোনো টাস্ক নেই।')));
                     }
 
                     return ListView.builder(
@@ -1590,12 +1583,12 @@ class _FriendDetailsScreenState extends State<FriendDetailsScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('Cancel'),
+              child: Text(trx('Cancel', 'বাতিল')),
             ),
             ElevatedButton(
               onPressed: () => Navigator.of(ctx).pop(true),
               style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error),
-              child: const Text('Unfriend', style: TextStyle(color: Colors.white)),
+              child: Text(trx('Unfriend', 'বন্ধু তালিকা থেকে সরান'), style: TextStyle(color: Colors.white)),
             ),
           ],
         );
@@ -1646,9 +1639,7 @@ class _FriendDetailsScreenState extends State<FriendDetailsScreen> {
 
     ImageProvider? avatarImage;
     if (photoUrl != null && photoUrl.isNotEmpty) {
-      avatarImage = photoUrl.startsWith('http')
-          ? CachedNetworkImageProvider(photoUrl)
-          : FileImage(File(photoUrl)) as ImageProvider;
+      avatarImage = avatarImageProvider(photoUrl);
     }
 
     final level = GamificationService.getLevel(totalXP);

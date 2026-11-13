@@ -274,7 +274,7 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: _isNoteDarkMode ? const Color(0xFF2D2D2D) : Theme.of(context).cardColor,
-        title: Text('Select Text Color', style: TextStyle(color: _isNoteDarkMode ? Colors.white : Theme.of(context).colorScheme.onSurface)),
+        title: Text(trx('Select Text Color', 'লেখার রঙ বাছুন'), style: TextStyle(color: _isNoteDarkMode ? Colors.white : Theme.of(context).colorScheme.onSurface)),
         content: SingleChildScrollView(
           child: Wrap(
             spacing: 12,
@@ -292,7 +292,7 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(trx('Cancel', 'বাতিল'))),
         ],
       ),
     );
@@ -376,18 +376,17 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Row(
-          children: const [
+          children: [
             Icon(Icons.auto_awesome_rounded, color: Colors.indigoAccent),
             SizedBox(width: 8),
-            Text('Write with AI'),
+            Text(trx('Write with AI', 'AI দিয়ে লিখুন')),
           ],
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text(
-              'Enter a topic or question (e.g. "Write about Kazi Nazrul" or "Explain photosynthesis"). AI will write a comprehensive study note.',
+            Text(trx('Enter a topic or question (e.g. "Write about Kazi Nazrul" or "Explain photosynthesis"). AI will write a full study note.', 'বিষয় বা প্রশ্ন লিখুন (যেমন "কাজী নজরুল সম্পর্কে লেখো")। AI পুরো একটি নোট লিখে দেবে।'),
               style: TextStyle(fontSize: 13, color: Colors.black54),
             ),
             const SizedBox(height: 16),
@@ -403,7 +402,7 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
+            child: Text(trx('Cancel', 'বাতিল')),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -441,7 +440,7 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
                 }
               }
             },
-            child: const Text('Write Note'),
+            child: Text(trx('Write Note', 'নোট লিখুন')),
           ),
         ],
       ),
@@ -600,7 +599,7 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text('Image Settings', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _isNoteDarkMode ? Colors.white : Colors.black87), textAlign: TextAlign.center),
+                  Text(trx('Image Settings', 'ছবির সেটিংস'), style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _isNoteDarkMode ? Colors.white : Colors.black87), textAlign: TextAlign.center),
                   const SizedBox(height: 12),
                   
                   // Preview box — clean, no box shadow
@@ -615,7 +614,7 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
                   // Rotate option
                   ListTile(
                     leading: const Icon(Icons.rotate_right_rounded, color: Colors.blueAccent),
-                    title: Text('Rotate 90°', style: TextStyle(color: _isNoteDarkMode ? Colors.white : Colors.black87)),
+                    title: Text(trx('Rotate 90°', '৯০° ঘোরান'), style: TextStyle(color: _isNoteDarkMode ? Colors.white : Colors.black87)),
                     trailing: Text('${rotation.toInt()}°', style: TextStyle(color: _isNoteDarkMode ? Colors.white70 : Colors.black54)),
                     onTap: () {
                       rotation = (rotation + 90) % 360;
@@ -627,7 +626,7 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
                   // Shadow option — vignette on the image
                   ListTile(
                     leading: const Icon(Icons.brightness_3_rounded, color: Colors.blueGrey),
-                    title: Text('Vignette Shadow', style: TextStyle(color: _isNoteDarkMode ? Colors.white : Colors.black87)),
+                    title: Text(trx('Vignette Shadow', 'কোণায় ছায়া'), style: TextStyle(color: _isNoteDarkMode ? Colors.white : Colors.black87)),
                     subtitle: SliderTheme(
                       data: SliderThemeData(
                         activeTrackColor: Colors.blueAccent,
@@ -653,7 +652,7 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
                   // Crop option
                   ListTile(
                     leading: const Icon(Icons.crop_rounded, color: Colors.green),
-                    title: Text('Crop / Zoom Factor', style: TextStyle(color: _isNoteDarkMode ? Colors.white : Colors.black87)),
+                    title: Text(trx('Crop / Zoom Factor', 'কাটা / জুম'), style: TextStyle(color: _isNoteDarkMode ? Colors.white : Colors.black87)),
                     subtitle: SliderTheme(
                       data: SliderThemeData(
                         activeTrackColor: Colors.green,
@@ -678,7 +677,7 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
                   // Delete option
                   ListTile(
                     leading: const Icon(Icons.delete_forever_rounded, color: Colors.redAccent),
-                    title: const Text('Delete Image', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+                    title: Text(trx('Delete Image', 'ছবি মুছুন'), style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
                     onTap: () {
                       Navigator.pop(ctx);
                       final updatedText = _contentController.text.replaceRange(start, end, '');
@@ -835,10 +834,10 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: Colors.blue.shade200),
         ),
-        child: const Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           Icon(Icons.image_rounded, color: Colors.blue, size: 28),
           SizedBox(height: 2),
-          Text('Image', style: TextStyle(fontSize: 10, color: Colors.blue)),
+          Text(trx('Image', 'ছবি'), style: TextStyle(fontSize: 10, color: Colors.blue)),
         ]),
       );
     } else {
@@ -1091,13 +1090,13 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
           children: [
             const Icon(Icons.restore_rounded, color: Colors.blue),
             const SizedBox(width: 8),
-            Text('Version History', style: TextStyle(color: textColor)),
+            Text(trx('Version History', 'আগের ভার্সন'), style: TextStyle(color: textColor)),
           ],
         ),
         content: SizedBox(
           width: double.maxFinite,
           child: (widget.noteId == null || currentUser == null)
-              ? Text('নতুন নোটের এখনো কোনো আগের ভার্সন নেই। নোটটি সেভ করে পরে এডিট করলে আগের লেখাগুলো এখানে জমা হবে।',
+              ? Text(trx('A new note has no earlier versions yet. Save it, and later edits will keep the old text here.', 'নতুন নোটের এখনো কোনো আগের ভার্সন নেই। নোটটি সেভ করে পরে এডিট করলে আগের লেখাগুলো এখানে জমা হবে।'),
                   style: TextStyle(color: Colors.grey.shade500, fontSize: 13))
               : FutureBuilder<QuerySnapshot>(
                   future: FirebaseFirestore.instance
@@ -1115,7 +1114,7 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
                     }
                     final docs = snap.data?.docs ?? [];
                     if (docs.isEmpty) {
-                      return Text('এখনো কোনো আগের ভার্সন নেই। নোট এডিট করে সেভ করলে আগের লেখা এখানে আসবে।',
+                      return Text(trx('No earlier versions yet. When you edit and save the note, the old text will appear here.', 'এখনো কোনো আগের ভার্সন নেই। নোট এডিট করে সেভ করলে আগের লেখা এখানে আসবে।'),
                           style: TextStyle(color: Colors.grey.shade500, fontSize: 13));
                     }
                     return ListView.builder(
@@ -1142,7 +1141,7 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
                               ScaffoldMessenger.of(this.context).showSnackBar(SnackBar(
                                   content: Text(trx('Restored the version from $when. Tap Save to keep it.', '$when-এর ভার্সন ফিরিয়ে আনা হয়েছে। রাখতে চাইলে Save চাপুন।'))));
                             },
-                            child: const Text('Restore'),
+                            child: Text(trx('Restore', 'ফিরিয়ে আনুন')),
                           ),
                         );
                       },
@@ -1151,7 +1150,7 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
                 ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(trx('Close', 'বন্ধ'))),
         ],
       ),
     );
@@ -1221,7 +1220,7 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Previous Notes', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Theme.of(context).colorScheme.onSurface)),
+                  Text(trx('Previous Notes', 'আগের নোট'), style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Theme.of(context).colorScheme.onSurface)),
                   IconButton(icon: Icon(Icons.close, color: isDark ? Colors.white : Theme.of(context).colorScheme.onSurface), onPressed: () => Navigator.pop(context)),
                 ],
               ),
@@ -1337,7 +1336,7 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
       backgroundColor: bgColor,
       appBar: AppBar(
         backgroundColor: bgColor,
-        title: Text('Smart Notes', style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
+        title: Text(trx('Smart Notes', 'স্মার্ট নোট'), style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
         elevation: 0,
         iconTheme: IconThemeData(color: textColor),
         actions: [
@@ -1489,7 +1488,7 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
                         children: [
                           const Icon(Icons.check_circle_rounded, color: Colors.green, size: 16),
                           const SizedBox(width: 6),
-                          const Text('Voice note attached', style: TextStyle(color: Colors.green, fontSize: 13, fontWeight: FontWeight.bold)),
+                          Text(trx('Voice note attached', 'ভয়েস নোট যুক্ত'), style: TextStyle(color: Colors.green, fontSize: 13, fontWeight: FontWeight.bold)),
                           const Spacer(),
                           IconButton(icon: const Icon(Icons.close_rounded, size: 18, color: Colors.red), constraints: const BoxConstraints(), padding: EdgeInsets.zero, onPressed: () => setState(() => _audioFilePath = null)),
                         ],
@@ -1507,7 +1506,7 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
                             child: Image.file(File(_imageFilePath!), width: 40, height: 40, fit: BoxFit.cover),
                           ),
                           const SizedBox(width: 12),
-                          const Text('Image attached', style: TextStyle(color: Colors.blue, fontSize: 13, fontWeight: FontWeight.bold)),
+                          Text(trx('Image attached', 'ছবি যুক্ত'), style: TextStyle(color: Colors.blue, fontSize: 13, fontWeight: FontWeight.bold)),
                           const Spacer(),
                           IconButton(icon: const Icon(Icons.close_rounded, size: 18, color: Colors.red), constraints: const BoxConstraints(), padding: EdgeInsets.zero, onPressed: () => setState(() => _imageFilePath = null)),
                         ],
@@ -1523,13 +1522,13 @@ class _QuickNotesScreenState extends State<QuickNotesScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Previous Notes', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor.withValues(alpha: 0.7))),
-                  TextButton(onPressed: _showPreviousNotesBottomSheet, child: const Text('View All'))
+                  Text(trx('Previous Notes', 'আগের নোট'), style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor.withValues(alpha: 0.7))),
+                  TextButton(onPressed: _showPreviousNotesBottomSheet, child: Text(trx('View All', 'সব দেখুন')))
                 ],
               ),
             ),
             currentUser == null 
-              ? const Center(child: Text('Please log in to view notes.'))
+              ? Center(child: Text(trx('Please log in to view notes.', 'নোট দেখতে লগইন করুন।')))
               : StreamBuilder<QuerySnapshot>(
                   stream: _notesLimitStream,
                   builder: (context, snapshot) {
@@ -1909,7 +1908,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                       ),
                     ),
                     const SizedBox(width: 16),
-                    Expanded(child: Text('Recorded Voice Note', style: TextStyle(fontWeight: FontWeight.bold, color: textColor))),
+                    Expanded(child: Text(trx('Recorded Voice Note', 'রেকর্ড করা ভয়েস নোট'), style: TextStyle(fontWeight: FontWeight.bold, color: textColor))),
                   ],
                 ),
               ),
@@ -1937,7 +1936,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                   });
                 },
                 icon: const Icon(Icons.edit_note_rounded),
-                label: const Text('Edit Note'),
+                label: Text(trx('Edit Note', 'নোট এডিট')),
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -1952,7 +1951,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _generateQuizFromNote,
         icon: const Icon(Icons.quiz_rounded),
-        label: const Text('Generate AI Quiz'),
+        label: Text(trx('Generate AI Quiz', 'AI কুইজ বানান')),
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
       ),
@@ -2686,13 +2685,13 @@ class _InlineImageWidgetState extends State<InlineImageWidget> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Text('Edit Image', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87), textAlign: TextAlign.center),
+                  Text(trx('Edit Image', 'ছবি এডিট'), style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87), textAlign: TextAlign.center),
                   const SizedBox(height: 16),
                   
                   // Rotate option
                   ListTile(
                     leading: const Icon(Icons.rotate_right_rounded, color: Colors.blueAccent),
-                    title: const Text('Rotate 90°', style: TextStyle(color: Colors.black87)),
+                    title: Text(trx('Rotate 90°', '৯০° ঘোরান'), style: TextStyle(color: Colors.black87)),
                     trailing: Text('${_rotation.toInt()}°', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black54)),
                     onTap: () {
                       setState(() {
@@ -2706,7 +2705,7 @@ class _InlineImageWidgetState extends State<InlineImageWidget> {
                   // Shadow option — vignette overlay on image
                   ListTile(
                     leading: const Icon(Icons.brightness_3_rounded, color: Colors.blueGrey),
-                    title: const Text('Vignette Shadow', style: TextStyle(color: Colors.black87)),
+                    title: Text(trx('Vignette Shadow', 'কোণায় ছায়া'), style: TextStyle(color: Colors.black87)),
                     subtitle: SliderTheme(
                       data: SliderThemeData(
                         activeTrackColor: Colors.blueAccent,
@@ -2732,7 +2731,7 @@ class _InlineImageWidgetState extends State<InlineImageWidget> {
                   // Crop option
                   ListTile(
                     leading: const Icon(Icons.crop_rounded, color: Colors.green),
-                    title: const Text('Crop / Zoom Factor', style: TextStyle(color: Colors.black87)),
+                    title: Text(trx('Crop / Zoom Factor', 'কাটা / জুম'), style: TextStyle(color: Colors.black87)),
                     subtitle: Slider(
                       value: _cropFactor,
                       min: 0.5,
@@ -2751,7 +2750,7 @@ class _InlineImageWidgetState extends State<InlineImageWidget> {
                   // Delete option
                   ListTile(
                     leading: const Icon(Icons.delete_forever_rounded, color: Colors.redAccent),
-                    title: const Text('Delete Image', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+                    title: Text(trx('Delete Image', 'ছবি মুছুন'), style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
                     onTap: () {
                       Navigator.pop(ctx);
                       widget.onDelete();

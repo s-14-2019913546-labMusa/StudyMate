@@ -94,7 +94,7 @@ class _RoutinePlannerBottomSheetState extends State<RoutinePlannerBottomSheet> {
           children: [
             Icon(Icons.calendar_view_week_rounded, color: Theme.of(context).colorScheme.primary),
             const SizedBox(width: 8),
-            const Text('Weekly Preview', style: TextStyle(fontWeight: FontWeight.bold)),
+            Text(trx('Weekly Preview', 'সপ্তাহের পূর্বরূপ'), style: TextStyle(fontWeight: FontWeight.bold)),
           ],
         ),
         content: SizedBox(
@@ -111,7 +111,7 @@ class _RoutinePlannerBottomSheetState extends State<RoutinePlannerBottomSheet> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(day, style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary)),
-                    if (tasks.isEmpty) const Text('- No tasks set', style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic)),
+                    if (tasks.isEmpty) Text(trx('- No tasks set', '- কোনো টাস্ক নেই'), style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic)),
                     ...tasks.map((t) => Text('• $t')),
                     const Divider(),
                   ],
@@ -121,7 +121,7 @@ class _RoutinePlannerBottomSheetState extends State<RoutinePlannerBottomSheet> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(trx('Close', 'বন্ধ'))),
         ],
       ),
     );
@@ -138,7 +138,7 @@ class _RoutinePlannerBottomSheetState extends State<RoutinePlannerBottomSheet> {
         constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
         child: Column(
           children: [
-            Text('Routine Planner', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary)),
+            Text(trx('Routine Planner', 'রুটিন প্ল্যানার'), style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary)),
             const SizedBox(height: 16),
             const TabBar(
               tabs: [
@@ -184,7 +184,7 @@ class _RoutinePlannerBottomSheetState extends State<RoutinePlannerBottomSheet> {
                           ],
                         ),
                         const SizedBox(height: 16),
-                        const Text('Tasks added:', style: TextStyle(fontWeight: FontWeight.bold)),
+                        Text(trx('Tasks added:', 'যোগ হওয়া টাস্ক:'), style: TextStyle(fontWeight: FontWeight.bold)),
                         Expanded(
                           child: ListView.builder(
                             itemCount: _nextTasks.length,
@@ -195,7 +195,7 @@ class _RoutinePlannerBottomSheetState extends State<RoutinePlannerBottomSheet> {
                             ),
                           ),
                         ),
-                        ElevatedButton(onPressed: () => Navigator.pop(context), child: const Text('Save Routine')),
+                        ElevatedButton(onPressed: () => Navigator.pop(context), child: Text(trx('Save Routine', 'রুটিন সেভ'))),
                       ],
                     ),
                   ),
@@ -239,11 +239,11 @@ class _RoutinePlannerBottomSheetState extends State<RoutinePlannerBottomSheet> {
                         OutlinedButton.icon(
                           onPressed: _showWeeklyPreview,
                           icon: const Icon(Icons.visibility_rounded),
-                          label: const Text('Preview Week'),
+                          label: Text(trx('Preview Week', 'সপ্তাহ দেখুন')),
                           style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
                         ),
                         const SizedBox(height: 12),
-                        ElevatedButton(onPressed: () => Navigator.pop(context), child: const Text('Save Weekly Routine')),
+                        ElevatedButton(onPressed: () => Navigator.pop(context), child: Text(trx('Save Weekly Routine', 'সাপ্তাহিক রুটিন সেভ'))),
                       ],
                     ),
                   ),

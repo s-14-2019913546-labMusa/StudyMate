@@ -372,8 +372,7 @@ class _FlashcardDecksScreenState extends State<FlashcardDecksScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text(
-              'Enter your Gemini API Key from Google AI Studio to enable live AI deck generation for any topic in any language.',
+            Text(trx('Enter your Gemini API Key from Google AI Studio to enable live AI deck generation for any topic in any language.', 'Google AI Studio থেকে পাওয়া Gemini API Key দিন, তাহলে যেকোনো বিষয়ে AI দিয়ে ডেক বানানো যাবে।'),
               style: TextStyle(fontSize: 13, color: Colors.black54),
             ),
             const SizedBox(height: 16),
@@ -386,8 +385,7 @@ class _FlashcardDecksScreenState extends State<FlashcardDecksScreen> {
               obscureText: true,
             ),
             const SizedBox(height: 8),
-            const Text(
-              'Note: If left empty, the app will fall back to local database templates (e.g. Try "Kazi Nazrul" or "Flutter" for catalog simulations).',
+            Text(trx('Note: If left empty, the app uses its offline templates (try "Kazi Nazrul" or "Flutter").', 'খালি রাখলে অ্যাপ অফলাইন টেমপ্লেট ব্যবহার করবে (যেমন "Kazi Nazrul" বা "Flutter" লিখে দেখুন)।'),
               style: TextStyle(fontSize: 11, color: Colors.grey, fontStyle: FontStyle.italic),
             ),
           ],
@@ -395,14 +393,14 @@ class _FlashcardDecksScreenState extends State<FlashcardDecksScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
+            child: Text(trx('Cancel', 'বাতিল')),
           ),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(ctx);
               _saveApiKey(controller.text);
             },
-            child: const Text('Save'),
+            child: Text(trx('Save', 'সেভ')),
           ),
         ],
       ),
@@ -412,16 +410,15 @@ class _FlashcardDecksScreenState extends State<FlashcardDecksScreen> {
   @override
   Widget build(BuildContext context) {
     if (currentUser == null) {
-      return const Scaffold(
-        body: Center(child: Text('Please log in to use Flashcards.')),
+      return Scaffold(
+        body: Center(child: Text(trx('Please log in to use Flashcards.', 'ফ্ল্যাশকার্ড ব্যবহার করতে লগইন করুন।'))),
       );
     }
 
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        title: Text(
-          'Flashcards',
+        title: Text(trx('Flashcards', 'ফ্ল্যাশকার্ড'),
           style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
         ),
         backgroundColor: Colors.transparent,
@@ -576,7 +573,7 @@ class _FlashcardDecksScreenState extends State<FlashcardDecksScreen> {
             },
           );
         },
-        label: const Text('New Deck', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+        label: Text(trx('New Deck', 'নতুন ডেক'), style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
         icon: const Icon(Icons.add, color: Colors.white),
         backgroundColor: Theme.of(context).colorScheme.primary,
       ),
@@ -839,8 +836,7 @@ class _CreateDeckBottomSheetState extends State<CreateDeckBottomSheet> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            'AI Study Deck Generator',
+          Text(trx('AI Study Deck Generator', 'AI দিয়ে ডেক তৈরি'),
             style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
@@ -865,7 +861,7 @@ class _CreateDeckBottomSheetState extends State<CreateDeckBottomSheet> {
               widget.onAiGenerate(topic);
             },
             icon: const Icon(Icons.auto_awesome_rounded),
-            label: const Text('Generate Flashcards'),
+            label: Text(trx('Generate Flashcards', 'ফ্ল্যাশকার্ড বানান')),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.purple,
               foregroundColor: Colors.white,
@@ -901,11 +897,11 @@ Format the output EXACTLY like this without any markdown formatting or extra tex
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Row(
+        title: Row(
           children: [
             Icon(Icons.tips_and_updates_rounded, color: Colors.orange),
             SizedBox(width: 8),
-            Text('AI Prompt Guide'),
+            Text(trx('AI Prompt Guide', 'AI প্রম্পট গাইড')),
           ],
         ),
         content: SingleChildScrollView(
@@ -913,10 +909,10 @@ Format the output EXACTLY like this without any markdown formatting or extra tex
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Copy the prompt below and paste it into ChatGPT, Gemini, or Claude to generate bulk questions perfectly formatted for StudyMate.', style: TextStyle(fontSize: 13, color: Colors.black87)),
+              Text(trx('Copy the prompt below and paste it into ChatGPT, Gemini, or Claude to generate many questions already formatted for StudyMate.', 'নিচের প্রম্পট কপি করে ChatGPT, Gemini বা Claude-এ দিন, StudyMate-এর ফরম্যাটে অনেক প্রশ্ন বানিয়ে দেবে।'), style: TextStyle(fontSize: 13, color: Colors.black87)),
               const SizedBox(height: 16),
               
-              const Text('English Prompt:', style: TextStyle(fontWeight: FontWeight.bold)),
+              Text(trx('English Prompt:', 'ইংরেজি প্রম্পট:'), style: TextStyle(fontWeight: FontWeight.bold)),
               Container(
                 width: double.infinity,
                 margin: const EdgeInsets.only(top: 8, bottom: 8),
@@ -933,13 +929,13 @@ Format the output EXACTLY like this without any markdown formatting or extra tex
                     Navigator.pop(ctx);
                   },
                   icon: const Icon(Icons.copy, size: 16),
-                  label: const Text('Copy English'),
+                  label: Text(trx('Copy English', 'ইংরেজি কপি')),
                 ),
               ),
               
               const Divider(height: 32),
               
-              const Text('Bangla Prompt:', style: TextStyle(fontWeight: FontWeight.bold)),
+              Text(trx('Bangla Prompt:', 'বাংলা প্রম্পট:'), style: TextStyle(fontWeight: FontWeight.bold)),
               Container(
                 width: double.infinity,
                 margin: const EdgeInsets.only(top: 8, bottom: 8),
@@ -956,7 +952,7 @@ Format the output EXACTLY like this without any markdown formatting or extra tex
                     Navigator.pop(ctx);
                   },
                   icon: const Icon(Icons.copy, size: 16),
-                  label: const Text('Copy Bangla'),
+                  label: Text(trx('Copy Bangla', 'বাংলা কপি')),
                 ),
               ),
             ],
@@ -965,7 +961,7 @@ Format the output EXACTLY like this without any markdown formatting or extra tex
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Close'),
+            child: Text(trx('Close', 'বন্ধ')),
           ),
         ],
       ),
@@ -978,15 +974,14 @@ Format the output EXACTLY like this without any markdown formatting or extra tex
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            'Bulk Import Flashcards',
+          Text(trx('Bulk Import Flashcards', 'একসাথে অনেক কার্ড যোগ'),
             style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
           ElevatedButton.icon(
             onPressed: () => _showAIPromptAdvice(context),
             icon: const Icon(Icons.lightbulb_outline_rounded),
-            label: const Text('Get AI Prompt Guide'),
+            label: Text(trx('Get AI Prompt Guide', 'AI প্রম্পট গাইড দেখুন')),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.amber.shade100,
               foregroundColor: Colors.orange.shade800,
@@ -996,8 +991,7 @@ Format the output EXACTLY like this without any markdown formatting or extra tex
             ),
           ),
           const SizedBox(height: 16),
-          Text(
-            'Use {Question} or {প্রশ্ন} before the question, and {Answer} or {উত্তর} before the answer. This supports multiple lines like MCQs.',
+          Text(trx('Use {Question} or {প্রশ্ন} before the question, and {Answer} or {উত্তর} before the answer. Multiple lines (like MCQs) work.', 'প্রশ্নের আগে {প্রশ্ন} বা {Question}, উত্তরের আগে {উত্তর} বা {Answer} লিখুন। MCQ-এর মতো কয়েক লাইনও চলবে।'),
             style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
           ),
           const SizedBox(height: 8),
@@ -1037,7 +1031,7 @@ Format the output EXACTLY like this without any markdown formatting or extra tex
               widget.onBulkImport(title, _descController.text, rawText);
             },
             icon: const Icon(Icons.done_all_rounded),
-            label: const Text('Import Cards'),
+            label: Text(trx('Import Cards', 'কার্ড যোগ করুন')),
             style: ElevatedButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.primary,
               foregroundColor: Colors.white,
@@ -1055,8 +1049,7 @@ Format the output EXACTLY like this without any markdown formatting or extra tex
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            'Create Deck Manually',
+          Text(trx('Create Deck Manually', 'নিজে ডেক বানান'),
             style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
@@ -1086,7 +1079,7 @@ Format the output EXACTLY like this without any markdown formatting or extra tex
               TextButton.icon(
                 onPressed: _addManualCard,
                 icon: const Icon(Icons.add_circle_outline_rounded),
-                label: const Text('Add Card'),
+                label: Text(trx('Add Card', 'কার্ড যোগ')),
               ),
             ],
           ),
@@ -1162,7 +1155,7 @@ Format the output EXACTLY like this without any markdown formatting or extra tex
               Navigator.pop(context); // Close sheet
               widget.onManualCreate(title, _descController.text, manualCards);
             },
-            child: const Text('Create Study Deck'),
+            child: Text(trx('Create Study Deck', 'ডেক তৈরি করুন')),
           ),
         ],
       ),

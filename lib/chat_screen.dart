@@ -16,6 +16,7 @@ import 'group_details_screen.dart';
 import 'chat_profile_screen.dart';
 import 'language_manager.dart';
 import 'chat_theme_manager.dart';
+import 'widgets/avatar_image.dart';
 
 class ChatScreen extends StatefulWidget {
   final String chatId;
@@ -611,9 +612,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
         ImageProvider? avatarImage;
         if (photoUrl.isNotEmpty) {
-          avatarImage = photoUrl.startsWith('http')
-              ? CachedNetworkImageProvider(photoUrl)
-              : FileImage(File(photoUrl)) as ImageProvider;
+          avatarImage = avatarImageProvider(photoUrl);
         }
 
         return GestureDetector(
@@ -905,7 +904,7 @@ class _ChatScreenState extends State<ChatScreen> {
             children: <Widget>[
               ListTile(
                 leading: const Icon(Icons.camera_alt_rounded),
-                title: const Text('Camera'),
+                title: Text(trx('Camera', 'ক্যামেরা')),
                 onTap: () {
                   Navigator.of(context).pop();
                   _pickAndUploadFile(pickImage: true, source: ImageSource.camera);
@@ -913,7 +912,7 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
               ListTile(
                 leading: const Icon(Icons.photo_library_rounded),
-                title: const Text('Gallery'),
+                title: Text(trx('Gallery', 'গ্যালারি')),
                 onTap: () {
                   Navigator.of(context).pop();
                   _pickAndUploadFile(pickImage: true, source: ImageSource.gallery);
@@ -921,7 +920,7 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
               ListTile(
                 leading: const Icon(Icons.insert_drive_file_rounded),
-                title: const Text('Document (PDF)'),
+                title: Text(trx('Document (PDF)', 'ডকুমেন্ট (PDF)')),
                 onTap: () {
                   Navigator.of(context).pop();
                   _pickAndUploadFile(pickImage: false);

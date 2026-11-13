@@ -4,7 +4,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'language_manager.dart';
+import 'widgets/avatar_image.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -135,7 +137,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Future<void> _pickImage(ImageSource source) async {
     final picker = ImagePicker();
     try {
-      final XFile? picked = await picker.pickImage(source: source, imageQuality: 70);
+      final XFile? picked = await picker.pickImage(source: source, imageQuality: 75, maxWidth: 512, maxHeight: 512);
       if (picked != null) {
         setState(() {
           _localImageFile = File(picked.path);
@@ -152,28 +154,41 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     setState(() => _isUploadingImage = true);
 
     try {
+      // 1. Keep a copy on the phone so the photo shows instantly / offline.
       final directory = await getApplicationDocumentsDirectory();
       final localPath = '${directory.path}/profile_${_currentUser.uid}.jpg';
-      
-      // Copy selected file to app documents directory
       final savedFile = await _localImageFile!.copy(localPath);
 
-      // Update Local photoURL
-      setState(() {
-        _photoUrl = savedFile.path;
-      });
+      // 2. Upload to Firebase Storage so friends can see it too.
+      String? cloudUrl;
+      try {
+        final ref = FirebaseStorage.instance.ref('profile_photos/${_currentUser.uid}.jpg');
+        await ref.putFile(savedFile, SettableMetadata(contentType: 'image/jpeg'))
+            .timeout(const Duration(seconds: 45));
+        cloudUrl = await ref.getDownloadURL();
+      } catch (e) {
+        debugPrint('Profile photo upload failed: $e');
+      }
 
-      // Update Auth instance instantly
-      await _currentUser.updatePhotoURL(savedFile.path);
+      final photo = cloudUrl ?? savedFile.path;
+      setState(() => _photoUrl = photo);
 
-      // Save to Firestore directly so that it persists instantly
+      if (cloudUrl != null) {
+        await _currentUser.updatePhotoURL(cloudUrl);
+      }
       await FirebaseFirestore.instance.collection('users').doc(_currentUser.uid).set({
-        'photoUrl': savedFile.path,
+        'photoUrl': photo,
+        if (cloudUrl != null) 'photoUpdatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Profile picture updated locally!'.tr()), backgroundColor: Colors.teal),
+          SnackBar(
+            content: Text(cloudUrl != null
+                ? trx('Profile picture updated. Friends can see it now.', 'প্রোফাইল ছবি বদলানো হয়েছে। বন্ধুরাও এখন দেখতে পাবে।')
+                : trx('Saved on this phone only (upload failed, check internet).', 'ছবি শুধু এই ফোনে রাখা হলো (আপলোড হয়নি, ইন্টারনেট দেখুন)।')),
+            backgroundColor: cloudUrl != null ? Colors.teal : Colors.orange,
+          ),
         );
       }
     } catch (e) {
@@ -196,7 +211,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     try {
       // 1. Update Firebase Auth displayName & photoUrl
       await _currentUser.updateDisplayName(_nameController.text.trim());
-      if (_photoUrl != null) {
+      if (_photoUrl != null && _photoUrl!.startsWith('http')) {
         await _currentUser.updatePhotoURL(_photoUrl);
       }
 
@@ -239,10 +254,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     ImageProvider? avatarImage;
     if (_localImageFile != null) {
       avatarImage = FileImage(_localImageFile!);
-    } else if (_photoUrl != null && _photoUrl!.isNotEmpty) {
-      avatarImage = _photoUrl!.startsWith('http')
-          ? NetworkImage(_photoUrl!)
-          : FileImage(File(_photoUrl!)) as ImageProvider;
+    } else {
+      avatarImage = avatarImageProvider(_photoUrl);
     }
 
     return Scaffold(

@@ -7,6 +7,7 @@ import 'social_hub_screen.dart';
 import 'task_history_screen.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'chat_theme_manager.dart';
+import 'widgets/avatar_image.dart';
 
 class ChatProfileScreen extends StatefulWidget {
   final String chatId;
@@ -199,9 +200,7 @@ class _ChatProfileScreenState extends State<ChatProfileScreen> {
     final photoUrl = _receiverUserData['photoUrl'] as String?;
     ImageProvider? avatarImage;
     if (photoUrl != null && photoUrl.isNotEmpty) {
-      avatarImage = photoUrl.startsWith('http')
-          ? CachedNetworkImageProvider(photoUrl)
-          : FileImage(File(photoUrl)) as ImageProvider;
+      avatarImage = avatarImageProvider(photoUrl);
     }
 
     final displayTitleName = _receiverNickname ?? widget.receiverName;

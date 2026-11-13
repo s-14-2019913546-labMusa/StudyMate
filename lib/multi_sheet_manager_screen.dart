@@ -156,17 +156,17 @@ class _MultiSheetManagerScreenState extends State<MultiSheetManagerScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Delete Folder?'),
+        title: Text(trx('Delete Folder?', 'ফোল্ডার মুছবেন?')),
         content: Text('Remove "${_folders[i].name}"?'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
+              child: Text(trx('Cancel', 'বাতিল'))),
           ElevatedButton(
             style:
                 ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete',
+            child: Text(trx('Delete', 'মুছুন'),
                 style: TextStyle(color: Colors.white)),
           ),
         ],
@@ -204,7 +204,7 @@ class _MultiSheetManagerScreenState extends State<MultiSheetManagerScreen> {
       backgroundColor:
           isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text('My Study Sheets',
+        title: Text(trx('My Study Sheets', 'আমার স্টাডি শিট'),
             style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -218,7 +218,7 @@ class _MultiSheetManagerScreenState extends State<MultiSheetManagerScreen> {
         onPressed: () => _openAddSheet(),
         icon: const Icon(Icons.add_rounded),
         label:
-            const Text('Add Sheet', style: TextStyle(fontWeight: FontWeight.bold)),
+            Text(trx('Add Sheet', 'শিট যোগ'), style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: const Color(0xFF6366F1),
         foregroundColor: Colors.white,
       ),
@@ -247,7 +247,7 @@ class _MultiSheetManagerScreenState extends State<MultiSheetManagerScreen> {
                   size: 72, color: Color(0xFF6366F1)),
             ),
             const SizedBox(height: 28),
-            Text('No Sheet Folders Yet',
+            Text(trx('No Sheet Folders Yet', 'এখনো কোনো শিট ফোল্ডার নেই'),
                 style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
@@ -340,7 +340,7 @@ class _MultiSheetManagerScreenState extends State<MultiSheetManagerScreen> {
                           fontWeight: FontWeight.bold,
                           fontSize: 15),
                     ),
-                    Text('Tap a folder to sync & view',
+                    Text(trx('Tap a folder to sync & view', 'সিঙ্ক করে দেখতে ফোল্ডারে চাপুন'),
                         style: TextStyle(
                             color: Colors.white.withValues(alpha: 0.75),
                             fontSize: 12)),
@@ -381,10 +381,10 @@ class _MultiSheetManagerScreenState extends State<MultiSheetManagerScreen> {
       builder: (ctx) => AlertDialog(
         shape:
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Row(children: [
+        title: Row(children: [
           Icon(Icons.help_outline_rounded, color: Color(0xFF6366F1)),
           SizedBox(width: 8),
-          Text('How it works'),
+          Text(trx('How it works', 'কীভাবে কাজ করে')),
         ]),
         content: const Column(
           mainAxisSize: MainAxisSize.min,
@@ -405,7 +405,7 @@ class _MultiSheetManagerScreenState extends State<MultiSheetManagerScreen> {
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10))),
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Got it!'),
+            child: Text(trx('Got it!', 'বুঝেছি!')),
           ),
         ],
       ),
@@ -480,20 +480,20 @@ class _FolderCard extends StatelessWidget {
                             if (v == 'delete') onDelete();
                           },
                           itemBuilder: (_) => [
-                            const PopupMenuItem(
+                            PopupMenuItem(
                                 value: 'edit',
                                 child: Row(children: [
                                   Icon(Icons.edit_outlined, size: 18),
                                   SizedBox(width: 8),
-                                  Text('Edit')
+                                  Text(trx('Edit', 'এডিট'))
                                 ])),
-                            const PopupMenuItem(
+                            PopupMenuItem(
                                 value: 'delete',
                                 child: Row(children: [
                                   Icon(Icons.delete_outline,
                                       size: 18, color: Colors.red),
                                   SizedBox(width: 8),
-                                  Text('Delete',
+                                  Text(trx('Delete', 'মুছুন'),
                                       style: TextStyle(color: Colors.red))
                                 ])),
                           ],
@@ -679,7 +679,7 @@ class _AddFolderSheetState extends State<_AddFolderSheet> {
             // Presets row (only for new)
             if (widget.existing == null ||
                 widget.existing!.url.isEmpty) ...[
-              Text('Quick Presets',
+              Text(trx('Quick Presets', 'তৈরি নমুনা'),
                   style: TextStyle(
                       fontWeight: FontWeight.w600,
                       fontSize: 13,
@@ -759,8 +759,7 @@ class _AddFolderSheetState extends State<_AddFolderSheet> {
               ),
             ),
             const SizedBox(height: 4),
-            Text(
-              'Share the sheet as "Anyone with the link can view"',
+            Text(trx('Share the sheet as "Anyone with the link can view"', 'শিটটি "Anyone with the link can view" করে শেয়ার করুন'),
               style: TextStyle(
                   fontSize: 11,
                   color: isDark ? Colors.white30 : Colors.black38),
@@ -1274,7 +1273,7 @@ class _SheetFolderDetailScreenState
             const SizedBox(height: 20),
 
             // URL
-            Text('Google Sheet Link',
+            Text(trx('Google Sheet Link', 'Google Sheet লিংক'),
                 style: theme.textTheme.titleSmall
                     ?.copyWith(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
@@ -1308,7 +1307,7 @@ class _SheetFolderDetailScreenState
               child: SwitchListTile(
                 value: _replace,
                 onChanged: (v) => setState(() => _replace = v),
-                title: const Text('Replace existing tasks',
+                title: Text(trx('Replace existing tasks', 'আগের টাস্ক বদলে দিন'),
                     style: TextStyle(fontSize: 14)),
                 subtitle: Text(
                     _replace
@@ -1389,7 +1388,7 @@ class _SheetFolderDetailScreenState
                           ?.copyWith(fontWeight: FontWeight.bold)),
                   TextButton.icon(
                     icon: const Icon(Icons.sync_rounded),
-                    label: const Text('Sync All'),
+                    label: Text(trx('Sync All', 'সব সিঙ্ক')),
                     style: TextButton.styleFrom(foregroundColor: accent),
                     onPressed: _loading ? null : _sync,
                   ),

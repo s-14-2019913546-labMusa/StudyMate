@@ -52,6 +52,7 @@ import '../multi_sheet_manager_screen.dart';
 import '../notifications_hub_screen.dart';
 import '../widgets/sound_picker_widget.dart';
 import '../tools_screen.dart';
+import '../widgets/avatar_image.dart';
 
 // ==========================================
 // 8. Partner Tasks Screen (পার্টনার অপশন)
@@ -444,9 +445,9 @@ class _PartnerTasksScreenState extends State<PartnerTasksScreen> {
                           future: FirebaseFirestore.instance.collection('users').doc(fId).get(),
                           builder: (ctx, userSnap) {
                             if (!userSnap.hasData) {
-                              return const ListTile(
+                              return ListTile(
                                 leading: CircleAvatar(child: Icon(Icons.person)),
-                                title: Text('Loading Buddy...'),
+                                title: Text(trx('Loading Buddy...', 'সঙ্গীর তথ্য আসছে...')),
                               );
                             }
 
@@ -455,9 +456,7 @@ class _PartnerTasksScreenState extends State<PartnerTasksScreen> {
                             final photoUrl = userData['photoUrl'] as String?;
                             ImageProvider? avatarImage;
                             if (photoUrl != null && photoUrl.isNotEmpty) {
-                              avatarImage = photoUrl.startsWith('http')
-                                  ? NetworkImage(photoUrl)
-                                  : FileImage(File(photoUrl)) as ImageProvider;
+                              avatarImage = avatarImageProvider(photoUrl);
                             }
 
                             return ListTile(
@@ -764,8 +763,8 @@ class _PartnerTasksScreenState extends State<PartnerTasksScreen> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Partner Tasks')),
-        body: const Center(child: Text('Please log in to use Partner Tasks.')),
+        appBar: AppBar(title: Text(trx('Partner Tasks', 'পার্টনার টাস্ক'))),
+        body: Center(child: Text(trx('Please log in to use Partner Tasks.', 'পার্টনার টাস্ক ব্যবহার করতে লগইন করুন।'))),
       );
     }
 

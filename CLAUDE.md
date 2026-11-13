@@ -53,9 +53,13 @@
 
 ## Open questions / still to do
 - Firestore rules: confirm writes are allowed for `users/{uid}` fields `streak`, `weeklyXp`, `weeklyXpWeek` and `users/{uid}/notes/{id}/versions`.
-- Firebase Storage (chat/notes images, cloud backup) needs the Blaze plan for `*.firebasestorage.app` buckets — ask him whether the project is on Blaze.
-- Profile photo is stored only on the device (friends can't see it).
-- Release keystore: he has none yet; changing the signing key forces users to reinstall once.
+
+## 13 Nov 2026 (version 1.0.9+10)
+- Project IS on Blaze (owner confirmed). Storage rules to paste by hand: `docs/storage-rules.md` (also suggests a $1 budget alert).
+- Profile photo: resized to 512px, uploaded to `profile_photos/{uid}.jpg`, https URL saved in `users/{uid}.photoUrl` + Auth (local copy kept; falls back to local path if upload fails). All avatars go through `widgets/avatar_image.dart` → `avatarImageProvider()` (ignores other users' local paths). Chat list now shows friends' photos.
+- Completing a task from the notification now awards +10 XP (skipped if already completed).
+- Release keystore created: `android/studymate-release.jks` + `android/key.properties` (both git-ignored, alias `studymate`). SHA-1 `9B:B6:04:EA:32:E1:D4:0F:63:F5:A6:6C:56:1F:44:27:62:BD:7F:CB` must be added in Firebase → Project settings → Android app, or Google Sign-In fails in release. He must back up both files; losing them = no more updates over the same install. First release-signed APK needs a one-time uninstall of old (debug-signed) installs.
+- ~417 plain `Text('...')` labels in 43 files now use `trx('en','bn')`. Remaining: hintText/labelText/tooltips and strings built with `$`.
 
 ## Study features (12 Nov 2026, same branch)
 - MCQ practice & model test: `lib/mcq/` (service, test, result, home + import sheet, mistake book). Starter bank `assets/data/mcq_bank.json` (80 Qs, 8 subjects, tagged by exam). Users add Qs by paste (ক/খ/গ/ঘ + "উত্তর: খ") or AI (`AIService.generateMcqs`); stored in `users/{uid}/mcq_questions`. Results in `mcq_results` → weak subjects.

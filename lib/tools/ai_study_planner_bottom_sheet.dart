@@ -233,14 +233,14 @@ class _AIStudyPlannerBottomSheetState extends State<AIStudyPlannerBottomSheet> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Edit Duration (mins)', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(trx('Edit Duration (mins)', 'সময় বদলান (মিনিট)'), style: TextStyle(fontWeight: FontWeight.bold)),
         content: TextField(
           controller: durationCtrl,
           keyboardType: TextInputType.number,
           decoration: const InputDecoration(labelText: 'Minutes'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(trx('Cancel', 'বাতিল'))),
           ElevatedButton(
             onPressed: () {
               int newDuration = int.tryParse(durationCtrl.text) ?? _generatedTasks[index].totalDurationMinutes;
@@ -250,7 +250,7 @@ class _AIStudyPlannerBottomSheetState extends State<AIStudyPlannerBottomSheet> {
               });
               Navigator.pop(ctx);
             },
-            child: const Text('Save'),
+            child: Text(trx('Save', 'সেভ')),
           ),
         ],
       ),
@@ -326,12 +326,12 @@ class _AIStudyPlannerBottomSheetState extends State<AIStudyPlannerBottomSheet> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('AI Study Planner', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary)),
+              Text(trx('AI Study Planner', 'AI স্টাডি প্ল্যানার'), style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary)),
               IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
             ],
           ),
           const SizedBox(height: 16),
-          Text('How much time do you have today?', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+          Text(trx('How much time do you have today?', 'আজ কতটা সময় আছে?'), style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
           Row(
             children: [
               Expanded(
@@ -348,7 +348,7 @@ class _AIStudyPlannerBottomSheetState extends State<AIStudyPlannerBottomSheet> {
             ],
           ),
           const SizedBox(height: 24),
-          Text('Subjects & Topics', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+          Text(trx('Subjects & Topics', 'বিষয় ও টপিক'), style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
           ...List.generate(_subjects.length, (index) {
             return Padding(
@@ -379,12 +379,12 @@ class _AIStudyPlannerBottomSheetState extends State<AIStudyPlannerBottomSheet> {
           TextButton.icon(
             onPressed: _addSubject,
             icon: const Icon(Icons.add),
-            label: const Text('Add Another Subject'),
+            label: Text(trx('Add Another Subject', 'আরেকটি বিষয় যোগ')),
           ),
           const SizedBox(height: 24),
           ElevatedButton(
             onPressed: _generateRoutine,
-            child: const Text('Generate Smart Routine'),
+            child: Text(trx('Generate Smart Routine', 'স্মার্ট রুটিন বানান')),
           ),
         ],
       ),
@@ -399,9 +399,9 @@ class _AIStudyPlannerBottomSheetState extends State<AIStudyPlannerBottomSheet> {
         const SizedBox(height: 40),
         const CircularProgressIndicator(),
         const SizedBox(height: 24),
-        Text('🪄 AI is analyzing your subjects...', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+        Text(trx('🪄 AI is analyzing your subjects...', '🪄 AI আপনার বিষয়গুলো দেখছে...'), style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
-        Text('Structuring topics, adding smart breaks...', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey)),
+        Text(trx('Structuring topics, adding smart breaks...', 'টপিক সাজানো ও বিরতি যোগ হচ্ছে...'), style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey)),
         const SizedBox(height: 40),
       ],
     );
@@ -412,7 +412,7 @@ class _AIStudyPlannerBottomSheetState extends State<AIStudyPlannerBottomSheet> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('🎯 Your Smart Routine is Ready!', textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: Colors.green.shade600)),
+        Text(trx('🎯 Your Smart Routine is Ready!', '🎯 আপনার স্মার্ট রুটিন তৈরি!'), textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: Colors.green.shade600)),
         const SizedBox(height: 8),
         Center(
           child: Container(
@@ -476,18 +476,18 @@ class _AIStudyPlannerBottomSheetState extends State<AIStudyPlannerBottomSheet> {
           ),
         ),
         const SizedBox(height: 16),
-        const Text('Note: 10 mins break added between subjects.', style: TextStyle(fontSize: 12, color: Colors.grey, fontStyle: FontStyle.italic), textAlign: TextAlign.center),
+        Text(trx('Note: 10 mins break added between subjects.', 'বিষয়গুলোর মাঝে ১০ মিনিট বিরতি রাখা হয়েছে।'), style: TextStyle(fontSize: 12, color: Colors.grey, fontStyle: FontStyle.italic), textAlign: TextAlign.center),
         const SizedBox(height: 16),
         ElevatedButton.icon(
           onPressed: _saveAsSeparateTasks,
           icon: const Icon(Icons.format_list_bulleted_rounded),
-          label: const Text('Add as Separate Tasks'),
+          label: Text(trx('Add as Separate Tasks', 'আলাদা আলাদা টাস্ক হিসেবে যোগ')),
         ),
         const SizedBox(height: 12),
         OutlinedButton.icon(
           onPressed: _saveAsCombinedTask,
           icon: const Icon(Icons.layers_rounded),
-          label: const Text('Add as 1 Combined Session'),
+          label: Text(trx('Add as 1 Combined Session', 'একটি টাস্ক হিসেবে যোগ')),
           style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
         ),
       ],

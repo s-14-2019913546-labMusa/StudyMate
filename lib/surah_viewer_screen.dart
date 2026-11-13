@@ -147,7 +147,7 @@ class _SurahViewerScreenState extends State<SurahViewerScreen> {
                     children: [
                       const Icon(Icons.format_size_rounded, color: goldAccent, size: 20),
                       const SizedBox(width: 12),
-                      const Text('আরবি লেখার সাইজ', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                      Text(trx('Arabic text size', 'আরবি লেখার সাইজ'), style: TextStyle(color: Colors.white70, fontSize: 14)),
                       const Spacer(),
                       Text(
                         '${_arabicFontSize.toInt()} px',
@@ -174,7 +174,7 @@ class _SurahViewerScreenState extends State<SurahViewerScreen> {
                   
                   // Bangla toggle
                   SwitchListTile(
-                    title: const Text('বাংলা অনুবাদ', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                    title: Text(trx('Bengali translation', 'বাংলা অনুবাদ'), style: TextStyle(color: Colors.white70, fontSize: 14)),
                     value: _showBangla,
                     activeThumbColor: goldAccent,
                     contentPadding: EdgeInsets.zero,
@@ -190,7 +190,7 @@ class _SurahViewerScreenState extends State<SurahViewerScreen> {
                   
                   // English toggle
                   SwitchListTile(
-                    title: const Text('ইংরেজি অনুবাদ', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                    title: Text(trx('English translation', 'ইংরেজি অনুবাদ'), style: TextStyle(color: Colors.white70, fontSize: 14)),
                     value: _showEnglish,
                     activeThumbColor: goldAccent,
                     contentPadding: EdgeInsets.zero,
@@ -268,7 +268,7 @@ class _SurahViewerScreenState extends State<SurahViewerScreen> {
                         ElevatedButton.icon(
                           onPressed: _loadSurahContent,
                           icon: const Icon(Icons.refresh_rounded, color: Colors.black),
-                          label: const Text('আবার চেষ্টা করুন', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                          label: Text(trx('Try again', 'আবার চেষ্টা করুন'), style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: goldAccent,
                             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),

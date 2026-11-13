@@ -1187,8 +1187,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 ],
               ),
               const SizedBox(height: 12),
-              const Text(
-                'আপনি কি এটি এখন শুরু করতে চান?',
+              Text(trx('Do you want to start it now?', 'আপনি কি এটি এখন শুরু করতে চান?'),
                 style: TextStyle(fontSize: 14),
               ),
             ],
@@ -1196,8 +1195,7 @@ class _DashboardScreenState extends State<DashboardScreen>
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: Text(
-                'এখন না',
+              child: Text(trx('Not now', 'এখন না'),
                 style: TextStyle(
                   color: Colors.grey.shade600,
                   fontWeight: FontWeight.bold,
@@ -1215,8 +1213,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              child: const Text(
-                'হ্যাঁ, শুরু করুন',
+              child: Text(trx('Yes, start', 'হ্যাঁ, শুরু করুন'),
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   color: Colors.white,
@@ -1283,8 +1280,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 ],
               ),
               const SizedBox(height: 12),
-              const Text(
-                'আপনি কি এটি সম্পন্ন হিসেবে মার্ক করতে চান?',
+              Text(trx('Do you want to mark it as done?', 'আপনি কি এটি সম্পন্ন হিসেবে মার্ক করতে চান?'),
                 style: TextStyle(fontSize: 14),
               ),
             ],
@@ -1292,8 +1288,7 @@ class _DashboardScreenState extends State<DashboardScreen>
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: Text(
-                'পরে করব',
+              child: Text(trx('Later', 'পরে করব'),
                 style: TextStyle(
                   color: Colors.grey.shade600,
                   fontWeight: FontWeight.bold,
@@ -1317,8 +1312,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              child: const Text(
-                'সম্পন্ন (Done)',
+              child: Text(trx('Done', 'সম্পন্ন'),
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   color: Colors.white,
@@ -3602,8 +3596,7 @@ class _EditTaskBottomSheetState extends State<EditTaskBottomSheet> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        'Edit Task (Once)',
+                      Text(trx('Edit Task (Once)', 'টাস্ক এডিট (শুধু এবার)'),
                         style: Theme.of(context).textTheme.headlineSmall
                             ?.copyWith(
                               fontWeight: FontWeight.bold,
@@ -3624,8 +3617,7 @@ class _EditTaskBottomSheetState extends State<EditTaskBottomSheet> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Subject Name (Read-only)',
+                      Text(trx('Subject Name (Read-only)', 'বিষয়ের নাম (বদলানো যাবে না)'),
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color: onSurfaceColor.withValues(alpha: 0.6),
@@ -3658,8 +3650,7 @@ class _EditTaskBottomSheetState extends State<EditTaskBottomSheet> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Topic Name',
+                      Text(trx('Topic Name', 'টপিকের নাম'),
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color: onSurfaceColor,
@@ -3686,8 +3677,7 @@ class _EditTaskBottomSheetState extends State<EditTaskBottomSheet> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Possible Challenges',
+                      Text(trx('Possible Challenges', 'সম্ভাব্য সমস্যা'),
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color: onSurfaceColor,
@@ -3714,8 +3704,7 @@ class _EditTaskBottomSheetState extends State<EditTaskBottomSheet> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Task Goal / Notes',
+                      Text(trx('Task Goal / Notes', 'লক্ষ্য / নোট'),
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color: onSurfaceColor,
@@ -3743,8 +3732,7 @@ class _EditTaskBottomSheetState extends State<EditTaskBottomSheet> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'What/Why did you change? *',
+                      Text(trx('What/Why did you change? *', 'কী বদলালেন / কেন? *'),
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color: onSurfaceColor,
@@ -3809,8 +3797,7 @@ class _EditTaskBottomSheetState extends State<EditTaskBottomSheet> {
                   const SizedBox(height: 16),
 
                   // Category Choice Chips
-                  Text(
-                    'Category',
+                  Text(trx('Category', 'ক্যাটাগরি'),
                     style: Theme.of(
                       context,
                     ).textTheme.titleSmall?.copyWith(color: onSurfaceColor),
@@ -3849,8 +3836,7 @@ class _EditTaskBottomSheetState extends State<EditTaskBottomSheet> {
                   // Sub-category (Folder) Selection
                   if (_selectedCategory == 'Study') ...[
                     const SizedBox(height: 16),
-                    Text(
-                      'Sub-category (Folder)',
+                    Text(trx('Sub-category (Folder)', 'সাব-ক্যাটাগরি (ফোল্ডার)'),
                       style: Theme.of(
                         context,
                       ).textTheme.titleSmall?.copyWith(color: onSurfaceColor),
@@ -4007,15 +3993,13 @@ class _EditTaskBottomSheetState extends State<EditTaskBottomSheet> {
                   // Private task switch toggle
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: Text(
-                      'Private Task',
+                    title: Text(trx('Private Task', 'গোপন টাস্ক'),
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         color: onSurfaceColor,
                       ),
                     ),
-                    subtitle: Text(
-                      'Hide task name from others',
+                    subtitle: Text(trx('Hide task name from others', 'অন্যদের থেকে টাস্কের নাম লুকান'),
                       style: TextStyle(color: colorScheme.onSurfaceVariant),
                     ),
                     value: _isPrivate,
@@ -4035,8 +4019,7 @@ class _EditTaskBottomSheetState extends State<EditTaskBottomSheet> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    child: const Text(
-                      'পরিবর্তন সংরক্ষণ করুন (Save Changes)',
+                    child: Text(trx('Save Changes', 'পরিবর্তন সংরক্ষণ করুন'),
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
@@ -4441,8 +4424,7 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: const Text(
-                  'Reset',
+                child: Text(trx('Reset', 'রিসেট'),
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                 ),
               )
@@ -4469,7 +4451,7 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                       fontSize: 14,
                     ),
                   ),
-                  child: const Text('Cancel'),
+                  child: Text(trx('Cancel', 'বাতিল')),
                 ),
                 const SizedBox(width: 8),
                 ElevatedButton(
@@ -4531,8 +4513,7 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                       vertical: 10,
                     ),
                   ),
-                  child: const Text(
-                    'Submit & Done',
+                  child: Text(trx('Submit & Done', 'জমা দিন ও শেষ'),
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                   ),
                 ),

@@ -317,8 +317,7 @@ class _AddWeeklyRoutineTaskBottomSheetState extends State<AddWeeklyRoutineTaskBo
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    'উইকলি রুটিনে টাস্ক যুক্ত করুন',
+                  Text(trx('Add task to weekly routine', 'উইকলি রুটিনে টাস্ক যুক্ত করুন'),
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -334,8 +333,7 @@ class _AddWeeklyRoutineTaskBottomSheetState extends State<AddWeeklyRoutineTaskBo
               const SizedBox(height: 16),
 
               // Day selector
-              Text(
-                'দিন বাছুন (Select Day)',
+              Text(trx('Select Day', 'দিন বাছুন'),
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
@@ -368,8 +366,7 @@ class _AddWeeklyRoutineTaskBottomSheetState extends State<AddWeeklyRoutineTaskBo
               const SizedBox(height: 16),
 
               // Subject
-              Text(
-                'Subject Name (বিষয়)',
+              Text(trx('Subject Name', 'বিষয়ের নাম'),
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
@@ -397,8 +394,7 @@ class _AddWeeklyRoutineTaskBottomSheetState extends State<AddWeeklyRoutineTaskBo
               const SizedBox(height: 16),
 
               // Topic
-              Text(
-                'Topic Name (বিষয়বস্তু)',
+              Text(trx('Topic Name', 'বিষয়বস্তু'),
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
@@ -425,8 +421,7 @@ class _AddWeeklyRoutineTaskBottomSheetState extends State<AddWeeklyRoutineTaskBo
               const SizedBox(height: 16),
 
               // Challenges
-              Text(
-                'Possible Challenges (সম্ভাব্য সমস্যা)',
+              Text(trx('Possible Challenges', 'সম্ভাব্য সমস্যা'),
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
@@ -453,8 +448,7 @@ class _AddWeeklyRoutineTaskBottomSheetState extends State<AddWeeklyRoutineTaskBo
               const SizedBox(height: 16),
 
               // Notes
-              Text(
-                'Task Goal / Notes (লক্ষ্য ও নোট)',
+              Text(trx('Task Goal / Notes', 'লক্ষ্য ও নোট'),
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
@@ -516,8 +510,7 @@ class _AddWeeklyRoutineTaskBottomSheetState extends State<AddWeeklyRoutineTaskBo
               const SizedBox(height: 16),
 
               // Category
-              Text(
-                'Category',
+              Text(trx('Category', 'ক্যাটাগরি'),
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(color: onSurfaceColor),
               ),
               const SizedBox(height: 8),
@@ -550,8 +543,7 @@ class _AddWeeklyRoutineTaskBottomSheetState extends State<AddWeeklyRoutineTaskBo
               
               // Sub-category (Folder) Selection
               if (_selectedCategory == 'Study') ...[
-                Text(
-                  'Sub-category (Folder)',
+                Text(trx('Sub-category (Folder)', 'সাব-ক্যাটাগরি (ফোল্ডার)'),
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(color: onSurfaceColor),
                 ),
                 const SizedBox(height: 8),
@@ -574,12 +566,10 @@ class _AddWeeklyRoutineTaskBottomSheetState extends State<AddWeeklyRoutineTaskBo
               // Private toggle
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
-                title: Text(
-                  'Private Task',
+                title: Text(trx('Private Task', 'গোপন টাস্ক'),
                   style: TextStyle(fontWeight: FontWeight.bold, color: onSurfaceColor),
                 ),
-                subtitle: Text(
-                  'Hide task name from others',
+                subtitle: Text(trx('Hide task name from others', 'অন্যদের থেকে টাস্কের নাম লুকান'),
                   style: TextStyle(color: colorScheme.onSurfaceVariant),
                 ),
                 value: _isPrivate,

@@ -126,8 +126,8 @@ class SleepTimerService {
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('⏰ Good Morning!', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold)),
-        content: const Text('It is time to rise and shine. Do you want to snooze or turn off the alarm?', textAlign: TextAlign.center),
+        title: Text(trx('⏰ Good Morning!', '⏰ শুভ সকাল!'), textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold)),
+        content: Text(trx('It is time to rise and shine. Do you want to snooze or turn off the alarm?', 'ওঠার সময় হয়েছে। একটু পরে আবার বাজাবে, নাকি বন্ধ করবেন?'), textAlign: TextAlign.center),
         actionsAlignment: MainAxisAlignment.spaceEvenly,
         actions: [
           TextButton(
@@ -141,7 +141,7 @@ class SleepTimerService {
               await LocalNotificationService.scheduleMorningAlarm(snoozeTime);
               _alarmTriggered = false;
             },
-            child: const Text('Snooze (5m)', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: Text(trx('Snooze (5m)', '৫ মিনিট পরে'), style: TextStyle(fontWeight: FontWeight.bold)),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -150,7 +150,7 @@ class SleepTimerService {
               await _stopSleepAndSaveGlobally(context);
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-            child: const Text('Turn Off'),
+            child: Text(trx('Turn Off', 'বন্ধ করুন')),
           ),
         ],
       ),

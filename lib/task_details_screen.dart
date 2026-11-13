@@ -344,7 +344,7 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        title: const Text('Task Details'),
+        title: Text(trx('Task Details', 'টাস্কের বিস্তারিত')),
         backgroundColor: Theme.of(context).colorScheme.surface,
         elevation: 0,
       ),
@@ -371,8 +371,7 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
                       color: Theme.of(context).colorScheme.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: const Text(
-                      'This task is private.',
+                    child: Text(trx('This task is private.', 'এই টাস্কটি গোপন।'),
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
                   )
@@ -400,8 +399,7 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            'Task Progress',
+                          Text(trx('Task Progress', 'টাস্কের অগ্রগতি'),
                             style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                           ),
                           Text(
@@ -465,8 +463,7 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
                                   const SizedBox(height: 12),
                                   _buildInfoRow(context, Icons.access_time_filled_rounded, 'End Time', endTime),
                                   const Divider(height: 32),
-                                  Text(
-                                    'Goal / Notes',
+                                  Text(trx('Goal / Notes', 'লক্ষ্য / নোট'),
                                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
                                           fontWeight: FontWeight.bold,
                                           color: Theme.of(context).colorScheme.primary,
@@ -524,8 +521,7 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
                         const SizedBox(height: 24),
 
                         // ৩. কমেন্ট সেকশন
-                        Text(
-                          'Encouragements & Comments',
+                        Text(trx('Encouragements & Comments', 'উৎসাহ ও মন্তব্য'),
                           style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 12),
@@ -538,9 +534,8 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(color: Colors.grey.shade200),
                             ),
-                            child: const Center(
-                              child: Text(
-                                'No comments yet. Be the first to cheer!',
+                            child: Center(
+                              child: Text(trx('No comments yet. Be the first to cheer!', 'এখনো মন্তব্য নেই। প্রথম উৎসাহটা আপনিই দিন!'),
                                 style: TextStyle(color: Colors.grey),
                               ),
                             ),
@@ -598,8 +593,7 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
                     children: [
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                        child: Text(
-                          'Send an encouragement:',
+                        child: Text(trx('Send an encouragement:', 'উৎসাহ পাঠান:'),
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold),
                         ),
                       ),
